@@ -1,0 +1,205 @@
+{% extends "base.html" %}
+
+{% block title %}Games Browser - Chess Analysis Portal{% endblock %}
+
+{% block content %}
+<div class="row">
+    <div class="col-12">
+        <h1><i class="fas fa-list"></i> Games Browser</h1>
+        <p class="text-muted">Browse and analyze individual games</p>
+    </div>
+</div>
+
+<!-- Filters -->
+<div class="row mb-4">
+    <div class="col-12">
+        <div class="card">
+            <div class="card-body">
+                <div class="row">
+                    <div class="col-md-3">
+                        <select class="form-select" id="tournament-filter">
+                            <option value="">All Tournaments</option>
+                            <option value="State-Open-U13-2025">State Open U13 2025</option>
+                            <option value="9th-Divine-Chess-Club-TMT">9th Divine Chess Club</option>
+                            <option value="challenge-the-minds-season-7">Challenge the Minds S7</option>
+                        </select>
+                    </div>
+                    <div class="col-md-3">
+                        <select class="form-select" id="color-filter">
+                            <option value="">Both Colors</option>
+                            <option value="white">White Only</option>
+                            <option value="black">Black Only</option>
+                        </select>
+                    </div>
+                    <div class="col-md-3">
+                        <select class="form-select" id="result-filter">
+                            <option value="">All Results</option>
+                            <option value="win">Wins Only</option>
+                            <option value="draw">Draws Only</option>
+                            <option value="loss">Losses Only</option>
+                        </select>
+                    </div>
+                    <div class="col-md-3">
+                        <input type="text" class="form-control" id="search-input" placeholder="Search opponent...">
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Games Table -->
+<div class="row">
+    <div class="col-12">
+        <div class="card">
+            <div class="card-header d-flex justify-content-between">
+                <h5><i class="fas fa-chess-board"></i> Game History</h5>
+                <span class="badge bg-primary" id="games-count">Loading...</span>
+            </div>
+            <div class="card-body">
+                <div class="table-responsive">
+                    <table class="table table-hover" id="games-table">
+                        <thead>
+                            <tr>
+                                <th>Date</th>
+                                <th>Tournament</th>
+                                <th>Opponent</th>
+                                <th>Color</th>
+                                <th>Result</th>
+                                <th>Opening</th>
+                                <th>Time Control</th>
+                                <th>Actions</th>
+                            </tr>
+                        </thead>
+                        <tbody id="games-tbody">
+                            <tr>
+                                <td colspan="8" class="text-center">Loading games...</td>
+                            </tr>
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Game Analysis Modal -->
+<div class="modal fade" id="gameModal" tabindex="-1">
+    <div class="modal-dialog modal-lg">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title">Game Analysis</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+            </div>
+            <div class="modal-body">
+                <div id="game-analysis-content">
+                    <p>Select a game to view analysis...</p>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+// Mock games data
+const mockGames = [
+    {
+        id: 1,
+        date: '2025.08.23',
+        tournament: 'State-Open-U13-2025',
+        opponent: 'Patil, Arijit Vikramsinh',
+        color: 'white',
+        result: '1-0',
+        eco: 'C25',
+        time_control: '90+30'
+    },
+    {
+        id: 2,
+        date: '2025.08.23',
+        tournament: 'State-Open-U13-2025',
+        opponent: 'Kumar, Rajesh',
+        color: 'black',
+        result: '0-1',
+        eco: 'B10',
+        time_control: '90+30'
+    },
+    {
+        id: 3,
+        date: '2025.08.17',
+        tournament: '9th-Divine-Chess-Club-TMT',
+        opponent: 'Rishab-gorai8052',
+        color: 'white',
+        result: '1-0',
+        eco: 'A21',
+        time_control: '300+2'
+    }
+];
+
+function loadGames() {
+    const tbody = document.getElementById('games-tbody');
+    const gamesCount = document.getElementById('games-count');
+    
+    tbody.innerHTML = '';
+    
+    mockGames.forEach(game => {
+        const row = tbody.insertRow();
+        row.innerHTML = `
+            <td>${game.date}</td>
+            <td>${game.tournament}</td>
+            <td>${game.opponent}</td>
+            <td><span class="badge ${game.color === 'white' ? 'bg-light text-dark' : 'bg-dark'}">${game.color}</span></td>
+            <td><span class="badge ${getResultBadgeClass(game.result, game.color)}">${game.result}</span></td>
+            <td>${game.eco}</td>
+            <td>${game.time_control}</td>
+            <td>
+                <button class="btn btn-sm btn-primary" onclick="viewGame(${game.id})">
+                    <i class="fas fa-eye"></i> View
+                </button>
+            </td>
+        `;
+    });
+    
+    gamesCount.textContent = `${mockGames.length} games`;
+}
+
+function getResultBadgeClass(result, color) {
+    if ((color === 'white' && result === '1-0') || (color === 'black' && result === '0-1')) {
+        return 'bg-success';
+    } else if (result === '1/2-1/2') {
+        return 'bg-warning';
+    } else {
+        return 'bg-danger';
+    }
+}
+
+function viewGame(gameId) {
+    const game = mockGames.find(g => g.id === gameId);
+    if (game) {
+        document.getElementById('game-analysis-content').innerHTML = `
+            <h6>Game Details</h6>
+            <p><strong>Date:</strong> ${game.date}</p>
+            <p><strong>Tournament:</strong> ${game.tournament}</p>
+            <p><strong>Opponent:</strong> ${game.opponent}</p>
+            <p><strong>Color:</strong> ${game.color}</p>
+            <p><strong>Result:</strong> ${game.result}</p>
+            <p><strong>Opening:</strong> ${game.eco}</p>
+            <hr>
+            <p class="text-muted">Detailed analysis would appear here...</p>
+        `;
+        
+        new bootstrap.Modal(document.getElementById('gameModal')).show();
+    }
+}
+
+// Load games on page load
+document.addEventListener('DOMContentLoaded', loadGames);
+
+// Filter functionality (basic implementation)
+document.getElementById('tournament-filter').addEventListener('change', loadGames);
+document.getElementById('color-filter').addEventListener('change', loadGames);
+document.getElementById('result-filter').addEventListener('change', loadGames);
+document.getElementById('search-input').addEventListener('input', loadGames);
+</script>
+{% endblock %}

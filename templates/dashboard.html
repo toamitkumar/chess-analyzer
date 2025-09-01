@@ -1,0 +1,261 @@
+{% extends "base.html" %}
+
+{% block title %}Dashboard - Chess Analysis Portal{% endblock %}
+
+{% block content %}
+<div class="row">
+    <div class="col-12">
+        <h1><i class="fas fa-tachometer-alt"></i> Performance Dashboard</h1>
+        <p class="text-muted">AdvaitKumar1213 - Chess Performance Analysis</p>
+    </div>
+</div>
+
+<!-- Key Metrics Cards -->
+<div class="row mb-4">
+    <div class="col-md-3">
+        <div class="card bg-primary text-white">
+            <div class="card-body">
+                <div class="d-flex justify-content-between">
+                    <div>
+                        <h4 id="total-games">-</h4>
+                        <p class="mb-0">Total Games</p>
+                    </div>
+                    <i class="fas fa-chess-board fa-2x opacity-75"></i>
+                </div>
+            </div>
+        </div>
+    </div>
+    <div class="col-md-3">
+        <div class="card bg-success text-white">
+            <div class="card-body">
+                <div class="d-flex justify-content-between">
+                    <div>
+                        <h4 id="win-rate">-</h4>
+                        <p class="mb-0">Win Rate</p>
+                    </div>
+                    <i class="fas fa-trophy fa-2x opacity-75"></i>
+                </div>
+            </div>
+        </div>
+    </div>
+    <div class="col-md-3">
+        <div class="card bg-warning text-white">
+            <div class="card-body">
+                <div class="d-flex justify-content-between">
+                    <div>
+                        <h4 id="avg-cp-loss">-</h4>
+                        <p class="mb-0">Avg CP Loss</p>
+                    </div>
+                    <i class="fas fa-chart-line fa-2x opacity-75"></i>
+                </div>
+            </div>
+        </div>
+    </div>
+    <div class="col-md-3">
+        <div class="card bg-danger text-white">
+            <div class="card-body">
+                <div class="d-flex justify-content-between">
+                    <div>
+                        <h4 id="blunder-rate">-</h4>
+                        <p class="mb-0">Blunder Rate</p>
+                    </div>
+                    <i class="fas fa-exclamation-triangle fa-2x opacity-75"></i>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Performance by Color -->
+<div class="row mb-4">
+    <div class="col-md-6">
+        <div class="card">
+            <div class="card-header">
+                <h5><i class="fas fa-chess-king"></i> Performance by Color</h5>
+            </div>
+            <div class="card-body">
+                <div id="color-performance-chart"></div>
+            </div>
+        </div>
+    </div>
+    <div class="col-md-6">
+        <div class="card">
+            <div class="card-header">
+                <h5><i class="fas fa-chess-knight"></i> Opening Performance</h5>
+            </div>
+            <div class="card-body">
+                <div id="opening-performance-chart"></div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Game Phase Analysis -->
+<div class="row mb-4">
+    <div class="col-12">
+        <div class="card">
+            <div class="card-header">
+                <h5><i class="fas fa-chart-bar"></i> Game Phase Analysis</h5>
+            </div>
+            <div class="card-body">
+                <div id="phase-analysis-chart"></div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Recent Games -->
+<div class="row">
+    <div class="col-12">
+        <div class="card">
+            <div class="card-header">
+                <h5><i class="fas fa-history"></i> Recent Games</h5>
+            </div>
+            <div class="card-body">
+                <div class="table-responsive">
+                    <table class="table table-striped" id="recent-games-table">
+                        <thead>
+                            <tr>
+                                <th>Date</th>
+                                <th>Tournament</th>
+                                <th>Opponent</th>
+                                <th>Color</th>
+                                <th>Result</th>
+                                <th>Opening</th>
+                            </tr>
+                        </thead>
+                        <tbody id="recent-games-body">
+                            <tr>
+                                <td colspan="6" class="text-center">Loading...</td>
+                            </tr>
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+// Load dashboard data
+fetch('/api/metrics')
+    .then(response => response.json())
+    .then(data => {
+        updateDashboard(data);
+    })
+    .catch(error => {
+        console.error('Error loading dashboard data:', error);
+    });
+
+function updateDashboard(data) {
+    const stats = data.basic_stats;
+    
+    // Update key metrics
+    document.getElementById('total-games').textContent = stats.total_games;
+    document.getElementById('win-rate').textContent = ((stats.wins / stats.total_games) * 100).toFixed(1) + '%';
+    document.getElementById('avg-cp-loss').textContent = data.accuracy_stats.avg_centipawn_loss.toFixed(0);
+    document.getElementById('blunder-rate').textContent = ((data.accuracy_stats.blunders / data.accuracy_stats.total_moves) * 100).toFixed(1) + '%';
+    
+    // Create charts
+    createColorPerformanceChart(stats);
+    createOpeningChart(data.opening_stats);
+    createPhaseChart(data.accuracy_stats.phase_analysis);
+    
+    // Update recent games table
+    updateRecentGamesTable(data.games_summary.slice(0, 10));
+}
+
+function createColorPerformanceChart(stats) {
+    const data = [{
+        x: ['White', 'Black'],
+        y: [
+            (stats.white_wins / stats.white_games * 100).toFixed(1),
+            (stats.black_wins / stats.black_games * 100).toFixed(1)
+        ],
+        type: 'bar',
+        marker: { color: ['#ffffff', '#333333'] }
+    }];
+    
+    const layout = {
+        title: 'Win Rate by Color',
+        yaxis: { title: 'Win Rate (%)' },
+        height: 300
+    };
+    
+    Plotly.newPlot('color-performance-chart', data, layout);
+}
+
+function createOpeningChart(openingStats) {
+    const openings = Object.entries(openingStats)
+        .filter(([eco, stats]) => stats.total >= 2)
+        .sort((a, b) => b[1].success_rate - a[1].success_rate)
+        .slice(0, 5);
+    
+    const data = [{
+        x: openings.map(([eco, stats]) => eco),
+        y: openings.map(([eco, stats]) => stats.success_rate.toFixed(1)),
+        type: 'bar',
+        marker: { color: '#28a745' }
+    }];
+    
+    const layout = {
+        title: 'Top Opening Success Rates',
+        yaxis: { title: 'Success Rate (%)' },
+        height: 300
+    };
+    
+    Plotly.newPlot('opening-performance-chart', data, layout);
+}
+
+function createPhaseChart(phaseAnalysis) {
+    const phases = ['opening', 'middlegame', 'endgame'];
+    const avgCpLoss = phases.map(phase => 
+        phaseAnalysis[phase].cp_loss / Math.max(1, phaseAnalysis[phase].moves)
+    );
+    
+    const data = [{
+        x: ['Opening', 'Middlegame', 'Endgame'],
+        y: avgCpLoss,
+        type: 'bar',
+        marker: { color: ['#17a2b8', '#ffc107', '#dc3545'] }
+    }];
+    
+    const layout = {
+        title: 'Average CP Loss by Game Phase',
+        yaxis: { title: 'Centipawn Loss' },
+        height: 300
+    };
+    
+    Plotly.newPlot('phase-analysis-chart', data, layout);
+}
+
+function updateRecentGamesTable(games) {
+    const tbody = document.getElementById('recent-games-body');
+    tbody.innerHTML = '';
+    
+    games.forEach(game => {
+        const row = tbody.insertRow();
+        row.innerHTML = `
+            <td>${game.date}</td>
+            <td>${game.tournament}</td>
+            <td>${game.opponent}</td>
+            <td><span class="badge ${game.color === 'white' ? 'bg-light text-dark' : 'bg-dark'}">${game.color}</span></td>
+            <td><span class="badge ${getResultBadgeClass(game.result, game.color)}">${game.result}</span></td>
+            <td>${game.eco}</td>
+        `;
+    });
+}
+
+function getResultBadgeClass(result, color) {
+    if ((color === 'white' && result === '1-0') || (color === 'black' && result === '0-1')) {
+        return 'bg-success';
+    } else if (result === '1/2-1/2') {
+        return 'bg-warning';
+    } else {
+        return 'bg-danger';
+    }
+}
+</script>
+{% endblock %}

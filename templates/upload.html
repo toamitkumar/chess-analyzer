@@ -1,0 +1,217 @@
+{% extends "base.html" %}
+
+{% block title %}Upload PGN - Chess Analysis Portal{% endblock %}
+
+{% block content %}
+<div class="row">
+    <div class="col-md-8 mx-auto">
+        <div class="card">
+            <div class="card-header">
+                <h3><i class="fas fa-upload"></i> Upload PGN for Analysis</h3>
+            </div>
+            <div class="card-body">
+                <form id="upload-form" enctype="multipart/form-data">
+                    <div class="mb-3">
+                        <label for="pgn_file" class="form-label">Select PGN File</label>
+                        <input type="file" class="form-control" id="pgn_file" name="pgn_file" accept=".pgn" required>
+                        <div class="form-text">Upload a single PGN file for engine analysis</div>
+                    </div>
+                    
+                    <div class="mb-3">
+                        <label for="engine" class="form-label">Analysis Engine</label>
+                        <select class="form-select" id="engine" name="engine">
+                            <option value="stockfish" selected>Stockfish (Default)</option>
+                            <option value="leela" disabled>Leela Chess Zero (Coming Soon)</option>
+                            <option value="komodo" disabled>Komodo (Coming Soon)</option>
+                        </select>
+                    </div>
+                    
+                    <div class="mb-3">
+                        <label for="depth" class="form-label">Analysis Depth</label>
+                        <select class="form-select" id="depth" name="depth">
+                            <option value="10">Depth 10 (Fast)</option>
+                            <option value="15" selected>Depth 15 (Balanced)</option>
+                            <option value="20">Depth 20 (Deep)</option>
+                        </select>
+                    </div>
+                    
+                    <button type="submit" class="btn btn-primary">
+                        <i class="fas fa-cogs"></i> Analyze Game
+                    </button>
+                </form>
+                
+                <div id="upload-progress" class="mt-3" style="display: none;">
+                    <div class="progress">
+                        <div class="progress-bar progress-bar-striped progress-bar-animated" 
+                             role="progressbar" style="width: 100%">
+                            Analyzing game...
+                        </div>
+                    </div>
+                </div>
+                
+                <div id="upload-result" class="mt-3"></div>
+            </div>
+        </div>
+        
+        <!-- Analysis Results -->
+        <div id="analysis-results" class="card mt-4" style="display: none;">
+            <div class="card-header">
+                <h4><i class="fas fa-chart-line"></i> Analysis Results</h4>
+            </div>
+            <div class="card-body">
+                <div class="row">
+                    <div class="col-md-4">
+                        <div class="card bg-info text-white">
+                            <div class="card-body text-center">
+                                <h3 id="result-cp-loss">-</h3>
+                                <p class="mb-0">Avg CP Loss</p>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="col-md-4">
+                        <div class="card bg-warning text-white">
+                            <div class="card-body text-center">
+                                <h3 id="result-mistakes">-</h3>
+                                <p class="mb-0">Mistakes</p>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="col-md-4">
+                        <div class="card bg-danger text-white">
+                            <div class="card-body text-center">
+                                <h3 id="result-blunders">-</h3>
+                                <p class="mb-0">Blunders</p>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+                
+                <div class="mt-4">
+                    <h5>Move-by-Move Analysis</h5>
+                    <div class="table-responsive">
+                        <table class="table table-sm" id="moves-table">
+                            <thead>
+                                <tr>
+                                    <th>Move</th>
+                                    <th>Played</th>
+                                    <th>Eval Before</th>
+                                    <th>Eval After</th>
+                                    <th>CP Loss</th>
+                                    <th>Quality</th>
+                                </tr>
+                            </thead>
+                            <tbody id="moves-tbody">
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+document.getElementById('upload-form').addEventListener('submit', function(e) {
+    e.preventDefault();
+    
+    const formData = new FormData(this);
+    const progressDiv = document.getElementById('upload-progress');
+    const resultDiv = document.getElementById('upload-result');
+    const analysisDiv = document.getElementById('analysis-results');
+    
+    // Show progress
+    progressDiv.style.display = 'block';
+    resultDiv.innerHTML = '';
+    analysisDiv.style.display = 'none';
+    
+    fetch('/api/upload', {
+        method: 'POST',
+        body: formData
+    })
+    .then(response => response.json())
+    .then(data => {
+        progressDiv.style.display = 'none';
+        
+        if (data.success) {
+            resultDiv.innerHTML = `
+                <div class="alert alert-success">
+                    <i class="fas fa-check-circle"></i> 
+                    File uploaded and analyzed successfully!
+                </div>
+            `;
+            
+            if (data.analysis) {
+                displayAnalysisResults(data.analysis);
+            }
+        } else {
+            resultDiv.innerHTML = `
+                <div class="alert alert-danger">
+                    <i class="fas fa-exclamation-circle"></i> 
+                    Error: ${data.error}
+                </div>
+            `;
+        }
+    })
+    .catch(error => {
+        progressDiv.style.display = 'none';
+        resultDiv.innerHTML = `
+            <div class="alert alert-danger">
+                <i class="fas fa-exclamation-circle"></i> 
+                Upload failed: ${error.message}
+            </div>
+        `;
+    });
+});
+
+function displayAnalysisResults(analysis) {
+    const analysisDiv = document.getElementById('analysis-results');
+    
+    // Calculate summary stats
+    let totalCpLoss = 0;
+    let mistakes = 0;
+    let blunders = 0;
+    
+    analysis.forEach(move => {
+        totalCpLoss += move.centipawn_loss;
+        if (move.centipawn_loss >= 300) blunders++;
+        else if (move.centipawn_loss >= 100) mistakes++;
+    });
+    
+    const avgCpLoss = (totalCpLoss / analysis.length).toFixed(1);
+    
+    // Update summary cards
+    document.getElementById('result-cp-loss').textContent = avgCpLoss;
+    document.getElementById('result-mistakes').textContent = mistakes;
+    document.getElementById('result-blunders').textContent = blunders;
+    
+    // Populate moves table
+    const tbody = document.getElementById('moves-tbody');
+    tbody.innerHTML = '';
+    
+    analysis.forEach(move => {
+        const row = tbody.insertRow();
+        const quality = getMoveQuality(move.centipawn_loss);
+        
+        row.innerHTML = `
+            <td>${move.move_number}</td>
+            <td><code>${move.move}</code></td>
+            <td>${move.eval_before}</td>
+            <td>${move.eval_after}</td>
+            <td>${move.centipawn_loss}</td>
+            <td><span class="badge ${quality.class}">${quality.text}</span></td>
+        `;
+    });
+    
+    analysisDiv.style.display = 'block';
+}
+
+function getMoveQuality(cpLoss) {
+    if (cpLoss >= 300) return { text: 'Blunder', class: 'bg-danger' };
+    if (cpLoss >= 100) return { text: 'Mistake', class: 'bg-warning' };
+    if (cpLoss >= 50) return { text: 'Inaccuracy', class: 'bg-info' };
+    return { text: 'Good', class: 'bg-success' };
+}
+</script>
+{% endblock %}

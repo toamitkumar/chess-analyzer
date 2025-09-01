@@ -1,0 +1,200 @@
+{% extends "base.html" %}
+
+{% block title %}Progress Tracking - Chess Analysis Portal{% endblock %}
+
+{% block content %}
+<div class="row">
+    <div class="col-12">
+        <h1><i class="fas fa-chart-line"></i> Weekly Progress Tracking</h1>
+        <p class="text-muted">Monitor improvement over time</p>
+    </div>
+</div>
+
+<!-- Current Week Summary -->
+<div class="row mb-4">
+    <div class="col-md-3">
+        <div class="card bg-primary text-white">
+            <div class="card-body text-center">
+                <h4 id="current-week-games">0</h4>
+                <p class="mb-0">Games This Week</p>
+            </div>
+        </div>
+    </div>
+    <div class="col-md-3">
+        <div class="card bg-success text-white">
+            <div class="card-body text-center">
+                <h4 id="current-week-winrate">0%</h4>
+                <p class="mb-0">Win Rate</p>
+            </div>
+        </div>
+    </div>
+    <div class="col-md-3">
+        <div class="card bg-warning text-white">
+            <div class="card-body text-center">
+                <h4 id="current-week-cploss">0</h4>
+                <p class="mb-0">Avg CP Loss</p>
+            </div>
+        </div>
+    </div>
+    <div class="col-md-3">
+        <div class="card bg-info text-white">
+            <div class="card-body text-center">
+                <h4 id="current-week-blunders">0</h4>
+                <p class="mb-0">Blunders</p>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Progress Chart -->
+<div class="row mb-4">
+    <div class="col-12">
+        <div class="card">
+            <div class="card-header">
+                <h5><i class="fas fa-chart-area"></i> Progress Trends</h5>
+            </div>
+            <div class="card-body">
+                <div id="progress-chart"></div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Weekly Goals -->
+<div class="row mb-4">
+    <div class="col-md-6">
+        <div class="card">
+            <div class="card-header">
+                <h5><i class="fas fa-target"></i> Current Week Goals</h5>
+            </div>
+            <div class="card-body">
+                <ul class="list-group list-group-flush">
+                    <li class="list-group-item d-flex justify-content-between">
+                        <span>Play 5+ games</span>
+                        <span class="badge bg-secondary">0/5</span>
+                    </li>
+                    <li class="list-group-item d-flex justify-content-between">
+                        <span>Win rate > 50%</span>
+                        <span class="badge bg-secondary">0%</span>
+                    </li>
+                    <li class="list-group-item d-flex justify-content-between">
+                        <span>CP Loss < 400</span>
+                        <span class="badge bg-secondary">-</span>
+                    </li>
+                    <li class="list-group-item d-flex justify-content-between">
+                        <span>Blunders < 3</span>
+                        <span class="badge bg-secondary">0</span>
+                    </li>
+                </ul>
+            </div>
+        </div>
+    </div>
+    <div class="col-md-6">
+        <div class="card">
+            <div class="card-header">
+                <h5><i class="fas fa-lightbulb"></i> Focus Areas</h5>
+            </div>
+            <div class="card-body">
+                <div class="alert alert-info">
+                    <strong>This Week:</strong> Endgame fundamentals
+                </div>
+                <ul>
+                    <li>Practice K+Q vs K mate patterns</li>
+                    <li>Study basic pawn endings</li>
+                    <li>Reduce endgame blunders</li>
+                </ul>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Weekly History -->
+<div class="row">
+    <div class="col-12">
+        <div class="card">
+            <div class="card-header">
+                <h5><i class="fas fa-history"></i> Weekly History</h5>
+            </div>
+            <div class="card-body">
+                <div class="table-responsive">
+                    <table class="table table-striped">
+                        <thead>
+                            <tr>
+                                <th>Week</th>
+                                <th>Games</th>
+                                <th>Win Rate</th>
+                                <th>Avg CP Loss</th>
+                                <th>Blunders</th>
+                                <th>Focus Area</th>
+                                <th>Status</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            <tr>
+                                <td>Aug 26-31, 2025</td>
+                                <td>12</td>
+                                <td>41.7%</td>
+                                <td>458</td>
+                                <td>15</td>
+                                <td>Opening preparation</td>
+                                <td><span class="badge bg-warning">In Progress</span></td>
+                            </tr>
+                            <tr>
+                                <td>Aug 19-25, 2025</td>
+                                <td>8</td>
+                                <td>37.5%</td>
+                                <td>520</td>
+                                <td>18</td>
+                                <td>Tactical training</td>
+                                <td><span class="badge bg-secondary">Completed</span></td>
+                            </tr>
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+// Mock progress chart
+const progressData = [{
+    x: ['Week 1', 'Week 2', 'Week 3', 'Week 4'],
+    y: [520, 480, 458, 420],
+    type: 'scatter',
+    mode: 'lines+markers',
+    name: 'Avg CP Loss',
+    line: { color: '#dc3545' }
+}, {
+    x: ['Week 1', 'Week 2', 'Week 3', 'Week 4'],
+    y: [25, 35, 42, 50],
+    type: 'scatter',
+    mode: 'lines+markers',
+    name: 'Win Rate %',
+    yaxis: 'y2',
+    line: { color: '#28a745' }
+}];
+
+const layout = {
+    title: '4-Week Progress Trend',
+    xaxis: { title: 'Week' },
+    yaxis: { title: 'Average CP Loss', side: 'left' },
+    yaxis2: { title: 'Win Rate (%)', side: 'right', overlaying: 'y' },
+    height: 400
+};
+
+if (typeof Plotly !== 'undefined') {
+    Plotly.newPlot('progress-chart', progressData, layout);
+} else {
+    document.getElementById('progress-chart').innerHTML = '<p class="text-center">Chart loading...</p>';
+}
+
+// Update current week stats (mock data)
+document.getElementById('current-week-games').textContent = '3';
+document.getElementById('current-week-winrate').textContent = '33%';
+document.getElementById('current-week-cploss').textContent = '445';
+document.getElementById('current-week-blunders').textContent = '8';
+</script>
+{% endblock %}

@@ -1,10 +1,11 @@
 import { Component, OnInit } from '@angular/core';
 import { CommonModule } from '@angular/common';
-import { HttpClient } from '@angular/common/http';
+import { MatToolbarModule } from '@angular/material/toolbar';
+import { MatCardModule } from '@angular/material/card';
 
 @Component({
   selector: 'app-dashboard',
-  imports: [CommonModule],
+  imports: [CommonModule, MatToolbarModule, MatCardModule],
   templateUrl: './dashboard.html',
   styleUrl: './dashboard.css'
 })
@@ -14,8 +15,6 @@ export class Dashboard implements OnInit {
     black: { games: 0, winRate: 0 },
     overall: { avgAccuracy: 0, totalBlunders: 0 }
   };
-
-  constructor(private http: HttpClient) {}
 
   ngOnInit() {
     this.loadPerformanceData();

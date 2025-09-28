@@ -1,56 +1,68 @@
-<div class="min-h-screen bg-gray-50 py-8">
-  <div class="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8">
-    <div class="mb-8">
-      <h1 class="text-3xl font-bold text-gray-900">Chess Error Heatmap</h1>
-      <p class="mt-2 text-gray-600">Click on highlighted squares to see blunder details</p>
-    </div>
+<div class="heatmap-container">
+  <mat-toolbar color="primary">
+    <span>Chess Error Heatmap</span>
+  </mat-toolbar>
+
+  <div class="content">
+    <p class="subtitle">Click on highlighted squares to see blunder details</p>
 
     <!-- Stats Cards -->
-    <div class="grid grid-cols-1 md:grid-cols-2 gap-6 mb-8">
-      <div class="bg-white rounded-lg shadow p-6">
-        <h3 class="text-lg font-medium text-gray-900">Total Blunders</h3>
-        <p class="text-3xl font-bold text-red-600 mt-2">{{ totalBlunders }}</p>
-      </div>
-      <div class="bg-white rounded-lg shadow p-6">
-        <h3 class="text-lg font-medium text-gray-900">Most Problematic Square</h3>
-        <p class="text-3xl font-bold text-red-600 mt-2">{{ worstSquare }}</p>
-      </div>
+    <div class="stats-grid">
+      <mat-card>
+        <mat-card-header>
+          <mat-card-title>Total Blunders</mat-card-title>
+        </mat-card-header>
+        <mat-card-content>
+          <div class="stat-value error">{{ totalBlunders }}</div>
+        </mat-card-content>
+      </mat-card>
+
+      <mat-card>
+        <mat-card-header>
+          <mat-card-title>Most Problematic Square</mat-card-title>
+        </mat-card-header>
+        <mat-card-content>
+          <div class="stat-value error">{{ worstSquare }}</div>
+        </mat-card-content>
+      </mat-card>
     </div>
 
     <!-- Heatmap Board -->
-    <div class="bg-white rounded-lg shadow p-6 mb-8">
-      <div class="grid grid-cols-8 gap-1 w-fit mx-auto">
-        <div 
-          *ngFor="let square of heatmapData; let i = index"
-          class="w-16 h-16 flex items-center justify-center text-xs font-bold cursor-pointer transition-all duration-200 hover:scale-105"
-          [class]="getSquareClass(square, i)"
-          (click)="showSquareDetails(square)">
-          {{ square.square }}
+    <mat-card class="board-card">
+      <mat-card-content>
+        <div class="chessboard">
+          <div 
+            *ngFor="let square of heatmapData; let i = index"
+            class="chess-square"
+            [class]="getSquareClass(square, i)"
+            (click)="showSquareDetails(square)">
+            {{ square.square }}
+          </div>
         </div>
-      </div>
-    </div>
+      </mat-card-content>
+    </mat-card>
 
     <!-- Square Details -->
-    <div *ngIf="selectedSquare" class="bg-white rounded-lg shadow p-6">
-      <h3 class="text-lg font-medium text-gray-900 mb-4">Square Details</h3>
-      <div class="grid grid-cols-2 md:grid-cols-4 gap-4">
-        <div>
-          <p class="text-sm text-gray-500">Square</p>
-          <p class="text-lg font-semibold">{{ selectedSquare.square }}</p>
+    <mat-card *ngIf="selectedSquare" class="details-card">
+      <mat-card-header>
+        <mat-card-title>Square Details</mat-card-title>
+      </mat-card-header>
+      <mat-card-content>
+        <div class="details-grid">
+          <div>
+            <strong>Square:</strong> {{ selectedSquare.square }}
+          </div>
+          <div>
+            <strong>Blunders:</strong> {{ selectedSquare.count }}
+          </div>
+          <div>
+            <strong>Total Severity:</strong> {{ selectedSquare.severity }}
+          </div>
+          <div>
+            <strong>Average Severity:</strong> {{ getAverageSeverity(selectedSquare) }}
+          </div>
         </div>
-        <div>
-          <p class="text-sm text-gray-500">Blunders</p>
-          <p class="text-lg font-semibold text-red-600">{{ selectedSquare.count }}</p>
-        </div>
-        <div>
-          <p class="text-sm text-gray-500">Total Severity</p>
-          <p class="text-lg font-semibold">{{ selectedSquare.severity }}</p>
-        </div>
-        <div>
-          <p class="text-sm text-gray-500">Average Severity</p>
-          <p class="text-lg font-semibold">{{ getAverageSeverity(selectedSquare) }}</p>
-        </div>
-      </div>
-    </div>
+      </mat-card-content>
+    </mat-card>
   </div>
 </div>

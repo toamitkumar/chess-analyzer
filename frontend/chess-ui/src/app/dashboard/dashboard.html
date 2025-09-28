@@ -1,84 +1,73 @@
-<div class="min-h-screen bg-gray-50 py-8">
-  <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-    <div class="mb-8">
-      <h1 class="text-3xl font-bold text-gray-900">Chess Performance Dashboard</h1>
-      <p class="mt-2 text-gray-600">Analyze your chess games and track your progress</p>
-    </div>
+<div class="dashboard-container">
+  <mat-toolbar color="primary">
+    <span>Chess Performance Dashboard</span>
+  </mat-toolbar>
+
+  <div class="content">
+    <p class="subtitle">Analyze your chess games and track your progress</p>
 
     <!-- Performance Stats -->
-    <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-8">
-      <div class="bg-white rounded-lg shadow p-6">
-        <div class="flex items-center">
-          <div class="flex-shrink-0">
-            <div class="w-8 h-8 bg-green-500 rounded-full flex items-center justify-center">
-              <span class="text-white font-bold">W</span>
-            </div>
-          </div>
-          <div class="ml-4">
-            <p class="text-sm font-medium text-gray-500">White Games</p>
-            <p class="text-2xl font-semibold text-gray-900">{{ performance.white.games }}</p>
-            <p class="text-sm text-green-600">{{ performance.white.winRate }}% win rate</p>
-          </div>
-        </div>
-      </div>
+    <div class="stats-grid">
+      <mat-card class="stat-card">
+        <mat-card-header>
+          <mat-card-title>White Games</mat-card-title>
+        </mat-card-header>
+        <mat-card-content>
+          <div class="stat-value">{{ performance.white.games }}</div>
+          <div class="stat-subtitle">{{ performance.white.winRate }}% win rate</div>
+        </mat-card-content>
+      </mat-card>
 
-      <div class="bg-white rounded-lg shadow p-6">
-        <div class="flex items-center">
-          <div class="flex-shrink-0">
-            <div class="w-8 h-8 bg-gray-800 rounded-full flex items-center justify-center">
-              <span class="text-white font-bold">B</span>
-            </div>
-          </div>
-          <div class="ml-4">
-            <p class="text-sm font-medium text-gray-500">Black Games</p>
-            <p class="text-2xl font-semibold text-gray-900">{{ performance.black.games }}</p>
-            <p class="text-sm text-green-600">{{ performance.black.winRate }}% win rate</p>
-          </div>
-        </div>
-      </div>
+      <mat-card class="stat-card">
+        <mat-card-header>
+          <mat-card-title>Black Games</mat-card-title>
+        </mat-card-header>
+        <mat-card-content>
+          <div class="stat-value">{{ performance.black.games }}</div>
+          <div class="stat-subtitle">{{ performance.black.winRate }}% win rate</div>
+        </mat-card-content>
+      </mat-card>
 
-      <div class="bg-white rounded-lg shadow p-6">
-        <div class="flex items-center">
-          <div class="flex-shrink-0">
-            <div class="w-8 h-8 bg-blue-500 rounded-full flex items-center justify-center">
-              <span class="text-white font-bold">A</span>
-            </div>
-          </div>
-          <div class="ml-4">
-            <p class="text-sm font-medium text-gray-500">Avg Accuracy</p>
-            <p class="text-2xl font-semibold text-gray-900">{{ performance.overall.avgAccuracy }}%</p>
-            <p class="text-sm text-blue-600">Overall performance</p>
-          </div>
-        </div>
-      </div>
+      <mat-card class="stat-card">
+        <mat-card-header>
+          <mat-card-title>Avg Accuracy</mat-card-title>
+        </mat-card-header>
+        <mat-card-content>
+          <div class="stat-value">{{ performance.overall.avgAccuracy }}%</div>
+          <div class="stat-subtitle">Overall performance</div>
+        </mat-card-content>
+      </mat-card>
 
-      <div class="bg-white rounded-lg shadow p-6">
-        <div class="flex items-center">
-          <div class="flex-shrink-0">
-            <div class="w-8 h-8 bg-red-500 rounded-full flex items-center justify-center">
-              <span class="text-white font-bold">B</span>
-            </div>
-          </div>
-          <div class="ml-4">
-            <p class="text-sm font-medium text-gray-500">Total Blunders</p>
-            <p class="text-2xl font-semibold text-gray-900">{{ performance.overall.totalBlunders }}</p>
-            <p class="text-sm text-red-600">Mistakes to review</p>
-          </div>
-        </div>
-      </div>
+      <mat-card class="stat-card">
+        <mat-card-header>
+          <mat-card-title>Total Blunders</mat-card-title>
+        </mat-card-header>
+        <mat-card-content>
+          <div class="stat-value">{{ performance.overall.totalBlunders }}</div>
+          <div class="stat-subtitle">Mistakes to review</div>
+        </mat-card-content>
+      </mat-card>
     </div>
 
     <!-- Charts Section -->
-    <div class="grid grid-cols-1 lg:grid-cols-2 gap-8">
-      <div class="bg-white rounded-lg shadow p-6">
-        <h3 class="text-lg font-medium text-gray-900 mb-4">Rating Progression</h3>
-        <canvas id="ratingChart" class="w-full h-64"></canvas>
-      </div>
+    <div class="charts-grid">
+      <mat-card class="chart-card">
+        <mat-card-header>
+          <mat-card-title>Rating Progression</mat-card-title>
+        </mat-card-header>
+        <mat-card-content>
+          <canvas id="ratingChart"></canvas>
+        </mat-card-content>
+      </mat-card>
 
-      <div class="bg-white rounded-lg shadow p-6">
-        <h3 class="text-lg font-medium text-gray-900 mb-4">Centipawn Loss Trend</h3>
-        <canvas id="centipawnChart" class="w-full h-64"></canvas>
-      </div>
+      <mat-card class="chart-card">
+        <mat-card-header>
+          <mat-card-title>Centipawn Loss Trend</mat-card-title>
+        </mat-card-header>
+        <mat-card-content>
+          <canvas id="centipawnChart"></canvas>
+        </mat-card-content>
+      </mat-card>
     </div>
   </div>
 </div>

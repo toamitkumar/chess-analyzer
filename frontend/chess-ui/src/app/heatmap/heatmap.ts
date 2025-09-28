@@ -1,9 +1,11 @@
 import { Component, OnInit } from '@angular/core';
 import { CommonModule } from '@angular/common';
+import { MatToolbarModule } from '@angular/material/toolbar';
+import { MatCardModule } from '@angular/material/card';
 
 @Component({
   selector: 'app-heatmap',
-  imports: [CommonModule],
+  imports: [CommonModule, MatToolbarModule, MatCardModule],
   templateUrl: './heatmap.html',
   styleUrl: './heatmap.css'
 })
@@ -48,11 +50,10 @@ export class Heatmap implements OnInit {
 
   getSquareClass(square: any, index: number) {
     const isLight = (square.file + square.rank) % 2 === 0;
-    const baseClass = isLight ? 'bg-amber-100' : 'bg-amber-800 text-white';
+    const baseClass = isLight ? 'light' : 'dark';
     
     if (square.intensity > 0) {
-      const opacity = Math.min(0.8, square.intensity);
-      return `${baseClass} bg-red-500 text-white opacity-${Math.floor(opacity * 100)}`;
+      return `${baseClass} error`;
     }
     
     return baseClass;

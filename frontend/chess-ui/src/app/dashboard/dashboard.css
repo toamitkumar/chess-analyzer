@@ -1,0 +1,49 @@
+.dashboard-container {
+  min-height: 100vh;
+}
+
+.content {
+  padding: 20px;
+}
+
+.subtitle {
+  color: #666;
+  margin-bottom: 24px;
+}
+
+.stats-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
+  gap: 16px;
+  margin-bottom: 32px;
+}
+
+.stat-card {
+  min-height: 120px;
+}
+
+.stat-value {
+  font-size: 2rem;
+  font-weight: bold;
+  color: #1976d2;
+}
+
+.stat-subtitle {
+  color: #666;
+  font-size: 0.9rem;
+}
+
+.charts-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(400px, 1fr));
+  gap: 16px;
+}
+
+.chart-card {
+  min-height: 300px;
+}
+
+canvas {
+  width: 100% !important;
+  height: 200px !important;
+}

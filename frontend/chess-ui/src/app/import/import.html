@@ -1,99 +1,83 @@
-<div class="min-h-screen bg-gray-50 py-8">
-  <div class="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8">
-    <div class="mb-8">
-      <h1 class="text-3xl font-bold text-gray-900">PGN File Import</h1>
-      <p class="mt-2 text-gray-600">Upload your PGN files to analyze your chess games</p>
-    </div>
+<div class="import-container">
+  <mat-toolbar color="primary">
+    <span>PGN File Import</span>
+  </mat-toolbar>
+
+  <div class="content">
+    <p class="subtitle">Upload your PGN files to analyze your chess games</p>
 
     <!-- Upload Area -->
-    <div 
-      class="border-2 border-dashed border-gray-300 rounded-lg p-12 text-center bg-white hover:border-blue-400 transition-colors duration-200"
-      [class.border-blue-400]="isDragOver"
-      [class.bg-blue-50]="isDragOver"
+    <mat-card 
+      class="upload-card"
+      [class.dragover]="isDragOver"
       (dragover)="onDragOver($event)"
       (dragleave)="onDragLeave($event)"
       (drop)="onDrop($event)">
       
-      <svg class="mx-auto h-12 w-12 text-gray-400" stroke="currentColor" fill="none" viewBox="0 0 48 48">
-        <path d="M28 8H12a4 4 0 00-4 4v20m32-12v8m0 0v8a4 4 0 01-4 4H12a4 4 0 01-4-4v-4m32-4l-3.172-3.172a4 4 0 00-5.656 0L28 28M8 32l9.172-9.172a4 4 0 015.656 0L28 28m0 0l4 4m4-24h8m-4-4v8m-12 4h.02" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" />
-      </svg>
-      
-      <h3 class="mt-4 text-lg font-medium text-gray-900">Drop PGN files here or click to select</h3>
-      <p class="mt-2 text-gray-500">Supports single and multiple PGN files</p>
-      
-      <button 
-        class="mt-4 bg-blue-600 text-white px-6 py-2 rounded-md hover:bg-blue-700 transition-colors duration-200"
-        (click)="fileInput.click()">
-        Select Files
-      </button>
-      
-      <input 
-        #fileInput
-        type="file" 
-        accept=".pgn" 
-        multiple 
-        class="hidden"
-        (change)="onFileSelect($event)">
-    </div>
+      <mat-card-content class="upload-content">
+        <mat-icon class="upload-icon">cloud_upload</mat-icon>
+        <h3>Drop PGN files here or click to select</h3>
+        <p>Supports single and multiple PGN files</p>
+        
+        <button mat-raised-button color="primary" (click)="fileInput.click()">
+          Select Files
+        </button>
+        
+        <input 
+          #fileInput
+          type="file" 
+          accept=".pgn" 
+          multiple 
+          style="display: none"
+          (change)="onFileSelect($event)">
+      </mat-card-content>
+    </mat-card>
 
     <!-- Progress Bar -->
-    <div *ngIf="isUploading" class="mt-6 bg-white rounded-lg shadow p-6">
-      <div class="flex items-center justify-between mb-2">
-        <span class="text-sm font-medium text-gray-700">Uploading files...</span>
-        <span class="text-sm text-gray-500">{{ uploadProgress }}%</span>
-      </div>
-      <div class="w-full bg-gray-200 rounded-full h-2">
-        <div 
-          class="bg-blue-600 h-2 rounded-full transition-all duration-300"
-          [style.width.%]="uploadProgress">
+    <mat-card *ngIf="isUploading" class="progress-card">
+      <mat-card-content>
+        <div class="progress-info">
+          <span>Uploading files...</span>
+          <span>{{ uploadProgress }}%</span>
         </div>
-      </div>
-    </div>
+        <mat-progress-bar [value]="uploadProgress"></mat-progress-bar>
+      </mat-card-content>
+    </mat-card>
 
     <!-- Results -->
-    <div *ngIf="results.length > 0" class="mt-6 space-y-4">
-      <div 
+    <div *ngIf="results.length > 0" class="results-section">
+      <mat-card 
         *ngFor="let result of results"
-        class="bg-white rounded-lg shadow p-6"
-        [class.border-l-4]="true"
-        [class.border-green-500]="result.success"
-        [class.border-red-500]="!result.success">
+        class="result-card"
+        [class.success]="result.success"
+        [class.error]="!result.success">
         
-        <div class="flex items-start">
-          <div class="flex-shrink-0">
-            <svg *ngIf="result.success" class="h-5 w-5 text-green-500" fill="currentColor" viewBox="0 0 20 20">
-              <path fill-rule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clip-rule="evenodd" />
-            </svg>
-            <svg *ngIf="!result.success" class="h-5 w-5 text-red-500" fill="currentColor" viewBox="0 0 20 20">
-              <path fill-rule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zM8.707 7.293a1 1 0 00-1.414 1.414L8.586 10l-1.293 1.293a1 1 0 101.414 1.414L10 11.414l1.293 1.293a1 1 0 001.414-1.414L11.414 10l1.293-1.293a1 1 0 00-1.414-1.414L10 8.586 8.707 7.293z" clip-rule="evenodd" />
-            </svg>
-          </div>
+        <mat-card-header>
+          <mat-icon mat-card-avatar [color]="result.success ? 'primary' : 'warn'">
+            {{ result.success ? 'check_circle' : 'error' }}
+          </mat-icon>
+          <mat-card-title>{{ result.filename }}</mat-card-title>
+          <mat-card-subtitle>{{ result.message }}</mat-card-subtitle>
+        </mat-card-header>
+        
+        <mat-card-content *ngIf="result.success && result.games">
+          <p><strong>Games imported:</strong> {{ result.totalGames }}</p>
           
-          <div class="ml-3 flex-1">
-            <h4 class="text-sm font-medium" [class.text-green-800]="result.success" [class.text-red-800]="!result.success">
-              {{ result.filename }}
-            </h4>
-            <p class="mt-1 text-sm text-gray-600">{{ result.message }}</p>
+          <mat-expansion-panel>
+            <mat-expansion-panel-header>
+              <mat-panel-title>
+                View game preview (first {{ result.games.length }})
+              </mat-panel-title>
+            </mat-expansion-panel-header>
             
-            <div *ngIf="result.success && result.games" class="mt-3">
-              <p class="text-sm font-medium text-gray-700">Games imported: {{ result.totalGames }}</p>
-              
-              <details class="mt-2">
-                <summary class="text-sm text-blue-600 cursor-pointer hover:text-blue-800">
-                  View game preview (first {{ result.games.length }})
-                </summary>
-                <div class="mt-2 space-y-2">
-                  <div *ngFor="let game of result.games" class="bg-gray-50 p-3 rounded text-sm">
-                    <div class="font-medium">{{ game.white }} vs {{ game.black }}</div>
-                    <div class="text-gray-600">Result: {{ game.result }} | Date: {{ game.date }}</div>
-                    <div class="text-gray-600">Moves: {{ game.moveCount }}</div>
-                  </div>
-                </div>
-              </details>
+            <div *ngFor="let game of result.games" class="game-preview">
+              <div><strong>{{ game.white }} vs {{ game.black }}</strong></div>
+              <div>Result: {{ game.result }} | Date: {{ game.date }}</div>
+              <div>Moves: {{ game.moveCount }}</div>
             </div>
-          </div>
-        </div>
-      </div>
+          </mat-expansion-panel>
+        </mat-card-content>
+      </mat-card>
     </div>
   </div>
 </div>

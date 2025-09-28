@@ -1,13 +1,34 @@
 const express = require('express');
 const path = require('path');
 const fs = require('fs');
+const multer = require('multer');
 const PerformanceCalculator = require('../models/performance-stats');
 const TrendCalculator = require('../models/trend-calculator');
 const HeatmapCalculator = require('../models/HeatmapCalculator');
 const PGNParser = require('../models/PGNParser');
+const { ChessAnalyzer } = require('../models/analyzer');
 
 const app = express();
 const port = 3000;
+
+// Configure multer for file uploads
+const upload = multer({ 
+  dest: 'uploads/',
+  limits: { fileSize: 10 * 1024 * 1024 } // 10MB limit
+});
+
+// CORS middleware
+app.use((req, res, next) => {
+  res.header('Access-Control-Allow-Origin', '*');
+  res.header('Access-Control-Allow-Methods', 'GET, POST, PUT, DELETE, OPTIONS');
+  res.header('Access-Control-Allow-Headers', 'Origin, X-Requested-With, Content-Type, Accept, Authorization');
+  
+  if (req.method === 'OPTIONS') {
+    res.sendStatus(200);
+  } else {
+    next();
+  }
+});
 
 // Serve static files from views directory
 app.use(express.static(path.join(__dirname, '../views')));
@@ -243,9 +264,19 @@ app.get('/api/heatmap', async (req, res) => {
   }
 });
 
-app.post('/api/upload/pgn', async (req, res) => {
+app.post('/api/upload/pgn', upload.single('pgn'), async (req, res) => {
   try {
-    const pgnContent = req.body;
+    let pgnContent;
+    
+    if (req.file) {
+      // File uploaded via FormData
+      pgnContent = fs.readFileSync(req.file.path, 'utf8');
+      // Clean up uploaded file
+      fs.unlinkSync(req.file.path);
+    } else {
+      // Text content uploaded directly
+      pgnContent = req.body;
+    }
     
     if (!pgnContent || typeof pgnContent !== 'string') {
       return res.status(400).json({ error: 'No PGN content provided' });
@@ -258,14 +289,58 @@ app.post('/api/upload/pgn', async (req, res) => {
       return res.status(400).json({ error: validation.error });
     }
 
-    const result = parser.parseFile(pgnContent);
+    const parseResult = parser.parseFile(pgnContent);
+    console.log(`📊 Starting Stockfish analysis for ${parseResult.totalGames} games...`);
+    
+    // Initialize ChessAnalyzer for Stockfish analysis
+    const analyzer = new ChessAnalyzer();
+    const analyzedGames = [];
+    const analysisErrors = [];
+    
+    // Analyze each game with Stockfish
+    for (let i = 0; i < parseResult.games.length; i++) {
+      const game = parseResult.games[i];
+      console.log(`🔍 Analyzing game ${i + 1}/${parseResult.games.length}: ${game.white} vs ${game.black}`);
+      
+      try {
+        const analysis = await analyzer.analyzeGame(game.moves);
+        analyzedGames.push({
+          ...game,
+          analysis: {
+            accuracy: analysis.accuracy,
+            blunders: analysis.blunders,
+            centipawnLoss: analysis.averageCentipawnLoss,
+            moveCount: analysis.totalMoves
+          }
+        });
+        console.log(`✅ Game ${i + 1} analyzed - Accuracy: ${analysis.accuracy}%, Blunders: ${analysis.blunders.length}`);
+      } catch (error) {
+        console.error(`❌ Analysis failed for game ${i + 1}:`, error.message);
+        analysisErrors.push(`Game ${i + 1}: ${error.message}`);
+        // Include game without analysis
+        analyzedGames.push({
+          ...game,
+          analysis: null
+        });
+      }
+    }
+    
+    // Update performance cache with analyzed data
+    if (analyzedGames.length > 0) {
+      await updatePerformanceCacheWithGames(analyzedGames);
+      await updateHeatmapCacheWithGames(analyzedGames);
+    }
+    
+    console.log(`🎯 Analysis complete: ${analyzedGames.filter(g => g.analysis).length}/${parseResult.totalGames} games analyzed`);
     
     res.json({
       success: true,
-      message: `Successfully imported ${result.totalGames} games`,
-      totalGames: result.totalGames,
-      games: result.games.slice(0, 5), // Return first 5 games as preview
-      errors: result.errors
+      message: `Successfully imported and analyzed ${parseResult.totalGames} games`,
+      gamesCount: parseResult.totalGames,
+      totalGames: parseResult.totalGames,
+      analyzedGames: analyzedGames.filter(g => g.analysis).length,
+      games: analyzedGames.slice(0, 5), // Return first 5 games as preview
+      errors: [...parseResult.errors, ...analysisErrors]
     });
   } catch (error) {
     console.error('PGN upload error:', error);
@@ -282,6 +357,104 @@ app.get('/api/health', (req, res) => {
 app.get('/', (req, res) => {
   res.sendFile(path.join(__dirname, '../views/dashboard.html'));
 });
+
+// Helper functions for cache updates
+async function updatePerformanceCacheWithGames(analyzedGames) {
+  try {
+    const validGames = analyzedGames.filter(g => g.analysis);
+    if (validGames.length === 0) return;
+    
+    const whiteGames = validGames.filter(g => g.result === '1-0' || g.result === '0-1' || g.result === '1/2-1/2');
+    const blackGames = validGames.filter(g => g.result === '1-0' || g.result === '0-1' || g.result === '1/2-1/2');
+    
+    const whiteWins = validGames.filter(g => g.result === '1-0').length;
+    const blackWins = validGames.filter(g => g.result === '0-1').length;
+    
+    const avgAccuracy = validGames.reduce((sum, g) => sum + g.analysis.accuracy, 0) / validGames.length;
+    const totalBlunders = validGames.reduce((sum, g) => sum + g.analysis.blunders.length, 0);
+    
+    // Update performance cache
+    performanceCache = {
+      white: {
+        games: whiteGames.length,
+        winRate: whiteGames.length > 0 ? Math.round((whiteWins / whiteGames.length) * 100) : 0,
+        avgAccuracy: Math.round(avgAccuracy),
+        blunders: Math.round(totalBlunders / 2) // Approximate white blunders
+      },
+      black: {
+        games: blackGames.length,
+        winRate: blackGames.length > 0 ? Math.round((blackWins / blackGames.length) * 100) : 0,
+        avgAccuracy: Math.round(avgAccuracy),
+        blunders: Math.round(totalBlunders / 2) // Approximate black blunders
+      },
+      overall: {
+        avgAccuracy: Math.round(avgAccuracy),
+        totalBlunders: totalBlunders
+      }
+    };
+    performanceCacheTimestamp = Date.now();
+    
+    console.log(`📊 Performance cache updated with ${validGames.length} analyzed games`);
+  } catch (error) {
+    console.error('Error updating performance cache:', error);
+  }
+}
+
+async function updateHeatmapCacheWithGames(analyzedGames) {
+  try {
+    const validGames = analyzedGames.filter(g => g.analysis && g.analysis.blunders);
+    if (validGames.length === 0) return;
+    
+    // Extract blunder squares from all games
+    const blunderSquares = {};
+    
+    validGames.forEach(game => {
+      game.analysis.blunders.forEach(blunder => {
+        // Extract square from move notation (simplified)
+        const square = extractSquareFromMove(blunder.move);
+        if (square) {
+          if (!blunderSquares[square]) {
+            blunderSquares[square] = { count: 0, severity: 0 };
+          }
+          blunderSquares[square].count++;
+          blunderSquares[square].severity += Math.abs(blunder.evaluation || 100);
+        }
+      });
+    });
+    
+    // Generate heatmap data with real blunder information
+    const heatmapData = [];
+    for (let rank = 7; rank >= 0; rank--) {
+      for (let file = 0; file < 8; file++) {
+        const square = String.fromCharCode(97 + file) + (rank + 1);
+        const blunderData = blunderSquares[square] || { count: 0, severity: 0 };
+        
+        heatmapData.push({
+          square,
+          file,
+          rank,
+          count: blunderData.count,
+          severity: blunderData.severity,
+          intensity: blunderData.count > 0 ? Math.min(1, blunderData.count * 0.2) : 0
+        });
+      }
+    }
+    
+    // Cache the heatmap data (you might want to merge with existing cache)
+    // For now, we'll store it in a global variable
+    global.analyzedHeatmapData = heatmapData;
+    
+    console.log(`🔥 Heatmap cache updated with blunders from ${validGames.length} games`);
+  } catch (error) {
+    console.error('Error updating heatmap cache:', error);
+  }
+}
+
+function extractSquareFromMove(move) {
+  // Simple extraction - look for square notation like e4, Nf3, etc.
+  const match = move.match(/[a-h][1-8]/);
+  return match ? match[0] : null;
+}
 
 app.listen(port, () => {
   console.log(`Chess Performance Dashboard running at http://localhost:${port}`);

@@ -1,9 +1,16 @@
 import { Component } from '@angular/core';
 import { CommonModule } from '@angular/common';
+import { HttpClient } from '@angular/common/http';
+import { MatToolbarModule } from '@angular/material/toolbar';
+import { MatCardModule } from '@angular/material/card';
+import { MatButtonModule } from '@angular/material/button';
+import { MatIconModule } from '@angular/material/icon';
+import { MatProgressBarModule } from '@angular/material/progress-bar';
+import { MatExpansionModule } from '@angular/material/expansion';
 
 @Component({
   selector: 'app-import',
-  imports: [CommonModule],
+  imports: [CommonModule, MatToolbarModule, MatCardModule, MatButtonModule, MatIconModule, MatProgressBarModule, MatExpansionModule],
   templateUrl: './import.html',
   styleUrl: './import.css'
 })
@@ -12,6 +19,8 @@ export class Import {
   isUploading = false;
   uploadProgress = 0;
   results: any[] = [];
+
+  constructor(private http: HttpClient) {}
 
   onDragOver(event: DragEvent) {
     event.preventDefault();
@@ -27,14 +36,14 @@ export class Import {
     event.preventDefault();
     this.isDragOver = false;
     const files = Array.from(event.dataTransfer?.files || [])
-      .filter(f => f.name.endsWith('.pgn'));
+      .filter(f => f.name.endsWith('.pgn')) as File[];
     if (files.length > 0) {
       this.processFiles(files);
     }
   }
 
   onFileSelect(event: any) {
-    const files = Array.from(event.target.files);
+    const files = Array.from(event.target.files) as File[];
     if (files.length > 0) {
       this.processFiles(files);
     }
@@ -49,8 +58,7 @@ export class Import {
       this.uploadProgress = ((i + 1) / files.length) * 100;
       
       try {
-        const content = await this.readFile(file);
-        const result = await this.uploadPGN(content, file.name);
+        const result = await this.uploadPGN(file);
         this.results.push({ ...result, filename: file.name, success: true });
       } catch (error: any) {
         this.results.push({ 
@@ -64,29 +72,23 @@ export class Import {
     this.isUploading = false;
   }
 
-  readFile(file: File): Promise<string> {
-    return new Promise((resolve, reject) => {
-      const reader = new FileReader();
-      reader.onload = e => resolve(e.target?.result as string);
-      reader.onerror = () => reject(new Error('Failed to read file'));
-      reader.readAsText(file);
-    });
-  }
+  async uploadPGN(file: File): Promise<any> {
+    const formData = new FormData();
+    formData.append('pgn', file);
 
-  async uploadPGN(content: string, filename: string) {
-    // Mock successful upload for demo
-    return {
-      message: `Successfully imported games from ${filename}`,
-      totalGames: Math.floor(Math.random() * 10) + 1,
-      games: [
-        {
-          white: 'Player1',
-          black: 'Player2', 
-          result: '1-0',
-          date: '2024.01.15',
-          moveCount: 42
+    return new Promise((resolve, reject) => {
+      this.http.post('http://localhost:3000/api/upload/pgn', formData).subscribe({
+        next: (response: any) => {
+          resolve({
+            message: `Successfully imported ${response.gamesCount || 0} games from ${file.name}`,
+            totalGames: response.gamesCount || 0,
+            games: response.games || []
+          });
+        },
+        error: (error) => {
+          reject(new Error(error.error?.message || 'Upload failed'));
         }
-      ]
-    };
+      });
+    });
   }
 }

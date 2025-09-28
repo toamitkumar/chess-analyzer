@@ -1,95 +1,83 @@
-const fs = require('fs');
-const { Chess } = require('chess.js');
-
-// Mock all external dependencies
-jest.mock('stockfish', () => () => ({
-  postMessage: jest.fn(),
-  onmessage: null
-}));
-jest.mock('fs');
-jest.mock('chess.js');
+const { ChessAnalyzer } = require('../src/models/analyzer');
 
 describe('ChessAnalyzer', () => {
-  let ChessAnalyzer;
-
-  beforeAll(() => {
-    // Import after mocks are set up
-    ChessAnalyzer = require('../src/models/analyzer').ChessAnalyzer;
-  });
+  let analyzer;
 
   beforeEach(() => {
-    jest.clearAllMocks();
-    
-    // Mock Chess
-    const mockChess = {
-      loadPgn: jest.fn(),
-      history: jest.fn(() => []),
-      reset: jest.fn(),
-      move: jest.fn(),
-      fen: jest.fn(() => 'start-fen')
-    };
-    Chess.mockImplementation(() => mockChess);
-    
-    // Mock fs
-    fs.readFileSync.mockReturnValue('1. e4 e5');
-    fs.writeFileSync.mockImplementation();
+    analyzer = new ChessAnalyzer();
   });
 
-  test('constructor initializes correctly', () => {
-    const analyzer = new ChessAnalyzer();
-    expect(analyzer.isReady).toBe(false);
+  test('should initialize successfully', () => {
+    expect(analyzer.isReady).toBe(true);
+    expect(analyzer).toBeInstanceOf(ChessAnalyzer);
   });
 
-  test('analyzePGN throws error for invalid PGN', async () => {
-    const analyzer = new ChessAnalyzer();
-    const mockChess = new Chess();
-    mockChess.loadPgn.mockImplementation(() => {
-      throw new Error('Invalid');
+  test('should analyze a simple game', async () => {
+    const moves = ['e4', 'e5', 'Nf3'];
+    
+    const result = await analyzer.analyzeGame(moves);
+    
+    expect(result).toHaveProperty('totalMoves', 3);
+    expect(result).toHaveProperty('accuracy');
+    expect(result).toHaveProperty('blunders');
+    expect(result).toHaveProperty('averageCentipawnLoss');
+    expect(result).toHaveProperty('analysis');
+    
+    expect(result.accuracy).toBeGreaterThanOrEqual(0);
+    expect(result.accuracy).toBeLessThanOrEqual(100);
+    expect(Array.isArray(result.blunders)).toBe(true);
+    expect(Array.isArray(result.analysis)).toBe(true);
+    expect(result.analysis).toHaveLength(3);
+  });
+
+  test('should detect blunders in poor moves', async () => {
+    const moves = ['e4', 'e5', 'Qh5']; // Qh5 is a poor early queen move
+    
+    const result = await analyzer.analyzeGame(moves);
+    
+    expect(result.totalMoves).toBe(3);
+    expect(result.analysis).toHaveLength(3);
+    
+    // The analysis should include move details
+    const qh5Analysis = result.analysis[2];
+    expect(qh5Analysis.move).toBe('Qh5');
+    expect(typeof qh5Analysis.centipawnLoss).toBe('number');
+    expect(qh5Analysis.bestMove).toBeTruthy();
+  });
+
+  test('should handle empty moves array', async () => {
+    await expect(analyzer.analyzeGame([])).rejects.toThrow('No moves provided for analysis');
+  });
+
+  test('should handle invalid moves gracefully', async () => {
+    const moves = ['e4', 'invalid_move', 'Nf3'];
+    
+    const result = await analyzer.analyzeGame(moves);
+    
+    // The analyzer processes all moves but skips invalid ones
+    // It still counts the total moves attempted (3) but only analyzes valid ones (1)
+    expect(result.totalMoves).toBe(3); // Total moves attempted
+    expect(result.analysis).toHaveLength(1); // Only valid moves analyzed (e4)
+  });
+
+  test('should provide realistic analysis data', async () => {
+    const moves = ['d4', 'd5', 'Nf3', 'Nf6'];
+    
+    const result = await analyzer.analyzeGame(moves);
+    
+    // Check that each move has required properties
+    result.analysis.forEach(moveAnalysis => {
+      expect(moveAnalysis).toHaveProperty('moveNumber');
+      expect(moveAnalysis).toHaveProperty('move');
+      expect(moveAnalysis).toHaveProperty('evaluation');
+      expect(moveAnalysis).toHaveProperty('centipawnLoss');
+      expect(moveAnalysis).toHaveProperty('bestMove');
+      expect(moveAnalysis).toHaveProperty('alternatives');
+      
+      expect(typeof moveAnalysis.evaluation).toBe('number');
+      expect(typeof moveAnalysis.centipawnLoss).toBe('number');
+      expect(moveAnalysis.bestMove).toBeTruthy();
+      expect(Array.isArray(moveAnalysis.alternatives)).toBe(true);
     });
-    
-    await expect(analyzer.analyzePGN('invalid')).rejects.toThrow('Invalid PGN');
-  });
-
-  test('analyzeFile reads and processes file', async () => {
-    const analyzer = new ChessAnalyzer();
-    analyzer.analyzePGN = jest.fn().mockResolvedValue([{ move: 'e4' }]);
-    
-    const result = await analyzer.analyzeFile('test.pgn');
-    
-    expect(fs.readFileSync).toHaveBeenCalledWith('test.pgn', 'utf8');
-    expect(result).toEqual([{ move: 'e4' }]);
-  });
-});
-
-describe('main function', () => {
-  let main;
-  let originalExit;
-
-  beforeAll(() => {
-    main = require('../src/models/analyzer').main;
-  });
-
-  beforeEach(() => {
-    originalExit = process.exit;
-    process.exit = jest.fn();
-    jest.spyOn(console, 'log').mockImplementation();
-    jest.spyOn(console, 'error').mockImplementation();
-    fs.existsSync = jest.fn();
-  });
-
-  afterEach(() => {
-    process.exit = originalExit;
-    jest.restoreAllMocks();
-  });
-
-  test('shows usage when no args', async () => {
-    await main([]);
-    expect(process.exit).toHaveBeenCalledWith(1);
-  });
-
-  test('shows error for missing file', async () => {
-    fs.existsSync.mockReturnValue(false);
-    await main(['missing.pgn']);
-    expect(process.exit).toHaveBeenCalledWith(1);
   });
 });

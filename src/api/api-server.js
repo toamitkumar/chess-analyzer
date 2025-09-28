@@ -3,6 +3,7 @@ const path = require('path');
 const fs = require('fs');
 const PerformanceCalculator = require('../models/performance-stats');
 const TrendCalculator = require('../models/trend-calculator');
+const HeatmapCalculator = require('../models/HeatmapCalculator');
 
 const app = express();
 const port = 3000;
@@ -208,6 +209,34 @@ app.get('/api/trends', async (req, res) => {
       success: false,
       error: error.message
     });
+  }
+});
+
+app.get('/api/heatmap', async (req, res) => {
+  try {
+    const calculator = new HeatmapCalculator();
+    const mockGames = [
+      {
+        blunders: [
+          { move: 'Nf3-e5', square: 'e5', severity: 2 },
+          { move: 'Qd1-h5', square: 'h5', severity: 1 }
+        ]
+      },
+      {
+        blunders: [
+          { move: 'Bc8-g4', square: 'g4', severity: 3 },
+          { move: 'Ke8-f7', square: 'f7', severity: 2 },
+          { move: 'Nf3-e5', square: 'e5', severity: 1 }
+        ]
+      }
+    ];
+    
+    const heatmap = calculator.calculateHeatmap(mockGames);
+    const problematicSquares = calculator.getMostProblematicSquares();
+    res.json({ heatmap, problematicSquares });
+  } catch (error) {
+    console.error('Heatmap API error:', error);
+    res.status(500).json({ error: 'Failed to generate heatmap data' });
   }
 });
 

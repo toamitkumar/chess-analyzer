@@ -1,0 +1,115 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Chess Error Heatmap</title>
+    <style>
+        body { font-family: Arial, sans-serif; margin: 20px; }
+        .container { max-width: 1200px; margin: 0 auto; }
+        .heatmap-board { display: grid; grid-template-columns: repeat(8, 60px); gap: 1px; margin: 20px 0; }
+        .square { width: 60px; height: 60px; display: flex; align-items: center; justify-content: center; 
+                 cursor: pointer; font-weight: bold; font-size: 12px; }
+        .light { background-color: #f0d9b5; }
+        .dark { background-color: #b58863; }
+        .blunder-info { margin-top: 20px; padding: 15px; background: #f5f5f5; border-radius: 5px; }
+        .stats { display: flex; gap: 20px; margin: 20px 0; }
+        .stat-card { padding: 15px; background: white; border-radius: 8px; box-shadow: 0 2px 4px rgba(0,0,0,0.1); }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>Chess Error Heatmap</h1>
+        <p>Click on highlighted squares to see blunder details</p>
+        
+        <div class="stats">
+            <div class="stat-card">
+                <h3>Total Blunders</h3>
+                <div id="totalBlunders">-</div>
+            </div>
+            <div class="stat-card">
+                <h3>Most Problematic Square</h3>
+                <div id="worstSquare">-</div>
+            </div>
+        </div>
+
+        <div class="heatmap-board" id="heatmapBoard"></div>
+        
+        <div class="blunder-info" id="blunderInfo" style="display: none;">
+            <h3>Square Details</h3>
+            <div id="squareDetails"></div>
+        </div>
+    </div>
+
+    <script>
+        let heatmapData = [];
+        let problematicSquares = [];
+
+        async function loadHeatmapData() {
+            try {
+                const response = await fetch('/api/heatmap');
+                const data = await response.json();
+                heatmapData = data.heatmap;
+                problematicSquares = data.problematicSquares;
+                renderHeatmap();
+                updateStats();
+            } catch (error) {
+                console.error('Error loading heatmap data:', error);
+            }
+        }
+
+        function renderHeatmap() {
+            const board = document.getElementById('heatmapBoard');
+            board.innerHTML = '';
+
+            for (let rank = 7; rank >= 0; rank--) {
+                for (let file = 0; file < 8; file++) {
+                    const square = heatmapData.find(s => s.file === file && s.rank === rank);
+                    const squareElement = document.createElement('div');
+                    
+                    squareElement.className = `square ${(file + rank) % 2 === 0 ? 'light' : 'dark'}`;
+                    squareElement.textContent = square.square;
+                    squareElement.onclick = () => showSquareDetails(square);
+                    
+                    if (square.intensity > 0) {
+                        const opacity = Math.min(0.8, square.intensity);
+                        squareElement.style.backgroundColor = `rgba(255, 0, 0, ${opacity})`;
+                        squareElement.style.color = 'white';
+                    }
+                    
+                    board.appendChild(squareElement);
+                }
+            }
+        }
+
+        function showSquareDetails(square) {
+            const info = document.getElementById('blunderInfo');
+            const details = document.getElementById('squareDetails');
+            
+            if (square.count > 0) {
+                details.innerHTML = `
+                    <p><strong>Square:</strong> ${square.square}</p>
+                    <p><strong>Blunders:</strong> ${square.count}</p>
+                    <p><strong>Total Severity:</strong> ${square.severity}</p>
+                    <p><strong>Average Severity:</strong> ${(square.severity / square.count).toFixed(1)}</p>
+                `;
+                info.style.display = 'block';
+            } else {
+                info.style.display = 'none';
+            }
+        }
+
+        function updateStats() {
+            const totalBlunders = heatmapData.reduce((sum, square) => sum + square.count, 0);
+            document.getElementById('totalBlunders').textContent = totalBlunders;
+            
+            if (problematicSquares.length > 0) {
+                document.getElementById('worstSquare').textContent = 
+                    `${problematicSquares[0].square} (${problematicSquares[0].count} blunders)`;
+            }
+        }
+
+        loadHeatmapData();
+    </script>
+</body>
+</html>

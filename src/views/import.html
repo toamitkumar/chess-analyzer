@@ -1,0 +1,174 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>PGN Import - Chess Analysis</title>
+    <style>
+        body { font-family: Arial, sans-serif; margin: 20px; background: #f5f5f5; }
+        .container { max-width: 800px; margin: 0 auto; }
+        .upload-area { 
+            border: 2px dashed #ccc; padding: 40px; text-align: center; 
+            background: white; border-radius: 8px; margin: 20px 0;
+            transition: border-color 0.3s;
+        }
+        .upload-area.dragover { border-color: #007bff; background: #f8f9fa; }
+        .upload-btn { 
+            background: #007bff; color: white; padding: 12px 24px; 
+            border: none; border-radius: 4px; cursor: pointer; font-size: 16px;
+        }
+        .upload-btn:hover { background: #0056b3; }
+        .progress { 
+            width: 100%; height: 20px; background: #e9ecef; 
+            border-radius: 10px; margin: 20px 0; overflow: hidden;
+        }
+        .progress-bar { 
+            height: 100%; background: #28a745; width: 0%; 
+            transition: width 0.3s;
+        }
+        .result { 
+            padding: 15px; margin: 20px 0; border-radius: 4px; 
+            background: white; border-left: 4px solid #28a745;
+        }
+        .error { border-left-color: #dc3545; }
+        .game-preview { 
+            background: white; padding: 15px; margin: 10px 0; 
+            border-radius: 4px; border: 1px solid #dee2e6;
+        }
+        .hidden { display: none; }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>PGN File Import</h1>
+        <p>Upload your PGN files to analyze your chess games</p>
+
+        <div class="upload-area" id="uploadArea">
+            <h3>Drop PGN files here or click to select</h3>
+            <p>Supports single and multiple PGN files</p>
+            <button class="upload-btn" onclick="document.getElementById('fileInput').click()">
+                Select Files
+            </button>
+            <input type="file" id="fileInput" accept=".pgn" multiple style="display: none;">
+        </div>
+
+        <div class="progress hidden" id="progressContainer">
+            <div class="progress-bar" id="progressBar"></div>
+        </div>
+
+        <div id="results"></div>
+    </div>
+
+    <script>
+        const uploadArea = document.getElementById('uploadArea');
+        const fileInput = document.getElementById('fileInput');
+        const progressContainer = document.getElementById('progressContainer');
+        const progressBar = document.getElementById('progressBar');
+        const results = document.getElementById('results');
+
+        // Drag and drop handlers
+        uploadArea.addEventListener('dragover', (e) => {
+            e.preventDefault();
+            uploadArea.classList.add('dragover');
+        });
+
+        uploadArea.addEventListener('dragleave', () => {
+            uploadArea.classList.remove('dragover');
+        });
+
+        uploadArea.addEventListener('drop', (e) => {
+            e.preventDefault();
+            uploadArea.classList.remove('dragover');
+            const files = Array.from(e.dataTransfer.files).filter(f => f.name.endsWith('.pgn'));
+            if (files.length > 0) {
+                processFiles(files);
+            }
+        });
+
+        fileInput.addEventListener('change', (e) => {
+            const files = Array.from(e.target.files);
+            if (files.length > 0) {
+                processFiles(files);
+            }
+        });
+
+        async function processFiles(files) {
+            results.innerHTML = '';
+            progressContainer.classList.remove('hidden');
+            
+            for (let i = 0; i < files.length; i++) {
+                const file = files[i];
+                const progress = ((i + 1) / files.length) * 100;
+                progressBar.style.width = progress + '%';
+                
+                try {
+                    const content = await readFile(file);
+                    const result = await uploadPGN(content, file.name);
+                    displayResult(result, file.name);
+                } catch (error) {
+                    displayError(error.message, file.name);
+                }
+            }
+            
+            progressContainer.classList.add('hidden');
+        }
+
+        function readFile(file) {
+            return new Promise((resolve, reject) => {
+                const reader = new FileReader();
+                reader.onload = e => resolve(e.target.result);
+                reader.onerror = () => reject(new Error('Failed to read file'));
+                reader.readAsText(file);
+            });
+        }
+
+        async function uploadPGN(content, filename) {
+            const response = await fetch('/api/upload/pgn', {
+                method: 'POST',
+                headers: { 'Content-Type': 'text/plain' },
+                body: content
+            });
+            
+            if (!response.ok) {
+                const error = await response.json();
+                throw new Error(error.error || 'Upload failed');
+            }
+            
+            return await response.json();
+        }
+
+        function displayResult(result, filename) {
+            const div = document.createElement('div');
+            div.className = 'result';
+            div.innerHTML = `
+                <h4>✅ ${filename}</h4>
+                <p>${result.message}</p>
+                <p><strong>Games imported:</strong> ${result.totalGames}</p>
+                ${result.games.length > 0 ? `
+                    <details>
+                        <summary>Game Preview (first ${result.games.length})</summary>
+                        ${result.games.map(game => `
+                            <div class="game-preview">
+                                <strong>${game.white} vs ${game.black}</strong><br>
+                                Result: ${game.result} | Date: ${game.date}<br>
+                                Moves: ${game.moveCount}
+                            </div>
+                        `).join('')}
+                    </details>
+                ` : ''}
+            `;
+            results.appendChild(div);
+        }
+
+        function displayError(error, filename) {
+            const div = document.createElement('div');
+            div.className = 'result error';
+            div.innerHTML = `
+                <h4>❌ ${filename}</h4>
+                <p>Error: ${error}</p>
+            `;
+            results.appendChild(div);
+        }
+    </script>
+</body>
+</html>

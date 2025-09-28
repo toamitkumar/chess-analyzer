@@ -4,12 +4,15 @@ const fs = require('fs');
 const PerformanceCalculator = require('../models/performance-stats');
 const TrendCalculator = require('../models/trend-calculator');
 const HeatmapCalculator = require('../models/HeatmapCalculator');
+const PGNParser = require('../models/PGNParser');
 
 const app = express();
 const port = 3000;
 
 // Serve static files from views directory
 app.use(express.static(path.join(__dirname, '../views')));
+app.use(express.json({ limit: '10mb' }));
+app.use(express.text({ limit: '10mb', type: 'text/plain' }));
 
 // Performance data cache
 let performanceCache = null;
@@ -237,6 +240,36 @@ app.get('/api/heatmap', async (req, res) => {
   } catch (error) {
     console.error('Heatmap API error:', error);
     res.status(500).json({ error: 'Failed to generate heatmap data' });
+  }
+});
+
+app.post('/api/upload/pgn', async (req, res) => {
+  try {
+    const pgnContent = req.body;
+    
+    if (!pgnContent || typeof pgnContent !== 'string') {
+      return res.status(400).json({ error: 'No PGN content provided' });
+    }
+
+    const parser = new PGNParser();
+    const validation = parser.validatePGN(pgnContent);
+    
+    if (!validation.valid) {
+      return res.status(400).json({ error: validation.error });
+    }
+
+    const result = parser.parseFile(pgnContent);
+    
+    res.json({
+      success: true,
+      message: `Successfully imported ${result.totalGames} games`,
+      totalGames: result.totalGames,
+      games: result.games.slice(0, 5), // Return first 5 games as preview
+      errors: result.errors
+    });
+  } catch (error) {
+    console.error('PGN upload error:', error);
+    res.status(500).json({ error: 'Failed to process PGN file' });
   }
 });
 

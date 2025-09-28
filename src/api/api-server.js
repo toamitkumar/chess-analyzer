@@ -7,9 +7,28 @@ const TrendCalculator = require('../models/trend-calculator');
 const HeatmapCalculator = require('../models/HeatmapCalculator');
 const PGNParser = require('../models/PGNParser');
 const { ChessAnalyzer } = require('../models/analyzer');
+const { getDatabase } = require('../models/database');
+const { getFileStorage } = require('../models/file-storage');
 
 const app = express();
 const port = 3000;
+
+// Initialize database and file storage
+let database = null;
+let fileStorage = null;
+
+async function initializeServices() {
+  try {
+    database = getDatabase();
+    await database.initialize();
+    
+    fileStorage = getFileStorage();
+    console.log('✅ All services initialized');
+  } catch (error) {
+    console.error('❌ Service initialization failed:', error);
+    process.exit(1);
+  }
+}
 
 // Configure multer for file uploads
 const upload = multer({ 
@@ -267,10 +286,12 @@ app.get('/api/heatmap', async (req, res) => {
 app.post('/api/upload/pgn', upload.single('pgn'), async (req, res) => {
   try {
     let pgnContent;
+    let originalFileName = 'uploaded.pgn';
     
     if (req.file) {
       // File uploaded via FormData
       pgnContent = fs.readFileSync(req.file.path, 'utf8');
+      originalFileName = req.file.originalname || 'uploaded.pgn';
       // Clean up uploaded file
       fs.unlinkSync(req.file.path);
     } else {
@@ -289,35 +310,104 @@ app.post('/api/upload/pgn', upload.single('pgn'), async (req, res) => {
       return res.status(400).json({ error: validation.error });
     }
 
+    // Store PGN file permanently
+    let storedFilePath = null;
+    if (fileStorage) {
+      try {
+        storedFilePath = await fileStorage.storePGNFile(pgnContent, originalFileName);
+        console.log(`💾 PGN file stored: ${storedFilePath}`);
+      } catch (error) {
+        console.error('❌ Failed to store PGN file:', error.message);
+      }
+    }
+
     const parseResult = parser.parseFile(pgnContent);
-    console.log(`📊 Starting Stockfish analysis for ${parseResult.totalGames} games...`);
+    console.log(`📊 Starting analysis for ${parseResult.totalGames} games...`);
     
-    // Initialize ChessAnalyzer for Stockfish analysis
+    // Initialize ChessAnalyzer for analysis
     const analyzer = new ChessAnalyzer();
     const analyzedGames = [];
     const analysisErrors = [];
+    const storedGameIds = [];
     
-    // Analyze each game with Stockfish
+    // Analyze and store each game
     for (let i = 0; i < parseResult.games.length; i++) {
       const game = parseResult.games[i];
       console.log(`🔍 Analyzing game ${i + 1}/${parseResult.games.length}: ${game.white} vs ${game.black}`);
       
       try {
         const analysis = await analyzer.analyzeGame(game.moves);
-        analyzedGames.push({
+        
+        const analyzedGame = {
           ...game,
           analysis: {
             accuracy: analysis.accuracy,
             blunders: analysis.blunders,
             centipawnLoss: analysis.averageCentipawnLoss,
-            moveCount: analysis.totalMoves
+            moveCount: analysis.totalMoves,
+            fullAnalysis: analysis.analysis
           }
-        });
+        };
+        
+        analyzedGames.push(analyzedGame);
+        
+        // Store game in database if available
+        if (database) {
+          try {
+            const gameData = {
+              pgnFilePath: storedFilePath || 'memory',
+              whitePlayer: game.white || 'Unknown',
+              blackPlayer: game.black || 'Unknown',
+              result: game.result || '*',
+              date: game.date || null,
+              event: game.event || null,
+              whiteElo: game.whiteElo ? parseInt(game.whiteElo) : null,
+              blackElo: game.blackElo ? parseInt(game.blackElo) : null,
+              movesCount: game.moves ? game.moves.length : 0
+            };
+            
+            const gameResult = await database.insertGame(gameData);
+            const gameId = gameResult.id;
+            storedGameIds.push(gameId);
+            
+            // Store analysis data
+            if (analysis.analysis && analysis.analysis.length > 0) {
+              await database.insertAnalysis(gameId, analysis.analysis);
+            }
+            
+            console.log(`💾 Game ${i + 1} stored in database with ID: ${gameId}`);
+          } catch (dbError) {
+            console.error(`❌ Database storage failed for game ${i + 1}:`, dbError.message);
+          }
+        }
+        
         console.log(`✅ Game ${i + 1} analyzed - Accuracy: ${analysis.accuracy}%, Blunders: ${analysis.blunders.length}`);
       } catch (error) {
         console.error(`❌ Analysis failed for game ${i + 1}:`, error.message);
         analysisErrors.push(`Game ${i + 1}: ${error.message}`);
-        // Include game without analysis
+        
+        // Still try to store the game without analysis
+        if (database) {
+          try {
+            const gameData = {
+              pgnFilePath: storedFilePath || 'memory',
+              whitePlayer: game.white || 'Unknown',
+              blackPlayer: game.black || 'Unknown',
+              result: game.result || '*',
+              date: game.date || null,
+              event: game.event || null,
+              whiteElo: game.whiteElo ? parseInt(game.whiteElo) : null,
+              blackElo: game.blackElo ? parseInt(game.blackElo) : null,
+              movesCount: game.moves ? game.moves.length : 0
+            };
+            
+            const gameResult = await database.insertGame(gameData);
+            storedGameIds.push(gameResult.id);
+          } catch (dbError) {
+            console.error(`❌ Database storage failed for game ${i + 1}:`, dbError.message);
+          }
+        }
+        
         analyzedGames.push({
           ...game,
           analysis: null
@@ -325,13 +415,24 @@ app.post('/api/upload/pgn', upload.single('pgn'), async (req, res) => {
       }
     }
     
-    // Update performance cache with analyzed data
+    // Update performance metrics in database
+    if (database && storedGameIds.length > 0) {
+      try {
+        await database.updatePerformanceMetrics();
+        console.log(`📊 Performance metrics updated`);
+      } catch (error) {
+        console.error('❌ Failed to update performance metrics:', error.message);
+      }
+    }
+    
+    // Update legacy cache for backward compatibility
     if (analyzedGames.length > 0) {
       await updatePerformanceCacheWithGames(analyzedGames);
       await updateHeatmapCacheWithGames(analyzedGames);
     }
     
     console.log(`🎯 Analysis complete: ${analyzedGames.filter(g => g.analysis).length}/${parseResult.totalGames} games analyzed`);
+    console.log(`💾 Stored ${storedGameIds.length} games in database`);
     
     res.json({
       success: true,
@@ -339,6 +440,8 @@ app.post('/api/upload/pgn', upload.single('pgn'), async (req, res) => {
       gamesCount: parseResult.totalGames,
       totalGames: parseResult.totalGames,
       analyzedGames: analyzedGames.filter(g => g.analysis).length,
+      storedGames: storedGameIds.length,
+      storedFilePath: storedFilePath,
       games: analyzedGames.slice(0, 5), // Return first 5 games as preview
       errors: [...parseResult.errors, ...analysisErrors]
     });
@@ -456,9 +559,153 @@ function extractSquareFromMove(move) {
   return match ? match[0] : null;
 }
 
-app.listen(port, () => {
-  console.log(`Chess Performance Dashboard running at http://localhost:${port}`);
-  console.log(`API available at http://localhost:${port}/api/performance`);
+// Database-integrated API routes
+app.get('/api/performance-db', async (req, res) => {
+  try {
+    console.log('📊 Database performance data requested');
+    
+    if (!database) {
+      throw new Error('Database not initialized');
+    }
+    
+    const performanceData = await database.getPerformanceMetrics();
+    res.json(performanceData);
+  } catch (error) {
+    console.error('Database performance API error:', error);
+    
+    // Fallback to existing performance API
+    const fallbackData = {
+      white: { games: 0, winRate: 0, avgAccuracy: 0, blunders: 0 },
+      black: { games: 0, winRate: 0, avgAccuracy: 0, blunders: 0 },
+      overall: { avgAccuracy: 0, totalBlunders: 0 }
+    };
+    
+    res.json(fallbackData);
+  }
 });
+
+app.get('/api/heatmap-db', async (req, res) => {
+  try {
+    console.log('🔥 Database heatmap data requested');
+    
+    if (!database) {
+      throw new Error('Database not initialized');
+    }
+    
+    // Get blunder data from database
+    const blunderData = await database.all(`
+      SELECT 
+        SUBSTR(move, -2) as square,
+        COUNT(*) as count,
+        AVG(centipawn_loss) as avg_loss
+      FROM analysis 
+      WHERE is_blunder = 1 
+        AND SUBSTR(move, -2) GLOB '[a-h][1-8]'
+      GROUP BY square
+    `);
+    
+    // Generate full heatmap with database data
+    const heatmapData = [];
+    for (let rank = 7; rank >= 0; rank--) {
+      for (let file = 0; file < 8; file++) {
+        const square = String.fromCharCode(97 + file) + (rank + 1);
+        const blunder = blunderData.find(b => b.square === square);
+        
+        heatmapData.push({
+          square,
+          file,
+          rank,
+          count: blunder ? blunder.count : 0,
+          severity: blunder ? Math.round(blunder.avg_loss) : 0,
+          intensity: blunder ? Math.min(1, blunder.count * 0.3) : 0
+        });
+      }
+    }
+    
+    res.json(heatmapData);
+  } catch (error) {
+    console.error('Database heatmap API error:', error);
+    
+    // Fallback to empty heatmap
+    const emptyHeatmap = [];
+    for (let rank = 7; rank >= 0; rank--) {
+      for (let file = 0; file < 8; file++) {
+        const square = String.fromCharCode(97 + file) + (rank + 1);
+        emptyHeatmap.push({
+          square, file, rank,
+          count: 0, severity: 0, intensity: 0
+        });
+      }
+    }
+    
+    res.json(emptyHeatmap);
+  }
+});
+
+app.get('/api/games', async (req, res) => {
+  try {
+    console.log('🎮 Games list requested');
+    
+    if (!database) {
+      throw new Error('Database not initialized');
+    }
+    
+    const games = await database.all(`
+      SELECT 
+        id, white_player, black_player, result, date, event,
+        white_elo, black_elo, moves_count, created_at
+      FROM games 
+      ORDER BY created_at DESC 
+      LIMIT 50
+    `);
+    
+    res.json(games);
+  } catch (error) {
+    console.error('Games API error:', error);
+    res.json([]);
+  }
+});
+
+// Initialize services and start server
+async function startServer() {
+  try {
+    await initializeServices();
+    
+    const server = app.listen(port, () => {
+      console.log(`🚀 Chess Performance Dashboard running at http://localhost:${port}`);
+      console.log(`📊 API available at http://localhost:${port}/api/performance`);
+      console.log(`💾 Database API at http://localhost:${port}/api/performance-db`);
+      console.log(`🔥 Heatmap API at http://localhost:${port}/api/heatmap-db`);
+    });
+
+    server.on('error', (err) => {
+      if (err.code === 'EADDRINUSE') {
+        console.error(`❌ Port ${port} is already in use. Please stop the existing server or use a different port.`);
+      } else {
+        console.error('❌ Server error:', err.message);
+      }
+      process.exit(1);
+    });
+
+    // Graceful shutdown
+    process.on('SIGINT', async () => {
+      console.log('\n🛑 Shutting down server...');
+      server.close(async () => {
+        if (database) {
+          await database.close();
+        }
+        console.log('✅ Server shut down gracefully');
+        process.exit(0);
+      });
+    });
+
+  } catch (error) {
+    console.error('❌ Failed to start server:', error);
+    process.exit(1);
+  }
+}
+
+// Start the server
+startServer();
 
 module.exports = app;

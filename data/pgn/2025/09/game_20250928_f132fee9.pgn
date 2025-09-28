@@ -1,0 +1,20 @@
+# Metadata: {"originalName":"53rd PCA Online_White-vs-InfinityNetwork.pgn","contentHash":"6ee40290f0c0e4d46ceb4352f56c63702f1d0522df2661a36bae1d8659d4a4c7","uploadDate":"2025-09-28T12:29:51.666Z","fileSize":1097}
+[Event "53rd PCA Online Chess Tmt"]
+[Site "https://lichess.org/RYguVDw0"]
+[Date "2025.09.23"]
+[White "AdvaitKumar1213"]
+[Black "InfinityNetwork"]
+[Result "0-1"]
+[GameId "RYguVDw0"]
+[UTCDate "2025.09.23"]
+[UTCTime "15:00:51"]
+[WhiteElo "1812"]
+[BlackElo "2114"]
+[WhiteRatingDiff "-6"]
+[BlackRatingDiff "+4"]
+[Variant "Standard"]
+[TimeControl "300+2"]
+[ECO "A03"]
+[Termination "Normal"]
+
+1. f4 d5 2. Nf3 c5 3. e3 e6 4. b3 Nc6 5. Bb5 Bd7 6. Bxc6 Bxc6 7. Bb2 Nf6 8. d3 d4 9. exd4 cxd4 10. Nxd4 Bxg2 11. Rg1 Bc6 12. Nxc6 bxc6 13. Nd2 Bc5 14. Rxg7 Nd5 15. Rg3 Rf8 16. Qe2 Qe7 17. O-O-O Ba3 18. Nc4 Bxb2+ 19. Kxb2 Qf6+ 20. d4 O-O-O 21. Rf3 Nc7 22. Qe5 Qxe5 23. fxe5 Nd5 24. Nd6+ Kc7 25. c4 Nb4 26. a3 Na6 27. Rxf7+ Rxf7 28. Nxf7 Rf8 29. Rf1 Kd7 30. Rf3 Ke7 31. Ng5 Rg8 32. Rg3 Rf8 33. Ne4 Rf4 34. Nf6 Rf2+ 35. Kc1 Nc7 36. Rg7+ Kd8 37. Rxh7 Rf1+ 38. Kd2 Rf2+ 39. Ke3 Rb2 40. Rd7+ Kc8 41. b4 Rb3+ 42. Ke4 Rxa3 43. h4 Rh3 44. h5 Rh4+ 45. Kd3 Rh3+ 46. Kc2 Rh2+ 47. Kb3 Rh3+ 48. Ka4 Rh1 49. b5 cxb5+ 50. cxb5 Nd5 51. Rxa7 Ra1+ 52. Kb3 Rxa7 53. Kc4 Nxf6 54. exf6 Rf7 55. d5 exd5+ 56. Kxd5 Rxf6 57. Kc5 Rh6 0-1

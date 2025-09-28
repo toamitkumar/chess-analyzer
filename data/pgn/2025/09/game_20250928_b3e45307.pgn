@@ -1,0 +1,20 @@
+# Metadata: {"originalName":"53rd PCA Online_Black-vs-Kyan_99Master.pgn","contentHash":"b6a992874a9642ea55f42fc85d4c7640907c395bf1c0d2cf515c7aa9ff17722b","uploadDate":"2025-09-28T12:30:09.430Z","fileSize":787}
+[Event "53rd PCA Online Chess Tmt"]
+[Site "https://lichess.org/P1pFxQoh"]
+[Date "2025.09.23"]
+[White "Kyan_99Master"]
+[Black "AdvaitKumar1213"]
+[Result "0-1"]
+[GameId "P1pFxQoh"]
+[UTCDate "2025.09.23"]
+[UTCTime "16:20:24"]
+[WhiteElo "1411"]
+[BlackElo "1776"]
+[WhiteRatingDiff "-9"]
+[BlackRatingDiff "+4"]
+[Variant "Standard"]
+[TimeControl "300+2"]
+[ECO "B13"]
+[Termination "Normal"]
+
+1. e4 c6 2. Nf3 d5 3. exd5 cxd5 4. d4 Nc6 5. Nc3 Bg4 6. Be2 e6 7. Bf4 Bd6 8. Bxd6 Qxd6 9. O-O Nf6 10. Nb5 Qd7 11. Ne5 Nxe5 12. dxe5 Bxe2 13. Qxe2 Ne4 14. Rfd1 O-O 15. Qxe4 Qxb5 16. Qg4 Qxb2 17. c4 Rad8 18. cxd5 Rxd5 19. Rf1 Rxe5 20. Rad1 Qxa2 21. Rd3 f6 22. Rg3 Rg5 23. Qf4 Rxg3 24. Qxg3 Qd5 25. Qa3 a6 26. Re1 Rd8 27. h3 Qd6 28. Qb3 Qd5 29. Qb6 Rd6 30. Qc7 Qc6 31. Qb8+ Kf7 32. f4 Rd2 33. f5 Qxg2# 0-1

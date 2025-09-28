@@ -1,0 +1,20 @@
+# Metadata: {"originalName":"53rd PCA Online_Black-vs-shyam_2013.pgn","contentHash":"0524ec826a1a85b225e21b4b6cbc02dc1153212c839503abfe9a32a9d35f2d35","uploadDate":"2025-09-28T12:30:09.393Z","fileSize":533}
+[Event "53rd PCA Online Chess Tmt"]
+[Site "https://lichess.org/wAUpnrBc"]
+[Date "2025.09.23"]
+[White "shyam_2013"]
+[Black "AdvaitKumar1213"]
+[Result "0-1"]
+[GameId "wAUpnrBc"]
+[UTCDate "2025.09.23"]
+[UTCTime "14:45:00"]
+[WhiteElo "1103"]
+[BlackElo "1811"]
+[WhiteRatingDiff "-1"]
+[BlackRatingDiff "+1"]
+[Variant "Standard"]
+[TimeControl "300+2"]
+[ECO "B10"]
+[Termination "Normal"]
+
+1. e4 c6 2. c4 d5 3. cxd5 cxd5 4. exd5 Nf6 5. Nc3 Nxd5 6. Nxd5 Qxd5 7. Nf3 Bg4 8. Be2 e6 9. O-O Nc6 10. d4 Bd6 11. Be3 Qh5 12. Rc1 Bxf3 13. h3 Bxe2 0-1

@@ -1,0 +1,20 @@
+# Metadata: {"originalName":"53rd PCA Online_Black-vs-Dibosprik_2012.pgn","contentHash":"70b69205af6802858063b049f83b6a9de1323184bba83f2e85b01c227903cd09","uploadDate":"2025-09-28T12:30:09.554Z","fileSize":1197}
+[Event "53rd PCA Online Chess Tmt"]
+[Site "https://lichess.org/dpcCBvm1"]
+[Date "2025.09.23"]
+[White "Dibosprik_2012"]
+[Black "AdvaitKumar1213"]
+[Result "0-1"]
+[GameId "dpcCBvm1"]
+[UTCDate "2025.09.23"]
+[UTCTime "15:48:13"]
+[WhiteElo "1477"]
+[BlackElo "1775"]
+[WhiteRatingDiff "-2"]
+[BlackRatingDiff "+5"]
+[Variant "Standard"]
+[TimeControl "300+2"]
+[ECO "A11"]
+[Termination "Normal"]
+
+1. c4 c6 2. Nc3 d5 3. cxd5 cxd5 4. d4 Nc6 5. Nf3 Nf6 6. g3 Bg4 7. Bg2 e6 8. h3 Bh5 9. O-O Bd6 10. Be3 O-O 11. Qd2 Bb4 12. a3 Ne4 13. Qc2 Bxc3 14. bxc3 Bg6 15. Qb3 Na5 16. Qb4 Rc8 17. Rac1 Rc4 18. Qb2 Qc7 19. Ne5 Ra4 20. Nxg6 hxg6 21. Bxe4 dxe4 22. Bf4 Qe7 23. Ra1 Nc4 24. Qb5 Qe8 25. Qxb7 Qc8 26. Qxc8 Rxc8 27. Ra2 Rxa3 28. Rxa3 Nxa3 29. Bd2 Nb5 30. Rc1 a5 31. c4 Nxd4 32. Kf1 Nb3 33. Rc2 Nxd2+ 34. Rxd2 Rxc4 35. Ra2 a4 36. Ke1 f5 37. Kd2 Kf7 38. f3 exf3 39. exf3 g5 40. Kd3 Rb4 41. Kc3 Rb3+ 42. Kc2 Rxf3 43. Rxa4 Rxg3 44. Ra7+ Kg6 45. Kd2 Rxh3 46. Ke2 g4 47. Kf2 Rf3+ 48. Kg2 e5 49. Ra6+ Kg5 50. Ra7 g6 51. Rg7 e4 52. Kg1 e3 53. Kg2 e2 54. Re7 Kf4 55. Rxe2 g3 56. Rd2 Rf2+ 57. Rxf2+ gxf2 58. Kxf2 g5 59. Kg1 g4 60. Kf1 Kf3 61. Kg1 g3 62. Kf1 g2+ 63. Kg1 f4 64. Kh2 Kf2 65. Kh3 g1=Q 66. Kh4 Qg6 67. Kh3 Qg3# 0-1

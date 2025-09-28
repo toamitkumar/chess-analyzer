@@ -1,13 +1,26 @@
 <div class="dashboard-container">
   <mat-toolbar color="primary">
     <span>Chess Performance Dashboard</span>
+    <span class="spacer"></span>
+    <button mat-raised-button color="accent" (click)="refreshData()" [disabled]="loading">
+      {{ loading ? 'Loading...' : 'Refresh Data' }}
+    </button>
   </mat-toolbar>
 
-  <div class="content">
+  <div class="content" *ngIf="!loading">
     <p class="subtitle">Analyze your chess games and track your progress</p>
 
+    <div class="error-message" *ngIf="error">
+      <mat-card>
+        <mat-card-content>
+          <p>{{ error }}</p>
+          <button mat-button color="primary" (click)="refreshData()">Try Again</button>
+        </mat-card-content>
+      </mat-card>
+    </div>
+
     <!-- Performance Stats -->
-    <div class="stats-grid">
+    <div class="stats-grid" *ngIf="!error">
       <mat-card class="stat-card">
         <mat-card-header>
           <mat-card-title>White Games</mat-card-title>
@@ -15,6 +28,7 @@
         <mat-card-content>
           <div class="stat-value">{{ performance.white.games }}</div>
           <div class="stat-subtitle">{{ performance.white.winRate }}% win rate</div>
+          <div class="stat-detail">{{ performance.white.avgAccuracy }}% accuracy</div>
         </mat-card-content>
       </mat-card>
 
@@ -25,6 +39,7 @@
         <mat-card-content>
           <div class="stat-value">{{ performance.black.games }}</div>
           <div class="stat-subtitle">{{ performance.black.winRate }}% win rate</div>
+          <div class="stat-detail">{{ performance.black.avgAccuracy }}% accuracy</div>
         </mat-card-content>
       </mat-card>
 
@@ -49,8 +64,18 @@
       </mat-card>
     </div>
 
+    <div class="no-data-message" *ngIf="!error && performance.white.games === 0 && performance.black.games === 0">
+      <mat-card>
+        <mat-card-content>
+          <h3>No Games Analyzed Yet</h3>
+          <p>Upload some PGN files to see your performance statistics!</p>
+          <button mat-raised-button color="primary" routerLink="/import">Upload PGN Files</button>
+        </mat-card-content>
+      </mat-card>
+    </div>
+
     <!-- Charts Section -->
-    <div class="charts-grid">
+    <div class="charts-grid" *ngIf="!error && (performance.white.games > 0 || performance.black.games > 0)">
       <mat-card class="chart-card">
         <mat-card-header>
           <mat-card-title>Rating Progression</mat-card-title>
@@ -69,5 +94,13 @@
         </mat-card-content>
       </mat-card>
     </div>
+  </div>
+
+  <div class="loading-spinner" *ngIf="loading">
+    <mat-card>
+      <mat-card-content>
+        <p>Loading performance data...</p>
+      </mat-card-content>
+    </mat-card>
   </div>
 </div>

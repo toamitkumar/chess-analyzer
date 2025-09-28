@@ -1,0 +1,20 @@
+# Metadata: {"originalName":"53rd PCA Online_White-vs-EternalVibes_123.pgn","contentHash":"e0cbed7d5e32a00f8544f125798ea41bc51717fe19499038f37c6e29cbf87894","uploadDate":"2025-09-28T12:30:09.246Z","fileSize":551}
+[Event "53rd PCA Online Chess Tmt"]
+[Site "https://lichess.org/KQ3vxtNj"]
+[Date "2025.09.23"]
+[White "AdvaitKumar1213"]
+[Black "EternalVibes_123"]
+[Result "0-1"]
+[GameId "KQ3vxtNj"]
+[UTCDate "2025.09.23"]
+[UTCTime "16:04:50"]
+[WhiteElo "1780"]
+[BlackElo "2137"]
+[WhiteRatingDiff "-4"]
+[BlackRatingDiff "+2"]
+[Variant "Standard"]
+[TimeControl "300+2"]
+[ECO "A03"]
+[Termination "Normal"]
+
+1. f4 d5 2. Nf3 Nc6 3. e3 Nf6 4. Bb5 e6 5. Bxc6+ bxc6 6. b3 Bb7 7. Bb2 c5 8. d3 Bd6 9. Nbd2 O-O 10. O-O d4 11. Qe1 dxe3 12. Qxe3 Nd5 13. Qf2 Bxf4 14. Qxc5 Be3+ 0-1

@@ -1,14 +1,33 @@
 <div class="heatmap-container">
   <mat-toolbar color="primary">
-    <span>Chess Error Heatmap</span>
+    <span>{{ getTournamentContext() }}</span>
+    <span class="spacer"></span>
+    <app-tournament-selector 
+      [selectedTournamentId]="selectedTournamentId"
+      (tournamentChange)="onTournamentChange($event)">
+    </app-tournament-selector>
+    <button mat-raised-button color="accent" (click)="refreshData()" [disabled]="loading">
+      {{ loading ? 'Loading...' : 'Refresh Data' }}
+    </button>
   </mat-toolbar>
 
-  <div class="content">
-    <p class="subtitle">Click on highlighted squares to see blunder details</p>
+  <div class="content" *ngIf="!loading">
+    <p class="subtitle">
+      {{ selectedTournamentId ? 'Tournament-specific blunder patterns and mistake analysis' : 'Visualize your most common blunder squares' }}
+    </p>
 
-    <!-- Stats Cards -->
-    <div class="stats-grid">
+    <div class="error-message" *ngIf="error">
       <mat-card>
+        <mat-card-content>
+          <p>{{ error }}</p>
+          <button mat-button color="primary" (click)="refreshData()">Try Again</button>
+        </mat-card-content>
+      </mat-card>
+    </div>
+
+    <!-- Heatmap Stats -->
+    <div class="stats-grid" *ngIf="!error">
+      <mat-card class="stat-card">
         <mat-card-header>
           <mat-card-title>Total Blunders</mat-card-title>
         </mat-card-header>
@@ -17,51 +36,79 @@
         </mat-card-content>
       </mat-card>
 
-      <mat-card>
+      <mat-card class="stat-card">
         <mat-card-header>
-          <mat-card-title>Most Problematic Square</mat-card-title>
+          <mat-card-title>Worst Square</mat-card-title>
         </mat-card-header>
         <mat-card-content>
-          <div class="stat-value error">{{ worstSquare }}</div>
+          <div class="stat-value">{{ worstSquare }}</div>
+        </mat-card-content>
+      </mat-card>
+
+      <mat-card class="stat-card">
+        <mat-card-header>
+          <mat-card-title>Context</mat-card-title>
+        </mat-card-header>
+        <mat-card-content>
+          <div class="stat-value">{{ selectedTournamentId ? 'Tournament' : 'Overall' }}</div>
         </mat-card-content>
       </mat-card>
     </div>
 
-    <!-- Heatmap Board -->
-    <mat-card class="board-card">
-      <mat-card-content>
-        <div class="chessboard">
-          <div 
-            *ngFor="let square of heatmapData; let i = index"
-            class="chess-square"
-            [class]="getSquareClass(square, i)"
-            (click)="showSquareDetails(square)">
-            {{ square.square }}
+    <!-- Chess Board Heatmap -->
+    <div class="heatmap-board" *ngIf="!error">
+      <mat-card>
+        <mat-card-header>
+          <mat-card-title>Blunder Frequency by Square</mat-card-title>
+          <mat-card-subtitle>Click on squares to see details</mat-card-subtitle>
+        </mat-card-header>
+        <mat-card-content>
+          <div class="chess-board">
+            <div 
+              *ngFor="let square of heatmapData" 
+              class="chess-square"
+              [class.light-square]="(square.file + square.rank) % 2 === 0"
+              [class.dark-square]="(square.file + square.rank) % 2 === 1"
+              [style.background-color]="square.intensity > 0 ? 'rgba(255, 0, 0, ' + square.intensity + ')' : ''"
+              (click)="onSquareClick(square)"
+              [title]="square.square + ': ' + square.count + ' blunders'">
+              <span class="square-label">{{ square.square }}</span>
+              <span class="blunder-count" *ngIf="square.count > 0">{{ square.count }}</span>
+            </div>
           </div>
-        </div>
-      </mat-card-content>
-    </mat-card>
+        </mat-card-content>
+      </mat-card>
+    </div>
 
-    <!-- Square Details -->
-    <mat-card *ngIf="selectedSquare" class="details-card">
-      <mat-card-header>
-        <mat-card-title>Square Details</mat-card-title>
-      </mat-card-header>
+    <!-- Selected Square Details -->
+    <div class="square-details" *ngIf="selectedSquare && selectedSquare.count > 0">
+      <mat-card>
+        <mat-card-header>
+          <mat-card-title>Square {{ selectedSquare.square }} Details</mat-card-title>
+        </mat-card-header>
+        <mat-card-content>
+          <p><strong>Blunders:</strong> {{ selectedSquare.count }}</p>
+          <p><strong>Average Severity:</strong> {{ selectedSquare.severity }} centipawns</p>
+          <p><strong>Intensity:</strong> {{ (selectedSquare.intensity * 100).toFixed(1) }}%</p>
+        </mat-card-content>
+      </mat-card>
+    </div>
+
+    <div class="no-data-message" *ngIf="!error && totalBlunders === 0">
+      <mat-card>
+        <mat-card-content>
+          <h3>{{ selectedTournamentId ? 'No Blunders in This Tournament' : 'No Blunders Detected' }}</h3>
+          <p>{{ selectedTournamentId ? 'Try selecting a different tournament or upload more analyzed games.' : 'Upload and analyze some PGN files to see your blunder patterns!' }}</p>
+          <button mat-raised-button color="primary" routerLink="/import">Upload PGN Files</button>
+        </mat-card-content>
+      </mat-card>
+    </div>
+  </div>
+
+  <div class="loading-spinner" *ngIf="loading">
+    <mat-card>
       <mat-card-content>
-        <div class="details-grid">
-          <div>
-            <strong>Square:</strong> {{ selectedSquare.square }}
-          </div>
-          <div>
-            <strong>Blunders:</strong> {{ selectedSquare.count }}
-          </div>
-          <div>
-            <strong>Total Severity:</strong> {{ selectedSquare.severity }}
-          </div>
-          <div>
-            <strong>Average Severity:</strong> {{ getAverageSeverity(selectedSquare) }}
-          </div>
-        </div>
+        <p>Loading heatmap data...</p>
       </mat-card-content>
     </mat-card>
   </div>

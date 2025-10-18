@@ -52,6 +52,48 @@ app.get('/api/trends', (req, res) => {
   res.json(trends);
 });
 
+app.get('/api/trends/rating', async (req, res) => {
+  try {
+    const games = await db.all(`
+      SELECT game_id, date, player_rating 
+      FROM games 
+      WHERE player_name = ? 
+      ORDER BY date ASC
+    `, [TARGET_PLAYER]);
+    
+    const data = games.map((game, index) => ({
+      gameNumber: index + 1,
+      rating: game.player_rating || 1500
+    }));
+    
+    res.json({ data });
+  } catch (error) {
+    res.status(500).json({ error: error.message });
+  }
+});
+
+app.get('/api/trends/centipawn-loss', async (req, res) => {
+  try {
+    const games = await db.all(`
+      SELECT g.game_id, AVG(a.centipawn_loss) as avg_centipawn_loss
+      FROM games g
+      JOIN analysis a ON g.game_id = a.game_id
+      WHERE g.player_name = ?
+      GROUP BY g.game_id
+      ORDER BY g.date ASC
+    `, [TARGET_PLAYER]);
+    
+    const data = games.map((game, index) => ({
+      gameNumber: index + 1,
+      avgCentipawnLoss: Math.round(game.avg_centipawn_loss || 0)
+    }));
+    
+    res.json({ data });
+  } catch (error) {
+    res.status(500).json({ error: error.message });
+  }
+});
+
 app.get('/api/heatmap', (req, res) => {
   const calculator = new HeatmapCalculator();
   const heatmap = calculator.calculateHeatmap(mockGames);

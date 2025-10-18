@@ -6,253 +6,171 @@ class FileStorage {
   constructor() {
     this.baseDir = path.join(__dirname, '../../data');
     this.pgnDir = path.join(this.baseDir, 'pgn');
+    this.tournamentsDir = path.join(this.baseDir, 'tournaments');
     this.backupDir = path.join(this.baseDir, 'backups');
     this.ensureDirectories();
   }
 
   ensureDirectories() {
-    const dirs = [this.baseDir, this.pgnDir, this.backupDir];
-    
+    const dirs = [this.baseDir, this.pgnDir, this.tournamentsDir, this.backupDir];
     dirs.forEach(dir => {
       if (!fs.existsSync(dir)) {
         fs.mkdirSync(dir, { recursive: true });
-        console.log(`✅ Created directory: ${dir}`);
+        console.log(`📁 Created directory: ${dir}`);
       }
     });
   }
 
-  generateFileName(originalName) {
-    const timestamp = new Date().toISOString().slice(0, 10).replace(/-/g, '');
-    const hash = crypto.createHash('md5').update(originalName + Date.now()).digest('hex').slice(0, 8);
-    const extension = path.extname(originalName) || '.pgn';
+  // Create tournament folder
+  createTournamentFolder(tournamentName) {
+    const sanitizedName = this.sanitizeFolderName(tournamentName);
+    const tournamentPath = path.join(this.tournamentsDir, sanitizedName);
     
-    return `game_${timestamp}_${hash}${extension}`;
-  }
-
-  getYearMonthPath() {
-    const now = new Date();
-    const year = now.getFullYear();
-    const month = String(now.getMonth() + 1).padStart(2, '0');
-    
-    const yearDir = path.join(this.pgnDir, String(year));
-    const monthDir = path.join(yearDir, month);
-    
-    // Ensure year/month directories exist
-    if (!fs.existsSync(yearDir)) {
-      fs.mkdirSync(yearDir, { recursive: true });
-    }
-    if (!fs.existsSync(monthDir)) {
-      fs.mkdirSync(monthDir, { recursive: true });
+    if (!fs.existsSync(tournamentPath)) {
+      fs.mkdirSync(tournamentPath, { recursive: true });
+      console.log(`🏆 Created tournament folder: ${sanitizedName}`);
     }
     
-    return monthDir;
+    return tournamentPath;
   }
 
-  async storePGNFile(content, originalName) {
+  // Store PGN file in tournament folder
+  async storePGNInTournament(pgnContent, originalFileName, tournamentName) {
     try {
-      const fileName = this.generateFileName(originalName);
-      const monthDir = this.getYearMonthPath();
-      const filePath = path.join(monthDir, fileName);
+      const tournamentPath = this.createTournamentFolder(tournamentName);
+      const timestamp = new Date().toISOString().slice(0, 10); // YYYY-MM-DD
+      const hash = crypto.createHash('md5').update(pgnContent).digest('hex').substring(0, 8);
+      const fileName = `${timestamp}_${hash}_${this.sanitizeFileName(originalFileName)}`;
+      const filePath = path.join(tournamentPath, fileName);
       
-      // Check for duplicates by content hash
-      const contentHash = crypto.createHash('sha256').update(content).digest('hex');
-      const existingFile = await this.findFileByContentHash(contentHash);
+      fs.writeFileSync(filePath, pgnContent, 'utf8');
+      console.log(`💾 Stored PGN in tournament folder: ${tournamentName}/${fileName}`);
       
-      if (existingFile) {
-        console.log(`📄 Duplicate file detected, using existing: ${existingFile}`);
-        return existingFile;
-      }
-      
-      // Write file with content hash as metadata
-      const metadata = {
-        originalName,
-        contentHash,
-        uploadDate: new Date().toISOString(),
-        fileSize: Buffer.byteLength(content, 'utf8')
-      };
-      
-      const fileWithMetadata = `# Metadata: ${JSON.stringify(metadata)}\n${content}`;
-      
-      fs.writeFileSync(filePath, fileWithMetadata, 'utf8');
-      console.log(`✅ PGN file stored: ${filePath}`);
-      
-      return filePath;
-      
-    } catch (error) {
-      console.error('❌ Error storing PGN file:', error.message);
-      throw error;
-    }
-  }
-
-  async findFileByContentHash(contentHash) {
-    try {
-      const years = fs.readdirSync(this.pgnDir).filter(item => 
-        fs.statSync(path.join(this.pgnDir, item)).isDirectory()
-      );
-      
-      for (const year of years) {
-        const yearPath = path.join(this.pgnDir, year);
-        const months = fs.readdirSync(yearPath).filter(item =>
-          fs.statSync(path.join(yearPath, item)).isDirectory()
-        );
-        
-        for (const month of months) {
-          const monthPath = path.join(yearPath, month);
-          const files = fs.readdirSync(monthPath).filter(file => file.endsWith('.pgn'));
-          
-          for (const file of files) {
-            const filePath = path.join(monthPath, file);
-            const content = fs.readFileSync(filePath, 'utf8');
-            
-            // Extract metadata from first line
-            const metadataMatch = content.match(/^# Metadata: (.+)$/m);
-            if (metadataMatch) {
-              try {
-                const metadata = JSON.parse(metadataMatch[1]);
-                if (metadata.contentHash === contentHash) {
-                  return filePath;
-                }
-              } catch (e) {
-                // Ignore files with invalid metadata
-              }
-            }
-          }
-        }
-      }
-      
-      return null;
-    } catch (error) {
-      console.error('❌ Error searching for duplicate file:', error.message);
-      return null;
-    }
-  }
-
-  readPGNFile(filePath) {
-    try {
-      const content = fs.readFileSync(filePath, 'utf8');
-      
-      // Remove metadata line if present
-      const lines = content.split('\n');
-      if (lines[0].startsWith('# Metadata:')) {
-        return lines.slice(1).join('\n');
-      }
-      
-      return content;
-    } catch (error) {
-      console.error('❌ Error reading PGN file:', error.message);
-      throw error;
-    }
-  }
-
-  getFileMetadata(filePath) {
-    try {
-      const content = fs.readFileSync(filePath, 'utf8');
-      const metadataMatch = content.match(/^# Metadata: (.+)$/m);
-      
-      if (metadataMatch) {
-        return JSON.parse(metadataMatch[1]);
-      }
-      
-      // Fallback metadata for files without embedded metadata
-      const stats = fs.statSync(filePath);
       return {
-        originalName: path.basename(filePath),
-        uploadDate: stats.birthtime.toISOString(),
-        fileSize: stats.size,
-        contentHash: null
+        filePath,
+        relativePath: path.join('tournaments', this.sanitizeFolderName(tournamentName), fileName),
+        tournamentFolder: this.sanitizeFolderName(tournamentName),
+        fileName
       };
     } catch (error) {
-      console.error('❌ Error reading file metadata:', error.message);
-      return null;
+      console.error('❌ Failed to store PGN in tournament folder:', error.message);
+      throw error;
     }
   }
 
-  listStoredFiles() {
+  // List tournament folders
+  listTournamentFolders() {
     try {
-      const files = [];
-      const years = fs.readdirSync(this.pgnDir).filter(item => 
-        fs.statSync(path.join(this.pgnDir, item)).isDirectory()
-      );
+      if (!fs.existsSync(this.tournamentsDir)) {
+        return [];
+      }
       
-      years.forEach(year => {
-        const yearPath = path.join(this.pgnDir, year);
-        const months = fs.readdirSync(yearPath).filter(item =>
-          fs.statSync(path.join(yearPath, item)).isDirectory()
-        );
-        
-        months.forEach(month => {
-          const monthPath = path.join(yearPath, month);
-          const monthFiles = fs.readdirSync(monthPath)
-            .filter(file => file.endsWith('.pgn'))
-            .map(file => ({
-              path: path.join(monthPath, file),
-              name: file,
-              metadata: this.getFileMetadata(path.join(monthPath, file))
-            }));
-          
-          files.push(...monthFiles);
-        });
-      });
-      
-      return files.sort((a, b) => 
-        new Date(b.metadata?.uploadDate || 0) - new Date(a.metadata?.uploadDate || 0)
-      );
+      return fs.readdirSync(this.tournamentsDir)
+        .filter(item => {
+          const itemPath = path.join(this.tournamentsDir, item);
+          return fs.statSync(itemPath).isDirectory();
+        })
+        .map(folderName => ({
+          name: folderName,
+          path: path.join(this.tournamentsDir, folderName),
+          fileCount: this.countPGNFiles(path.join(this.tournamentsDir, folderName))
+        }));
     } catch (error) {
-      console.error('❌ Error listing stored files:', error.message);
+      console.error('❌ Failed to list tournament folders:', error.message);
       return [];
     }
   }
 
-  deleteFile(filePath) {
+  // List PGN files in tournament folder
+  listTournamentFiles(tournamentName) {
     try {
-      if (fs.existsSync(filePath)) {
-        fs.unlinkSync(filePath);
-        console.log(`✅ Deleted file: ${filePath}`);
-        return true;
-      }
-      return false;
-    } catch (error) {
-      console.error('❌ Error deleting file:', error.message);
-      return false;
-    }
-  }
-
-  getStorageStats() {
-    try {
-      const files = this.listStoredFiles();
-      const totalFiles = files.length;
-      const totalSize = files.reduce((sum, file) => sum + (file.metadata?.fileSize || 0), 0);
+      const tournamentPath = path.join(this.tournamentsDir, this.sanitizeFolderName(tournamentName));
       
-      return {
-        totalFiles,
-        totalSize,
-        formattedSize: this.formatBytes(totalSize),
-        oldestFile: files[files.length - 1]?.metadata?.uploadDate,
-        newestFile: files[0]?.metadata?.uploadDate
-      };
+      if (!fs.existsSync(tournamentPath)) {
+        return [];
+      }
+      
+      return fs.readdirSync(tournamentPath)
+        .filter(file => file.endsWith('.pgn'))
+        .map(fileName => ({
+          name: fileName,
+          path: path.join(tournamentPath, fileName),
+          size: fs.statSync(path.join(tournamentPath, fileName)).size,
+          modified: fs.statSync(path.join(tournamentPath, fileName)).mtime
+        }));
     } catch (error) {
-      console.error('❌ Error getting storage stats:', error.message);
-      return { totalFiles: 0, totalSize: 0, formattedSize: '0 B' };
+      console.error('❌ Failed to list tournament files:', error.message);
+      return [];
     }
   }
 
-  formatBytes(bytes) {
-    if (bytes === 0) return '0 B';
-    const k = 1024;
-    const sizes = ['B', 'KB', 'MB', 'GB'];
-    const i = Math.floor(Math.log(bytes) / Math.log(k));
-    return parseFloat((bytes / Math.pow(k, i)).toFixed(2)) + ' ' + sizes[i];
+  // Count PGN files in directory
+  countPGNFiles(dirPath) {
+    try {
+      if (!fs.existsSync(dirPath)) return 0;
+      return fs.readdirSync(dirPath).filter(file => file.endsWith('.pgn')).length;
+    } catch (error) {
+      return 0;
+    }
+  }
+
+  // Read PGN file
+  readPGNFile(filePath) {
+    try {
+      return fs.readFileSync(filePath, 'utf8');
+    } catch (error) {
+      console.error('❌ Failed to read PGN file:', error.message);
+      throw error;
+    }
+  }
+
+  // Sanitize folder name for filesystem
+  sanitizeFolderName(name) {
+    return name
+      .replace(/[<>:"/\\|?*]/g, '_') // Replace invalid characters
+      .replace(/\s+/g, '_') // Replace spaces with underscores
+      .replace(/_{2,}/g, '_') // Replace multiple underscores with single
+      .trim()
+      .substring(0, 100); // Limit length
+  }
+
+  // Sanitize file name
+  sanitizeFileName(name) {
+    const ext = path.extname(name);
+    const baseName = path.basename(name, ext);
+    return this.sanitizeFolderName(baseName) + ext;
+  }
+
+  // Legacy methods for backward compatibility
+  async storePGNFile(pgnContent, originalFileName) {
+    // Store in legacy date-based structure
+    const now = new Date();
+    const year = now.getFullYear();
+    const month = String(now.getMonth() + 1).padStart(2, '0');
+    const dateDir = path.join(this.pgnDir, year.toString(), month);
+    
+    if (!fs.existsSync(dateDir)) {
+      fs.mkdirSync(dateDir, { recursive: true });
+    }
+    
+    const hash = crypto.createHash('md5').update(pgnContent).digest('hex').substring(0, 8);
+    const timestamp = now.toISOString().slice(0, 10);
+    const fileName = `game_${timestamp.replace(/-/g, '')}_${hash}.pgn`;
+    const filePath = path.join(dateDir, fileName);
+    
+    fs.writeFileSync(filePath, pgnContent, 'utf8');
+    return filePath;
   }
 }
 
 // Singleton instance
-let storageInstance = null;
+let fileStorageInstance = null;
 
 function getFileStorage() {
-  if (!storageInstance) {
-    storageInstance = new FileStorage();
+  if (!fileStorageInstance) {
+    fileStorageInstance = new FileStorage();
   }
-  return storageInstance;
+  return fileStorageInstance;
 }
 
 module.exports = { FileStorage, getFileStorage };

@@ -7,10 +7,23 @@ import { MatButtonModule } from '@angular/material/button';
 import { MatIconModule } from '@angular/material/icon';
 import { MatProgressBarModule } from '@angular/material/progress-bar';
 import { MatExpansionModule } from '@angular/material/expansion';
+import { MatDialog } from '@angular/material/dialog';
+import { TournamentService } from '../services/tournament.service';
+import { TournamentSelectorComponent } from '../components/tournament-selector/tournament-selector';
+import { TournamentCreatorComponent } from '../components/tournament-creator/tournament-creator';
 
 @Component({
   selector: 'app-import',
-  imports: [CommonModule, MatToolbarModule, MatCardModule, MatButtonModule, MatIconModule, MatProgressBarModule, MatExpansionModule],
+  imports: [
+    CommonModule, 
+    MatToolbarModule, 
+    MatCardModule, 
+    MatButtonModule, 
+    MatIconModule, 
+    MatProgressBarModule, 
+    MatExpansionModule,
+    TournamentSelectorComponent
+  ],
   templateUrl: './import.html',
   styleUrl: './import.css'
 })
@@ -18,9 +31,31 @@ export class Import {
   isDragOver = false;
   isUploading = false;
   uploadProgress = 0;
+  selectedTournamentId: number | null = null;
   results: any[] = [];
 
-  constructor(private http: HttpClient) {}
+  constructor(
+    private http: HttpClient,
+    private dialog: MatDialog,
+    private tournamentService: TournamentService
+  ) {}
+
+  onTournamentChange(tournamentId: number | null) {
+    this.selectedTournamentId = tournamentId;
+  }
+
+  openTournamentCreator() {
+    const dialogRef = this.dialog.open(TournamentCreatorComponent, {
+      width: '500px'
+    });
+
+    dialogRef.afterClosed().subscribe(result => {
+      if (result) {
+        console.log('Tournament created:', result);
+        this.selectedTournamentId = result.id;
+      }
+    });
+  }
 
   onDragOver(event: DragEvent) {
     event.preventDefault();
@@ -55,7 +90,7 @@ export class Import {
     
     for (let i = 0; i < files.length; i++) {
       const file = files[i];
-      this.uploadProgress = ((i + 1) / files.length) * 100;
+      this.uploadProgress = Math.round(((i + 1) / files.length) * 100);
       
       try {
         const result = await this.uploadPGN(file);

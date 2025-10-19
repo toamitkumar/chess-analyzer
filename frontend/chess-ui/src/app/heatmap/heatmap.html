@@ -1,0 +1,182 @@
+<app-navigation></app-navigation>
+
+<div class="heatmap-layout">
+  <div class="container">
+    <!-- Header -->
+    <div class="page-header">
+      <div class="header-content">
+        <h1 class="page-title">Error Heatmap</h1>
+        <p class="page-subtitle">Visualize your chess mistakes across the board to identify weak squares</p>
+      </div>
+    </div>
+
+    <!-- Loading State -->
+    <div class="loading-state" *ngIf="loading">
+      <div class="loading-card">
+        <div class="loading-spinner">
+          <mat-spinner diameter="40"></mat-spinner>
+        </div>
+        <h3>Generating Heatmap</h3>
+        <p>Analyzing your game data...</p>
+      </div>
+    </div>
+
+    <!-- Error State -->
+    <div class="error-state" *ngIf="error && !loading">
+      <div class="error-card">
+        <mat-icon class="error-icon">error_outline</mat-icon>
+        <h3>Unable to Generate Heatmap</h3>
+        <p>{{ error }}</p>
+        <button class="btn btn-primary" (click)="loadHeatmapData()">
+          <mat-icon>refresh</mat-icon>
+          Try Again
+        </button>
+      </div>
+    </div>
+
+    <!-- Heatmap Content -->
+    <div class="heatmap-content" *ngIf="!loading && !error">
+      <!-- Controls -->
+      <div class="controls-section">
+        <div class="section-card">
+          <div class="section-header">
+            <h2 class="section-title">
+              <mat-icon>tune</mat-icon>
+              Filters
+            </h2>
+          </div>
+          
+          <div class="controls-grid">
+            <div class="control-group">
+              <label class="control-label">Color</label>
+              <div class="color-options">
+                <button class="color-btn" 
+                        [class.active]="selectedColor === 'both'"
+                        (click)="setColor('both')">
+                  Both
+                </button>
+                <button class="color-btn" 
+                        [class.active]="selectedColor === 'white'"
+                        (click)="setColor('white')">
+                  White
+                </button>
+                <button class="color-btn" 
+                        [class.active]="selectedColor === 'black'"
+                        (click)="setColor('black')">
+                  Black
+                </button>
+              </div>
+            </div>
+            
+            <div class="control-group">
+              <label class="control-label">Error Type</label>
+              <div class="error-options">
+                <button class="error-btn" 
+                        [class.active]="selectedErrorType === 'all'"
+                        (click)="setErrorType('all')">
+                  All Errors
+                </button>
+                <button class="error-btn" 
+                        [class.active]="selectedErrorType === 'blunders'"
+                        (click)="setErrorType('blunders')">
+                  Blunders
+                </button>
+                <button class="error-btn" 
+                        [class.active]="selectedErrorType === 'mistakes'"
+                        (click)="setErrorType('mistakes')">
+                  Mistakes
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Heatmap Visualization -->
+      <div class="heatmap-section">
+        <div class="section-card">
+          <div class="section-header">
+            <h2 class="section-title">
+              <mat-icon>grid_on</mat-icon>
+              Error Distribution
+            </h2>
+            <div class="heatmap-legend">
+              <span class="legend-item">
+                <span class="legend-color low"></span>
+                Low
+              </span>
+              <span class="legend-item">
+                <span class="legend-color medium"></span>
+                Medium
+              </span>
+              <span class="legend-item">
+                <span class="legend-color high"></span>
+                High
+              </span>
+            </div>
+          </div>
+          
+          <div class="heatmap-container">
+            <div class="chessboard-heatmap">
+              <div class="board-row" *ngFor="let row of heatmapData; let i = index">
+                <div class="board-square" 
+                     *ngFor="let square of row; let j = index"
+                     [class]="getSquareClass(i, j)"
+                     [style.background-color]="getSquareColor(square.errorCount)"
+                     [title]="getSquareTooltip(i, j, square.errorCount)">
+                  <span class="square-label">{{ getSquareLabel(i, j) }}</span>
+                  <span class="error-count" *ngIf="square.errorCount > 0">{{ square.errorCount }}</span>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Statistics -->
+      <div class="stats-section">
+        <div class="stats-grid">
+          <app-stat-card
+            icon="error"
+            [value]="totalErrors"
+            label="Total Errors"
+            description="Across all games"
+            variant="error"
+            iconColor="error">
+          </app-stat-card>
+
+          <app-stat-card
+            icon="location_on"
+            [value]="mostErrorSquare"
+            label="Most Error-Prone Square"
+            [description]="mostErrorCount + ' errors'"
+            variant="warning"
+            iconColor="warning">
+          </app-stat-card>
+
+          <app-stat-card
+            icon="analytics"
+            [value]="averageErrorsPerGame"
+            label="Avg Errors Per Game"
+            description="Based on analyzed games"
+            variant="default"
+            iconColor="default">
+          </app-stat-card>
+        </div>
+      </div>
+    </div>
+
+    <!-- Empty State -->
+    <div class="empty-state" *ngIf="!loading && !error && totalErrors === 0">
+      <div class="empty-card">
+        <div class="empty-icon">🎯</div>
+        <h3>No Error Data Available</h3>
+        <p>Upload and analyze some games to see your error patterns on the heatmap.</p>
+        <button class="btn btn-primary" routerLink="/import">
+          <mat-icon>upload</mat-icon>
+          Import Games
+        </button>
+      </div>
+    </div>
+  </div>
+</div>

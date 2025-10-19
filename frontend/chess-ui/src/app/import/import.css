@@ -1,0 +1,287 @@
+/* Import Layout */
+.import-layout {
+  min-height: calc(100vh - 4rem);
+  background: var(--gray-50);
+  padding: var(--space-8) 0;
+}
+
+/* Header */
+.page-header {
+  margin-bottom: var(--space-8);
+}
+
+.page-title {
+  font-size: var(--text-3xl);
+  font-weight: 700;
+  color: var(--gray-900);
+  margin-bottom: var(--space-2);
+}
+
+.page-subtitle {
+  font-size: var(--text-lg);
+  color: var(--gray-600);
+}
+
+/* Sections */
+.tournament-section,
+.upload-section,
+.files-section,
+.progress-section {
+  margin-bottom: var(--space-8);
+}
+
+.section-card {
+  background: white;
+  border-radius: var(--radius-xl);
+  border: 1px solid var(--gray-200);
+  padding: var(--space-6);
+  box-shadow: var(--shadow-sm);
+}
+
+.section-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: var(--space-6);
+}
+
+.section-title {
+  display: flex;
+  align-items: center;
+  gap: var(--space-3);
+  font-size: var(--text-xl);
+  font-weight: 600;
+  color: var(--gray-900);
+  margin: 0;
+}
+
+.section-title mat-icon {
+  color: var(--primary-600);
+  font-size: 1.5rem !important;
+  width: 1.5rem !important;
+  height: 1.5rem !important;
+}
+
+.section-actions {
+  display: flex;
+  gap: var(--space-3);
+}
+
+/* Upload Area */
+.upload-area {
+  border: 2px dashed var(--gray-300);
+  border-radius: var(--radius-lg);
+  padding: var(--space-12);
+  text-align: center;
+  transition: all 0.3s ease;
+  cursor: pointer;
+}
+
+.upload-area:hover {
+  border-color: var(--primary-400);
+  background: var(--primary-50);
+}
+
+.upload-area.dragover {
+  border-color: var(--primary-500);
+  background: var(--primary-100);
+}
+
+.upload-icon {
+  margin-bottom: var(--space-4);
+}
+
+.upload-icon mat-icon {
+  font-size: 4rem !important;
+  width: 4rem !important;
+  height: 4rem !important;
+  color: var(--gray-400);
+}
+
+.upload-area h3 {
+  font-size: var(--text-xl);
+  font-weight: 600;
+  color: var(--gray-900);
+  margin-bottom: var(--space-2);
+}
+
+.upload-area p {
+  color: var(--gray-600);
+  margin-bottom: var(--space-6);
+}
+
+/* Files List */
+.files-list {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-3);
+}
+
+.file-item {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: var(--space-4);
+  border: 1px solid var(--gray-200);
+  border-radius: var(--radius-lg);
+  background: var(--gray-50);
+}
+
+.file-info {
+  display: flex;
+  align-items: center;
+  gap: var(--space-3);
+}
+
+.file-icon {
+  color: var(--primary-600);
+  font-size: 1.5rem !important;
+  width: 1.5rem !important;
+  height: 1.5rem !important;
+}
+
+.file-details {
+  display: flex;
+  flex-direction: column;
+}
+
+.file-name {
+  font-weight: 500;
+  color: var(--gray-900);
+  font-size: var(--text-sm);
+}
+
+.file-size {
+  color: var(--gray-500);
+  font-size: var(--text-xs);
+}
+
+.btn-icon {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 2rem;
+  height: 2rem;
+  border: none;
+  background: none;
+  color: var(--gray-400);
+  cursor: pointer;
+  border-radius: var(--radius-md);
+  transition: all 0.2s ease;
+}
+
+.btn-icon:hover {
+  background: var(--error-100);
+  color: var(--error-500);
+}
+
+/* Progress List */
+.progress-list {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-4);
+}
+
+.progress-item {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: var(--space-4);
+  border: 1px solid var(--gray-200);
+  border-radius: var(--radius-lg);
+  background: white;
+}
+
+.progress-info {
+  display: flex;
+  flex-direction: column;
+}
+
+.progress-name {
+  font-weight: 500;
+  color: var(--gray-900);
+  font-size: var(--text-sm);
+}
+
+.progress-status {
+  font-size: var(--text-xs);
+  margin-top: var(--space-1);
+}
+
+.progress-status.success {
+  color: var(--success-500);
+}
+
+.progress-status.error {
+  color: var(--error-500);
+}
+
+.progress-status.uploading {
+  color: var(--primary-500);
+}
+
+.progress-icon {
+  font-size: 1.25rem !important;
+  width: 1.25rem !important;
+  height: 1.25rem !important;
+}
+
+.progress-icon.success {
+  color: var(--success-500);
+}
+
+.progress-icon.error {
+  color: var(--error-500);
+}
+
+.progress-icon.uploading {
+  color: var(--primary-500);
+}
+
+/* Tournament Selector */
+.tournament-selector {
+  max-width: 400px;
+}
+
+/* Responsive */
+@media (max-width: 768px) {
+  .import-layout {
+    padding: var(--space-4) 0;
+  }
+
+  .page-title {
+    font-size: var(--text-2xl);
+  }
+
+  .section-header {
+    flex-direction: column;
+    align-items: stretch;
+    gap: var(--space-4);
+  }
+
+  .section-actions {
+    justify-content: center;
+  }
+
+  .upload-area {
+    padding: var(--space-8);
+  }
+
+  .upload-icon mat-icon {
+    font-size: 3rem !important;
+    width: 3rem !important;
+    height: 3rem !important;
+  }
+
+  .file-item {
+    flex-direction: column;
+    align-items: stretch;
+    gap: var(--space-3);
+  }
+
+  .progress-item {
+    flex-direction: column;
+    align-items: stretch;
+    gap: var(--space-2);
+  }
+}

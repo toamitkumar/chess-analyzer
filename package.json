@@ -13,6 +13,10 @@
     "build": "cd frontend/chess-ui && npm install && npm run build",
     "heroku-postbuild": "cd frontend/chess-ui && npm install && npm run build"
   },
+  "engines": {
+    "node": "18.x",
+    "npm": "9.x"
+  },
   "dependencies": {
     "chess.js": "^1.0.0-beta.6",
     "express": "^4.18.2",

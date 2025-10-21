@@ -64,7 +64,7 @@ app.use((req, res, next) => {
 });
 
 // Serve Angular static files
-app.use(express.static(path.join(__dirname, '../../frontend/chess-ui/dist/chess-ui')));
+app.use(express.static(path.join(__dirname, '../../frontend/chess-ui/dist/chess-ui/browser')));
 app.use(express.json({ limit: '10mb' }));
 app.use(express.text({ limit: '10mb', type: 'text/plain' }));
 
@@ -555,7 +555,7 @@ app.get('/api/health', (req, res) => {
 
 // Serve Angular app for all non-API routes
 app.get('*', (req, res) => {
-  res.sendFile(path.join(__dirname, '../../frontend/chess-ui/dist/chess-ui/index.html'));
+  res.sendFile(path.join(__dirname, '../../frontend/chess-ui/dist/chess-ui/browser/index.html'));
 });
 
 // Helper functions for cache updates

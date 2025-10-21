@@ -4,12 +4,13 @@
   "description": "Chess PGN analyzer using Stockfish",
   "main": "index.js",
   "scripts": {
-    "start": "node src/models/analyzer.js",
+    "start": "node src/api/api-server.js",
     "analyze": "node src/models/analyzer.js",
     "dashboard": "node src/api/api-server.js",
     "test": "jest",
     "test:watch": "jest --watch",
-    "test:coverage": "jest --coverage"
+    "test:coverage": "jest --coverage",
+    "heroku-postbuild": "cd frontend/chess-ui && npm install && npm run build"
   },
   "dependencies": {
     "chess.js": "^1.0.0-beta.6",

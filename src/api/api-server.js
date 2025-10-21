@@ -13,7 +13,7 @@ const { getTournamentManager } = require('../models/tournament-manager');
 const { getTournamentAnalyzer } = require('../models/tournament-analyzer');
 
 const app = express();
-const port = 3000;
+const port = process.env.PORT || 3000;
 
 // Target player for performance metrics
 const TARGET_PLAYER = 'AdvaitKumar1213';
@@ -63,8 +63,8 @@ app.use((req, res, next) => {
   }
 });
 
-// Serve static files from views directory
-app.use(express.static(path.join(__dirname, '../views')));
+// Serve Angular static files
+app.use(express.static(path.join(__dirname, '../../frontend/chess-ui/dist/chess-ui')));
 app.use(express.json({ limit: '10mb' }));
 app.use(express.text({ limit: '10mb', type: 'text/plain' }));
 
@@ -553,9 +553,9 @@ app.get('/api/health', (req, res) => {
   res.json({ status: 'ok', timestamp: new Date().toISOString() });
 });
 
-// Serve dashboard
-app.get('/', (req, res) => {
-  res.sendFile(path.join(__dirname, '../views/dashboard.html'));
+// Serve Angular app for all non-API routes
+app.get('*', (req, res) => {
+  res.sendFile(path.join(__dirname, '../../frontend/chess-ui/dist/chess-ui/index.html'));
 });
 
 // Helper functions for cache updates

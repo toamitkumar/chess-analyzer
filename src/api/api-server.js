@@ -247,26 +247,7 @@ class PerformanceAPI {
 
 const performanceAPI = new PerformanceAPI();
 
-// API Routes
-app.get('/api/performance', async (req, res) => {
-  const startTime = Date.now();
-  
-  try {
-    const data = await performanceAPI.getPerformanceData();
-    const responseTime = Date.now() - startTime;
-    
-    res.json({
-      success: true,
-      data: data,
-      responseTime: responseTime
-    });
-  } catch (error) {
-    res.status(500).json({
-      success: false,
-      error: error.message
-    });
-  }
-});
+// API Routes (performance route moved below to use database)
 
 app.get('/api/trends', async (req, res) => {
   const startTime = Date.now();
@@ -316,7 +297,8 @@ app.get('/api/heatmap', async (req, res) => {
   }
 });
 
-app.post('/api/upload/pgn', upload.single('pgn'), async (req, res) => {
+// Upload endpoints (both /api/upload and /api/upload/pgn for compatibility)
+const uploadHandler = async (req, res) => {
   try {
     let pgnContent;
     let originalFileName = 'uploaded.pgn';
@@ -546,16 +528,15 @@ app.post('/api/upload/pgn', upload.single('pgn'), async (req, res) => {
     console.error('PGN upload error:', error);
     res.status(500).json({ error: 'Failed to process PGN file' });
   }
-});
+};
+
+// Bind both routes to the same handler
+app.post('/api/upload', upload.single('pgn'), uploadHandler);
+app.post('/api/upload/pgn', upload.single('pgn'), uploadHandler);
 
 // Health check
 app.get('/api/health', (req, res) => {
   res.json({ status: 'ok', timestamp: new Date().toISOString() });
-});
-
-// Serve Angular app for all non-API routes
-app.get('*', (req, res) => {
-  res.sendFile(path.join(__dirname, '../../frontend/chess-ui/dist/chess-ui/browser/index.html'));
 });
 
 // Helper functions for cache updates
@@ -800,6 +781,87 @@ app.get('/api/tournaments/:id/summary', async (req, res) => {
   }
 });
 
+// Player-specific tournament performance API
+app.get('/api/tournaments/:id/player-performance', async (req, res) => {
+  try {
+    const tournamentId = parseInt(req.params.id);
+    console.log(`👤 Player performance for tournament ${tournamentId} requested`);
+    
+    if (!database) {
+      throw new Error('Database not initialized');
+    }
+    
+    // Get games for this tournament involving the target player
+    const games = await database.all(`
+      SELECT id, white_player, black_player, result, white_elo, black_elo
+      FROM games 
+      WHERE tournament_id = ? AND (white_player = ? OR black_player = ?)
+      ORDER BY created_at ASC
+    `, [tournamentId, TARGET_PLAYER, TARGET_PLAYER]);
+    
+    let wins = 0;
+    let losses = 0;
+    let draws = 0;
+    let totalBlunders = 0;
+    let totalCentipawnLoss = 0;
+    let totalMoves = 0;
+    
+    for (const game of games) {
+      const isPlayerWhite = game.white_player === TARGET_PLAYER;
+      const isPlayerBlack = game.black_player === TARGET_PLAYER;
+      
+      // Calculate win/loss/draw
+      if (game.result === '1/2-1/2') {
+        draws++;
+      } else if (
+        (isPlayerWhite && game.result === '1-0') ||
+        (isPlayerBlack && game.result === '0-1')
+      ) {
+        wins++;
+      } else {
+        losses++;
+      }
+      
+      // Get analysis data for this game
+      const analysis = await database.all(`
+        SELECT centipawn_loss, is_blunder, move_number
+        FROM analysis 
+        WHERE game_id = ?
+        ORDER BY move_number
+      `, [game.id]);
+      
+      // Filter moves for the target player (odd move numbers for white, even for black)
+      const playerMoves = analysis.filter(move => 
+        (isPlayerWhite && move.move_number % 2 === 1) ||
+        (isPlayerBlack && move.move_number % 2 === 0)
+      );
+      
+      totalBlunders += playerMoves.filter(move => move.is_blunder === 1).length;
+      totalCentipawnLoss += playerMoves.reduce((sum, move) => sum + (move.centipawn_loss || 0), 0);
+      totalMoves += playerMoves.length;
+    }
+    
+    const totalGames = games.length;
+    const winRate = totalGames > 0 ? Math.round((wins / totalGames) * 100) : 0;
+    const avgAccuracy = totalMoves > 0 ? Math.max(0, Math.min(100, Math.round(100 - (totalCentipawnLoss / totalMoves / 2)))) : 0;
+    
+    res.json({
+      totalGames,
+      wins,
+      losses,
+      draws,
+      winRate,
+      avgAccuracy,
+      totalBlunders,
+      avgCentipawnLoss: totalMoves > 0 ? Math.round(totalCentipawnLoss / totalMoves) : 0
+    });
+    
+  } catch (error) {
+    console.error('Player tournament performance API error:', error);
+    res.status(500).json({ error: 'Failed to get player tournament performance' });
+  }
+});
+
 app.get('/api/tournaments/compare', async (req, res) => {
   try {
     const tournamentIds = req.query.ids ? req.query.ids.split(',').map(id => parseInt(id)) : [];
@@ -833,21 +895,124 @@ app.get('/api/tournaments/rankings', async (req, res) => {
   }
 });
 
-// Enhanced performance API with tournament filtering
+// Overall player performance API
+app.get('/api/player-performance', async (req, res) => {
+  try {
+    console.log(`👤 Overall player performance requested for ${TARGET_PLAYER}`);
+    
+    if (!database) {
+      throw new Error('Database not initialized');
+    }
+    
+    // Get all games for the target player
+    const games = await database.all(`
+      SELECT id, white_player, black_player, result, white_elo, black_elo
+      FROM games 
+      WHERE white_player = ? OR black_player = ?
+      ORDER BY created_at ASC
+    `, [TARGET_PLAYER, TARGET_PLAYER]);
+    
+    let totalWins = 0, totalLosses = 0, totalDraws = 0;
+    let whiteWins = 0, whiteLosses = 0, whiteDraws = 0, whiteGames = 0;
+    let blackWins = 0, blackLosses = 0, blackDraws = 0, blackGames = 0;
+    let totalBlunders = 0, totalCentipawnLoss = 0, totalMoves = 0;
+    
+    for (const game of games) {
+      const isPlayerWhite = game.white_player === TARGET_PLAYER;
+      const isPlayerBlack = game.black_player === TARGET_PLAYER;
+      
+      // Count games by color
+      if (isPlayerWhite) whiteGames++;
+      if (isPlayerBlack) blackGames++;
+      
+      // Calculate results
+      if (game.result === '1/2-1/2') {
+        totalDraws++;
+        if (isPlayerWhite) whiteDraws++;
+        if (isPlayerBlack) blackDraws++;
+      } else if (
+        (isPlayerWhite && game.result === '1-0') ||
+        (isPlayerBlack && game.result === '0-1')
+      ) {
+        totalWins++;
+        if (isPlayerWhite) whiteWins++;
+        if (isPlayerBlack) blackWins++;
+      } else {
+        totalLosses++;
+        if (isPlayerWhite) whiteLosses++;
+        if (isPlayerBlack) blackLosses++;
+      }
+      
+      // Get analysis data for this game
+      const analysis = await database.all(`
+        SELECT centipawn_loss, is_blunder, move_number
+        FROM analysis 
+        WHERE game_id = ?
+        ORDER BY move_number
+      `, [game.id]);
+      
+      // Filter moves for the target player
+      const playerMoves = analysis.filter(move => 
+        (isPlayerWhite && move.move_number % 2 === 1) ||
+        (isPlayerBlack && move.move_number % 2 === 0)
+      );
+      
+      totalBlunders += playerMoves.filter(move => move.is_blunder === 1).length;
+      totalCentipawnLoss += playerMoves.reduce((sum, move) => sum + (move.centipawn_loss || 0), 0);
+      totalMoves += playerMoves.length;
+    }
+    
+    const totalGames = games.length;
+    const overallWinRate = totalGames > 0 ? Math.round((totalWins / totalGames) * 100) : 0;
+    const whiteWinRate = whiteGames > 0 ? Math.round((whiteWins / whiteGames) * 100) : 0;
+    const blackWinRate = blackGames > 0 ? Math.round((blackWins / blackGames) * 100) : 0;
+    const avgAccuracy = totalMoves > 0 ? Math.max(0, Math.min(100, Math.round(100 - (totalCentipawnLoss / totalMoves / 2)))) : 0;
+    
+    res.json({
+      overall: {
+        overallWinRate,
+        avgAccuracy,
+        totalGames,
+        totalBlunders
+      },
+      white: {
+        games: whiteGames,
+        wins: whiteWins,
+        losses: whiteLosses,
+        draws: whiteDraws,
+        winRate: whiteWinRate,
+        avgAccuracy,
+        blunders: Math.round(totalBlunders * (whiteGames / totalGames))
+      },
+      black: {
+        games: blackGames,
+        wins: blackWins,
+        losses: blackLosses,
+        draws: blackDraws,
+        winRate: blackWinRate,
+        avgAccuracy,
+        blunders: Math.round(totalBlunders * (blackGames / totalGames))
+      }
+    });
+    
+  } catch (error) {
+    console.error('Player performance API error:', error);
+    res.status(500).json({ error: 'Failed to get player performance' });
+  }
+});
+
+// Enhanced performance API with tournament filtering (merged with performance-db)
 app.get('/api/performance', async (req, res) => {
   try {
     const tournamentId = req.query.tournament ? parseInt(req.query.tournament) : null;
     console.log(`📊 Performance data requested${tournamentId ? ` for tournament ${tournamentId}` : ' (overall)'}`);
     
-    if (tournamentId && tournamentAnalyzer) {
-      // Get tournament-filtered performance
-      const performanceData = await tournamentAnalyzer.getFilteredPerformance(tournamentId);
-      res.json(performanceData);
-    } else {
-      // Get overall performance (existing logic)
-      const performanceData = await database.getPerformanceMetrics();
-      res.json(performanceData);
+    if (!database) {
+      throw new Error('Database not initialized');
     }
+    
+    const performanceData = await database.getPerformanceMetrics(tournamentId);
+    res.json(performanceData);
   } catch (error) {
     console.error('Performance API error:', error);
     
@@ -951,33 +1116,7 @@ app.get('/api/tournaments/:id/games', async (req, res) => {
   }
 });
 
-// Database-integrated API routes
-app.get('/api/performance-db', async (req, res) => {
-  try {
-    console.log('📊 Database performance data requested');
-    
-    if (!database) {
-      throw new Error('Database not initialized');
-    }
-    
-    const tournamentId = req.query.tournament ? parseInt(req.query.tournament) : null;
-    console.log('📊 Tournament filter:', tournamentId);
-    
-    const performanceData = await database.getPerformanceMetrics(tournamentId);
-    res.json(performanceData);
-  } catch (error) {
-    console.error('Database performance API error:', error);
-    
-    // Fallback to existing performance API
-    const fallbackData = {
-      white: { games: 0, winRate: 0, avgAccuracy: 0, blunders: 0 },
-      black: { games: 0, winRate: 0, avgAccuracy: 0, blunders: 0 },
-      overall: { avgAccuracy: 0, totalBlunders: 0 }
-    };
-    
-    res.json(fallbackData);
-  }
-});
+// Database-integrated API routes (merged into /api/performance above)
 
 app.get('/api/heatmap-db', async (req, res) => {
   try {
@@ -1075,9 +1214,16 @@ app.get('/api/trends/rating', async (req, res) => {
       ORDER BY g.date ASC
     `, params);
     
-    const data = games.map((game, index) => ({
+    // Filter games with actual ratings and track rating progression
+    const ratedGames = games.filter(game => {
+      const playerRating = game.white_player === TARGET_PLAYER ? game.white_elo : game.black_elo;
+      return playerRating && playerRating > 0;
+    });
+    
+    const data = ratedGames.map((game, index) => ({
       gameNumber: index + 1,
-      rating: game.white_player === TARGET_PLAYER ? (game.white_elo || 1500) : (game.black_elo || 1500)
+      rating: game.white_player === TARGET_PLAYER ? game.white_elo : game.black_elo,
+      date: game.date
     }));
     
     res.json({ data });
@@ -1115,6 +1261,22 @@ app.get('/api/trends/centipawn-loss', async (req, res) => {
 });
 
 // Game Analysis API Endpoints
+app.get('/api/games/:id', async (req, res) => {
+  try {
+    const gameId = parseInt(req.params.id);
+    const game = await database.get('SELECT * FROM games WHERE id = ?', [gameId]);
+    
+    if (!game) {
+      return res.status(404).json({ error: 'Game not found' });
+    }
+    
+    res.json(game);
+  } catch (error) {
+    console.error('Game details API error:', error);
+    res.status(500).json({ error: error.message });
+  }
+});
+
 app.get('/api/games/:id/analysis', async (req, res) => {
   try {
     const gameId = parseInt(req.params.id);
@@ -1171,6 +1333,15 @@ app.get('/api/games/:id/blunders', async (req, res) => {
     console.error('Blunders API error:', error);
     res.status(500).json({ error: error.message });
   }
+});
+
+// Serve Angular app for all non-API routes (MUST BE LAST)
+app.get('*', (req, res) => {
+  // Only serve Angular for non-API routes
+  if (req.path.startsWith('/api/')) {
+    return res.status(404).json({ error: 'API endpoint not found' });
+  }
+  res.sendFile(path.join(__dirname, '../../frontend/chess-ui/dist/chess-ui/browser/index.html'));
 });
 
 // Initialize services and start server

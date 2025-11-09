@@ -78,6 +78,10 @@ export class ChessApiService {
     return this.http.get(`${this.baseUrl}/games/${gameId}/analysis`);
   }
 
+  getGamePerformance(gameId: number): Observable<any> {
+    return this.http.get(`${this.baseUrl}/games/${gameId}/performance`);
+  }
+
   // Tournament API methods
   getTournaments(): Observable<any[]> {
     return this.http.get<any[]>(`${this.baseUrl}/tournaments`);

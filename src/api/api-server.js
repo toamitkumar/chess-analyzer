@@ -10,6 +10,7 @@ const ChessAnalyzer = require('../models/analyzer');
 const { getDatabase } = require('../models/database');
 const { getFileStorage } = require('../models/file-storage');
 const { getTournamentManager } = require('../models/tournament-manager');
+const AccuracyCalculator = require('../models/accuracy-calculator');
 const { getTournamentAnalyzer } = require('../models/tournament-analyzer');
 
 const app = express();
@@ -966,7 +967,26 @@ app.get('/api/player-performance', async (req, res) => {
     const overallWinRate = totalGames > 0 ? Math.round((totalWins / totalGames) * 100) : 0;
     const whiteWinRate = whiteGames > 0 ? Math.round((whiteWins / whiteGames) * 100) : 0;
     const blackWinRate = blackGames > 0 ? Math.round((blackWins / blackGames) * 100) : 0;
-    const avgAccuracy = totalMoves > 0 ? Math.max(0, Math.min(100, Math.round(100 - (totalCentipawnLoss / totalMoves / 2)))) : 0;
+    
+    // Calculate accuracy using centralized calculator
+    const gamesWithAnalysis = [];
+    for (const game of games) {
+      const analysis = await database.all(`
+        SELECT centipawn_loss, move_number
+        FROM analysis 
+        WHERE game_id = ?
+        ORDER BY move_number
+      `, [game.id]);
+      
+      if (analysis.length > 0) {
+        gamesWithAnalysis.push({
+          ...game,
+          analysis
+        });
+      }
+    }
+    
+    const avgAccuracy = AccuracyCalculator.calculateOverallAccuracy(gamesWithAnalysis, TARGET_PLAYER);
     
     res.json({
       overall: {
@@ -1099,17 +1119,76 @@ app.get('/api/tournaments/:id/games', async (req, res) => {
     if (!database) {
       throw new Error('Database not initialized');
     }
-    
+
     const games = await database.all(`
       SELECT 
         id, white_player, black_player, result, date, 
-        white_elo, black_elo, moves_count, created_at
+        white_elo, black_elo, moves_count, created_at, pgn_content
       FROM games 
       WHERE tournament_id = ?
       ORDER BY created_at DESC
     `, [tournamentId]);
     
-    res.json(games);
+    // Add opening extraction and accuracy calculation to each game
+    const gamesWithAnalysis = await Promise.all(games.map(async (game) => {
+      let opening = null;
+      if (game.pgn_content) {
+        const ecoMatch = game.pgn_content.match(/\[ECO "([^"]+)"\]/);
+        if (ecoMatch) {
+          const ecoCode = ecoMatch[1];
+          opening = await getOpeningName(ecoCode);
+        }
+      }
+      
+      // Get analysis data for accuracy calculation
+      const analysis = await database.all(`
+        SELECT move_number, centipawn_loss, is_blunder
+        FROM analysis 
+        WHERE game_id = ?
+        ORDER BY move_number
+      `, [game.id]);
+      
+      // Calculate player-specific accuracy and blunders using centralized calculator
+      let playerAccuracy = 0;
+      let playerBlunders = 0;
+      
+      if (analysis.length > 0) {
+        const gameWithAnalysis = {
+          ...game,
+          analysis
+        };
+        
+        // Calculate accuracy for AdvaitKumar1213 using centralized calculator
+        playerAccuracy = AccuracyCalculator.calculatePlayerAccuracy(
+          analysis, 
+          TARGET_PLAYER, 
+          game.white_player, 
+          game.black_player
+        );
+        
+        // Calculate blunders for AdvaitKumar1213
+        const isPlayerWhite = game.white_player === TARGET_PLAYER;
+        const isPlayerBlack = game.black_player === TARGET_PLAYER;
+        
+        if (isPlayerWhite || isPlayerBlack) {
+          const playerMoves = analysis.filter(move => 
+            (isPlayerWhite && move.move_number % 2 === 1) ||
+            (isPlayerBlack && move.move_number % 2 === 0)
+          );
+          playerBlunders = playerMoves.filter(move => move.is_blunder === 1).length;
+        }
+      }
+      
+      return {
+        ...game,
+        opening: opening || 'Unknown Opening',
+        accuracy: playerAccuracy,
+        blunders: playerBlunders,
+        playerColor: game.white_player === TARGET_PLAYER ? 'white' : 'black'
+      };
+    }));
+    
+    res.json(gamesWithAnalysis);
   } catch (error) {
     console.error('Tournament games API error:', error);
     res.json([]);
@@ -1176,6 +1255,17 @@ app.get('/api/heatmap-db', async (req, res) => {
   }
 });
 
+// Database-based function for ECO to opening name mapping
+async function getOpeningName(ecoCode) {
+  try {
+    const result = await database.get('SELECT opening_name FROM chess_openings WHERE eco_code = ?', [ecoCode]);
+    return result ? result.opening_name : `${ecoCode} Opening`;
+  } catch (error) {
+    console.error('Error fetching opening name:', error);
+    return `${ecoCode} Opening`;
+  }
+}
+
 app.get('/api/games', async (req, res) => {
   try {
     console.log('🎮 Games list requested');
@@ -1183,17 +1273,34 @@ app.get('/api/games', async (req, res) => {
     if (!database) {
       throw new Error('Database not initialized');
     }
-    
+
     const games = await database.all(`
       SELECT 
         id, white_player, black_player, result, date, event,
-        white_elo, black_elo, moves_count, created_at
+        white_elo, black_elo, moves_count, created_at, pgn_content
       FROM games 
       ORDER BY created_at DESC 
       LIMIT 50
     `);
     
-    res.json(games);
+    // Add opening extraction to each game
+    const gamesWithOpenings = await Promise.all(games.map(async (game) => {
+      let opening = null;
+      if (game.pgn_content) {
+        const ecoMatch = game.pgn_content.match(/\[ECO "([^"]+)"\]/);
+        if (ecoMatch) {
+          const ecoCode = ecoMatch[1];
+          opening = await getOpeningName(ecoCode);
+        }
+      }
+      
+      return {
+        ...game,
+        opening: opening || 'Unknown Opening'
+      };
+    }));
+    
+    res.json(gamesWithOpenings);
   } catch (error) {
     console.error('Games API error:', error);
     res.json([]);
@@ -1270,7 +1377,20 @@ app.get('/api/games/:id', async (req, res) => {
       return res.status(404).json({ error: 'Game not found' });
     }
     
-    res.json(game);
+    // Extract opening from PGN content
+    let opening = null;
+    if (game.pgn_content) {
+      const ecoMatch = game.pgn_content.match(/\[ECO "([^"]+)"\]/);
+      if (ecoMatch) {
+        const ecoCode = ecoMatch[1];
+        opening = await getOpeningName(ecoCode);
+      }
+    }
+    
+    res.json({
+      ...game,
+      opening: opening
+    });
   } catch (error) {
     console.error('Game details API error:', error);
     res.status(500).json({ error: error.message });
@@ -1331,6 +1451,195 @@ app.get('/api/games/:id/blunders', async (req, res) => {
     res.json(blunders);
   } catch (error) {
     console.error('Blunders API error:', error);
+    res.status(500).json({ error: error.message });
+  }
+});
+
+// Game Accuracy API Endpoint
+app.get('/api/games/:id/accuracy', async (req, res) => {
+  try {
+    const gameId = parseInt(req.params.id);
+    
+    const game = await database.get('SELECT * FROM games WHERE id = ?', [gameId]);
+    if (!game) {
+      return res.status(404).json({ error: 'Game not found' });
+    }
+    
+    // Get analysis data for accuracy calculation using centralized calculator
+    const analysis = await database.all(`
+      SELECT move_number, centipawn_loss
+      FROM analysis 
+      WHERE game_id = ?
+      ORDER BY move_number
+    `, [gameId]);
+    
+    const gameWithAnalysis = {
+      ...game,
+      analysis
+    };
+    
+    const whiteAccuracy = AccuracyCalculator.calculatePlayerAccuracy(analysis, game.white_player, game.white_player, game.black_player);
+    const blackAccuracy = AccuracyCalculator.calculatePlayerAccuracy(analysis, game.black_player, game.white_player, game.black_player);
+    
+    const isPlayerWhite = game.white_player === 'AdvaitKumar1213';
+    
+    res.json({
+      playerAccuracy: isPlayerWhite ? whiteAccuracy : blackAccuracy,
+      opponentAccuracy: isPlayerWhite ? blackAccuracy : whiteAccuracy,
+      whiteAccuracy,
+      blackAccuracy
+    });
+  } catch (error) {
+    console.error('Accuracy API error:', error);
+    res.status(500).json({ error: error.message });
+  }
+});
+
+// Game Performance API - comprehensive game metrics using AccuracyCalculator
+app.get('/api/games/:id/performance', async (req, res) => {
+  try {
+    const gameId = parseInt(req.params.id);
+    
+    const game = await database.get('SELECT * FROM games WHERE id = ?', [gameId]);
+    if (!game) {
+      return res.status(404).json({ error: 'Game not found' });
+    }
+    
+    // Extract opening from PGN content (same logic as other endpoints)
+    let opening = 'Unknown';
+    if (game.pgn_content) {
+      const ecoMatch = game.pgn_content.match(/\[ECO "([^"]+)"\]/);
+      if (ecoMatch) {
+        const ecoCode = ecoMatch[1];
+        opening = await getOpeningName(ecoCode);
+      }
+    }
+    
+    // Get analysis data
+    const analysis = await database.all(`
+      SELECT move_number, centipawn_loss, is_blunder
+      FROM analysis 
+      WHERE game_id = ?
+      ORDER BY move_number
+    `, [gameId]);
+    
+    // Calculate player-specific metrics using AccuracyCalculator
+    const TARGET_PLAYER = 'AdvaitKumar1213';
+    const isPlayerWhite = game.white_player === TARGET_PLAYER;
+    
+    // Filter player moves
+    const playerMoves = analysis.filter(move => 
+      (isPlayerWhite && move.move_number % 2 === 1) ||
+      (!isPlayerWhite && move.move_number % 2 === 0)
+    );
+    
+    // Calculate accuracy using AccuracyCalculator
+    const playerAccuracy = AccuracyCalculator.calculatePlayerAccuracy(
+      analysis, 
+      TARGET_PLAYER, 
+      game.white_player, 
+      game.black_player
+    );
+    
+    // Count blunders
+    const playerBlunders = playerMoves.filter(move => move.is_blunder === 1).length;
+    
+    res.json({
+      gameId: gameId,
+      playerColor: isPlayerWhite ? 'white' : 'black',
+      accuracy: Math.round(playerAccuracy),
+      blunders: playerBlunders,
+      moves: playerMoves.length,
+      totalMoves: analysis.length,
+      opening: opening
+    });
+  } catch (error) {
+    console.error('Game performance API error:', error);
+    res.status(500).json({ error: error.message });
+  }
+});
+
+// Game Phase Analysis API Endpoint
+app.get('/api/games/:id/phases', async (req, res) => {
+  try {
+    const gameId = parseInt(req.params.id);
+    
+    const game = await database.get('SELECT * FROM games WHERE id = ?', [gameId]);
+    if (!game) {
+      return res.status(404).json({ error: 'Game not found' });
+    }
+    
+    const analysis = await database.all(`
+      SELECT * FROM analysis WHERE game_id = ? ORDER BY move_number
+    `, [gameId]);
+    
+    if (analysis.length === 0) {
+      return res.json({
+        opening: { accuracy: 0, description: 'No analysis available' },
+        middlegame: { accuracy: 0, description: 'No analysis available' },
+        endgame: { accuracy: 0, description: 'No analysis available' }
+      });
+    }
+    
+    // Divide game into phases
+    const totalMoves = analysis.length;
+    const openingEnd = Math.min(20, Math.floor(totalMoves * 0.3));
+    const middlegameEnd = Math.floor(totalMoves * 0.7);
+    
+    const openingMoves = analysis.slice(0, openingEnd);
+    const middlegameMoves = analysis.slice(openingEnd, middlegameEnd);
+    const endgameMoves = analysis.slice(middlegameEnd);
+    
+    const TARGET_PLAYER = 'AdvaitKumar1213';
+    const isPlayerWhite = game.white_player === TARGET_PLAYER;
+    
+    const getPlayerMoves = (moves) => moves.filter(move => 
+      (isPlayerWhite && move.move_number % 2 === 1) ||
+      (!isPlayerWhite && move.move_number % 2 === 0)
+    );
+    
+    const playerOpeningMoves = getPlayerMoves(openingMoves);
+    const playerMiddlegameMoves = getPlayerMoves(middlegameMoves);
+    const playerEndgameMoves = getPlayerMoves(endgameMoves);
+    
+    // Use AccuracyCalculator for consistent accuracy calculation
+    const calculatePhaseAccuracy = (moves) => {
+      if (moves.length === 0) return 0;
+      const avgCPL = moves.reduce((sum, move) => sum + move.centipawn_loss, 0) / moves.length;
+      return Math.max(0, Math.min(100, 100 - (avgCPL / 3))); // Same formula as AccuracyCalculator
+    };
+    
+    const openingAccuracy = calculatePhaseAccuracy(playerOpeningMoves);
+    const middlegameAccuracy = calculatePhaseAccuracy(playerMiddlegameMoves);
+    const endgameAccuracy = calculatePhaseAccuracy(playerEndgameMoves);
+    
+    const getPhaseDescription = (accuracy, blunders) => {
+      if (accuracy >= 90) return `Excellent play, very precise moves`;
+      if (accuracy >= 80) return `Good performance with minor inaccuracies`;
+      if (blunders > 0) return `${blunders} major mistake${blunders > 1 ? 's' : ''} in this phase`;
+      return `Room for improvement in this phase`;
+    };
+    
+    const openingBlunders = playerOpeningMoves.filter(m => m.is_blunder).length;
+    const middlegameBlunders = playerMiddlegameMoves.filter(m => m.is_blunder).length;
+    const endgameBlunders = playerEndgameMoves.filter(m => m.is_blunder).length;
+    
+    res.json({
+      opening: {
+        accuracy: Math.round(openingAccuracy),
+        description: getPhaseDescription(openingAccuracy, openingBlunders)
+      },
+      middlegame: {
+        accuracy: Math.round(middlegameAccuracy),
+        description: getPhaseDescription(middlegameAccuracy, middlegameBlunders)
+      },
+      endgame: {
+        accuracy: Math.round(endgameAccuracy),
+        description: getPhaseDescription(endgameAccuracy, endgameBlunders)
+      }
+    });
+  } catch (error) {
+    console.error('Phase analysis API error:', error);
     res.status(500).json({ error: error.message });
   }
 });

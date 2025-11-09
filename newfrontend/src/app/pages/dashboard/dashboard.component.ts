@@ -3,13 +3,12 @@ import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 import { HttpClientModule } from '@angular/common/http';
 import { LayoutComponent } from '../../components/layout/layout.component';
-import { StatCardComponent } from '../../components/stat-card/stat-card.component';
 import { ChessApiService, PerformanceData } from '../../services/chess-api.service';
 
 @Component({
   selector: 'app-dashboard',
   standalone: true,
-  imports: [CommonModule, FormsModule, HttpClientModule, LayoutComponent, StatCardComponent],
+  imports: [CommonModule, FormsModule, HttpClientModule, LayoutComponent],
   template: `
     <app-layout>
       <div class="space-y-6">
@@ -29,30 +28,66 @@ import { ChessApiService, PerformanceData } from '../../services/chess-api.servi
         </div>
 
         <div class="grid gap-4 md:grid-cols-2 lg:grid-cols-4" *ngIf="performanceData">
-          <app-stat-card
-            title="Total Games"
-            [value]="getTotalGames()"
-            subtitle="All time"
-            icon="trophy">
-          </app-stat-card>
-          <app-stat-card
-            title="Win Rate"
-            [value]="getOverallWinRate()"
-            [subtitle]="getWinRateSubtitle()"
-            icon="target">
-          </app-stat-card>
-          <app-stat-card
-            title="Avg Accuracy"
-            [value]="getAvgAccuracy()"
-            subtitle="Across all games"
-            icon="trending-up">
-          </app-stat-card>
-          <app-stat-card
-            title="Blunders"
-            [value]="getBlunders()"
-            subtitle="This month"
-            icon="alert-triangle">
-          </app-stat-card>
+          <div class="rounded-lg border bg-card text-card-foreground shadow-sm p-6">
+            <div class="flex flex-row items-center justify-between space-y-0 pb-2">
+              <h3 class="tracking-tight text-sm font-medium">Total Games</h3>
+              <svg class="h-4 w-4 text-muted-foreground" xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                <path d="M6 9H4.5a2.5 2.5 0 0 1 0-5H6"/>
+                <path d="M18 9h1.5a2.5 2.5 0 0 0 0-5H18"/>
+                <path d="M4 22h16"/>
+                <path d="M10 14.66V17c0 .55-.47.98-.97 1.21C7.85 18.75 7 20.24 7 22"/>
+                <path d="M14 14.66V17c0 .55.47.98.97 1.21C16.15 18.75 17 20.24 17 22"/>
+                <path d="M18 2H6v7a6 6 0 0 0 12 0V2Z"/>
+              </svg>
+            </div>
+            <div>
+              <div class="text-2xl font-bold">{{ getTotalGames() }}</div>
+              <p class="text-xs text-muted-foreground">All time</p>
+            </div>
+          </div>
+
+          <div class="rounded-lg border bg-card text-card-foreground shadow-sm p-6">
+            <div class="flex flex-row items-center justify-between space-y-0 pb-2">
+              <h3 class="tracking-tight text-sm font-medium">Win Rate</h3>
+              <svg class="h-4 w-4 text-muted-foreground" xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                <circle cx="12" cy="12" r="10"/>
+                <circle cx="12" cy="12" r="6"/>
+                <circle cx="12" cy="12" r="2"/>
+              </svg>
+            </div>
+            <div>
+              <div class="text-2xl font-bold">{{ getOverallWinRate() }}</div>
+              <p class="text-xs text-muted-foreground">{{ getWinRateSubtitle() }}</p>
+            </div>
+          </div>
+
+          <div class="rounded-lg border bg-card text-card-foreground shadow-sm p-6">
+            <div class="flex flex-row items-center justify-between space-y-0 pb-2">
+              <h3 class="tracking-tight text-sm font-medium">Avg Accuracy</h3>
+              <svg class="h-4 w-4 text-muted-foreground" xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                <polyline points="22,12 18,12 15,21 9,3 6,12 2,12"/>
+              </svg>
+            </div>
+            <div>
+              <div class="text-2xl font-bold">{{ getAvgAccuracy() }}</div>
+              <p class="text-xs text-muted-foreground">Across all games</p>
+            </div>
+          </div>
+
+          <div class="rounded-lg border bg-card text-card-foreground shadow-sm p-6">
+            <div class="flex flex-row items-center justify-between space-y-0 pb-2">
+              <h3 class="tracking-tight text-sm font-medium">Blunders</h3>
+              <svg class="h-4 w-4 text-muted-foreground" xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                <path d="m21.73 18-8-14a2 2 0 0 0-3.48 0l-8 14A2 2 0 0 0 4 21h16a2 2 0 0 0 1.73-3Z"/>
+                <path d="M12 9v4"/>
+                <path d="m12 17 .01 0"/>
+              </svg>
+            </div>
+            <div>
+              <div class="text-2xl font-bold">{{ getBlunders() }}</div>
+              <p class="text-xs text-muted-foreground">This month</p>
+            </div>
+          </div>
         </div>
 
         <div class="grid gap-4 md:grid-cols-2">
@@ -77,11 +112,11 @@ import { ChessApiService, PerformanceData } from '../../services/chess-api.servi
                     <line x1="50" y1="40" x2="350" y2="40"/>
                   </g>
                   <!-- Rating line -->
-                  <polyline fill="none" stroke="#3b82f6" stroke-width="2" 
+                  <polyline fill="none" stroke="hsl(var(--chart-1))" stroke-width="2" 
                     [attr.points]="getRatingPoints()"/>
                   <!-- Data points -->
                   <circle *ngFor="let point of getRatingDataPoints()" 
-                    [attr.cx]="point.x" [attr.cy]="point.y" r="4" fill="#3b82f6"/>
+                    [attr.cx]="point.x" [attr.cy]="point.y" r="4" fill="hsl(var(--chart-1))"/>
                   <!-- Labels -->
                   <text x="50" y="180" text-anchor="middle" class="text-xs" fill="#6b7280">Start</text>
                   <text x="350" y="180" text-anchor="middle" class="text-xs" fill="#6b7280">Latest</text>
@@ -118,11 +153,11 @@ import { ChessApiService, PerformanceData } from '../../services/chess-api.servi
                     <line x1="50" y1="40" x2="350" y2="40"/>
                   </g>
                   <!-- CPL line -->
-                  <polyline fill="none" stroke="#ef4444" stroke-width="2" 
+                  <polyline fill="none" stroke="hsl(var(--chart-2))" stroke-width="2" 
                     [attr.points]="getCentipawnPoints()"/>
                   <!-- Data points -->
                   <circle *ngFor="let point of getCentipawnDataPoints()" 
-                    [attr.cx]="point.x" [attr.cy]="point.y" r="4" fill="#ef4444"/>
+                    [attr.cx]="point.x" [attr.cy]="point.y" r="4" fill="hsl(var(--chart-2))"/>
                   <!-- Labels -->
                   <text x="50" y="180" text-anchor="middle" class="text-xs" fill="#6b7280">Start</text>
                   <text x="350" y="180" text-anchor="middle" class="text-xs" fill="#6b7280">Latest</text>
@@ -155,7 +190,7 @@ import { ChessApiService, PerformanceData } from '../../services/chess-api.servi
                   {{ getWhiteWins() }} wins, {{ getWhiteLosses() }} losses, {{ getWhiteDraws() }} draws
                 </div>
                 <div class="h-2 w-full overflow-hidden rounded-full bg-muted">
-                  <div class="h-full bg-green-500" [style.width.%]="performanceData.white.winRate"></div>
+                  <div class="h-full bg-success" [style.width.%]="performanceData.white.winRate"></div>
                 </div>
               </div>
               
@@ -168,31 +203,34 @@ import { ChessApiService, PerformanceData } from '../../services/chess-api.servi
                   {{ getBlackWins() }} wins, {{ getBlackLosses() }} losses, {{ getBlackDraws() }} draws
                 </div>
                 <div class="h-2 w-full overflow-hidden rounded-full bg-muted">
-                  <div class="h-full bg-blue-500" [style.width.%]="performanceData.black.winRate"></div>
+                  <div class="h-full bg-chart-1" [style.width.%]="performanceData.black.winRate"></div>
                 </div>
               </div>
             </div>
           </div>
         </div>
 
-        <div class="rounded-lg border border-blue-200 bg-blue-50 text-card-foreground shadow-sm">
+        <div class="rounded-lg border border-accent/20 bg-accent/5 text-card-foreground shadow-sm">
           <div class="flex flex-col space-y-1.5 p-6">
             <h3 class="text-2xl font-semibold leading-none tracking-tight flex items-center gap-2">
-              📈 Key Insights
+              <svg class="h-5 w-5 text-accent" xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                <polyline points="22,12 18,12 15,21 9,3 6,12 2,12"/>
+              </svg>
+              Key Insights
             </h3>
           </div>
           <div class="p-6 pt-0">
             <ul class="space-y-2 text-sm">
               <li class="flex items-start gap-2">
-                <span class="text-blue-600">•</span>
+                <span class="text-accent">•</span>
                 <span>{{ getAccuracyInsight() }}</span>
               </li>
               <li class="flex items-start gap-2">
-                <span class="text-blue-600">•</span>
+                <span class="text-accent">•</span>
                 <span>{{ getColorPerformanceInsight() }}</span>
               </li>
               <li class="flex items-start gap-2">
-                <span class="text-blue-600">•</span>
+                <span class="text-accent">•</span>
                 <span>{{ getRatingInsight() }}</span>
               </li>
             </ul>

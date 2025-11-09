@@ -188,6 +188,7 @@ interface Tournament {
 })
 export class TournamentsComponent implements OnInit {
   tournaments: Tournament[] = [];
+  overallPerformance: any = null;
   loading = true;
   error: string | null = null;
 
@@ -202,68 +203,27 @@ export class TournamentsComponent implements OnInit {
     this.error = null;
     
     try {
-      const tournaments = await this.chessApi.getTournaments().toPromise();
+      // Load tournaments and overall performance from BE
+      const [tournaments, overallPerformance] = await Promise.all([
+        this.chessApi.getTournaments().toPromise(),
+        this.chessApi.getPlayerPerformanceData().toPromise()
+      ]);
       
-      // Load performance data for each tournament
+      this.overallPerformance = overallPerformance;
+      
+      // Load performance data for each tournament using BE calculation
       this.tournaments = await Promise.all(
         tournaments.map(async (tournament) => {
           try {
-            // Get games for this tournament to calculate player-specific wins/losses
-            const games = await this.chessApi.getTournamentGames(tournament.id).toPromise();
-            const targetPlayer = this.chessApi.targetPlayer;
-            
-            let wins = 0, losses = 0, draws = 0;
-            
-            games.forEach((game: any) => {
-              const isPlayerWhite = game.white_player === targetPlayer;
-              const isPlayerBlack = game.black_player === targetPlayer;
-              
-              if (isPlayerWhite || isPlayerBlack) {
-                if (game.result === '1/2-1/2') {
-                  draws++;
-                } else if (
-                  (isPlayerWhite && game.result === '1-0') ||
-                  (isPlayerBlack && game.result === '0-1')
-                ) {
-                  wins++;
-                } else {
-                  losses++;
-                }
-              }
-            });
-            
-            // Get tournament-wide performance metrics for accuracy/blunders
             const performance = await this.chessApi.getTournamentPerformance(tournament.id).toPromise();
-            
-            // Calculate player-specific blunders from games
-            let playerBlunders = 0;
-            for (const game of games) {
-              const isPlayerWhite = game.white_player === targetPlayer;
-              const isPlayerBlack = game.black_player === targetPlayer;
-              
-              if (isPlayerWhite || isPlayerBlack) {
-                try {
-                  const analysis = await this.chessApi.getGameAnalysis(game.id).toPromise();
-                  const playerMoves = analysis.analysis?.filter((move: any) => 
-                    (isPlayerWhite && move.move_number % 2 === 1) ||
-                    (isPlayerBlack && move.move_number % 2 === 0)
-                  ) || [];
-                  playerBlunders += playerMoves.filter((move: any) => move.is_blunder === 1).length;
-                } catch (error) {
-                  console.warn(`Failed to get blunders for game ${game.id}`);
-                }
-              }
-            }
-            
-            console.log(`Tournament ${tournament.id} (${tournament.name}) performance:`, performance);
             
             return {
               ...tournament,
-              wins,
-              draws,
-              losses,
+              wins: performance.whiteWins, // Actually player wins regardless of color
+              draws: performance.draws,
+              losses: performance.totalGames - (performance.whiteWins + performance.draws),
               avgAccuracy: performance.avgAccuracy || 0,
-              totalBlunders: playerBlunders
+              totalBlunders: performance.totalBlunders || 0
             };
           } catch (error) {
             console.warn(`Failed to load performance for tournament ${tournament.id}:`, error);
@@ -308,12 +268,9 @@ export class TournamentsComponent implements OnInit {
   }
 
   getAvgAccuracy(): string {
-    if (this.tournaments.length === 0) return '0.0';
-    const tournamentsWithAccuracy = this.tournaments.filter(t => t.avgAccuracy && t.avgAccuracy > 0);
-    if (tournamentsWithAccuracy.length === 0) return '0.0';
-    
-    const avgAccuracy = tournamentsWithAccuracy.reduce((sum, t) => sum + (t.avgAccuracy || 0), 0) / tournamentsWithAccuracy.length;
-    return avgAccuracy.toFixed(1);
+    // Use same BE calculation as dashboard
+    if (!this.overallPerformance?.overall?.avgAccuracy) return '0.0';
+    return this.overallPerformance.overall.avgAccuracy.toFixed(1);
   }
 
   calculateWinRate(wins: number, total: number): number {

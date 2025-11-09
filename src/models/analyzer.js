@@ -89,8 +89,8 @@ class ChessAnalyzer {
           const centipawnLoss = Math.min(rawCentipawnLoss, 500); // Cap at 500cp (5 pawns)
           totalCentipawnLoss += centipawnLoss;
           
-          // Determine if it's a blunder (>150cp loss for more realistic detection)
-          const isBlunder = centipawnLoss > 150;
+          // Determine if it's a blunder (200cp+ loss to match Chess.com standards)
+          const isBlunder = centipawnLoss > 200;
           if (isBlunder) {
             blunders.push({
               moveNumber: Math.ceil((i + 1) / 2),
@@ -275,7 +275,7 @@ class ChessAnalyzer {
         const isWhiteMove = i % 2 === 0;
         const centipawnLoss = this.calculateCentipawnLoss(beforeEval.evaluation, afterEval.evaluation, isWhiteMove);
         const cappedCentipawnLoss = Math.min(centipawnLoss, 500);
-        const isBlunder = cappedCentipawnLoss > 150;
+        const isBlunder = cappedCentipawnLoss > 200;
         
         if (isBlunder) {
           blunders.push({

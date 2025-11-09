@@ -124,22 +124,41 @@ interface Tournament {
                       </div>
                     </div>
                     <div class="flex items-center gap-3 text-xs text-muted-foreground">
-                      <span>{{ game.opening }}</span>
-                      <div class="flex items-center gap-1">
-                        <svg class="h-3 w-3" xmlns="http://www.w3.org/2000/svg" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-                          <circle cx="12" cy="12" r="10"/>
-                          <circle cx="12" cy="12" r="6"/>
-                          <circle cx="12" cy="12" r="2"/>
+                      <div class="flex items-center gap-2">
+                        <svg class="h-4 w-4 text-muted-foreground" xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                          <path d="M9 11H5a2 2 0 0 0-2 2v3c0 5.5 4.5 10 10 10s10-4.5 10-10v-3a2 2 0 0 0-2-2h-4"/>
+                          <path d="M9 7V4a2 2 0 0 1 4 0v3"/>
                         </svg>
-                        {{ game.accuracy }}% accuracy
+                        <span class="text-muted-foreground">Moves:</span>
+                        <span class="text-foreground font-medium">{{ game.moves_count }}</span>
                       </div>
-                      <div *ngIf="game.blunders > 0" class="flex items-center gap-1 text-yellow-600">
-                        <svg class="h-3 w-3" xmlns="http://www.w3.org/2000/svg" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-                          <path d="m21.73 18-8-14a2 2 0 0 0-3.48 0l-8 14A2 2 0 0 0 4 21h16a2 2 0 0 0 1.73-3Z"/>
-                          <path d="M12 9v4"/>
-                          <path d="m12 17 .01 0"/>
+                      
+                      <div class="flex items-center gap-2">
+                        <svg class="h-4 w-4 text-green-600" xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                          <path d="M9 12l2 2 4-4"/>
+                          <circle cx="12" cy="12" r="10"/>
                         </svg>
-                        {{ game.blunders }} blunder{{ game.blunders > 1 ? 's' : '' }}
+                        <span class="text-muted-foreground">Accuracy:</span>
+                        <span class="text-foreground font-medium">{{ game.accuracy || 0 }}%</span>
+                      </div>
+                      
+                      <div class="flex items-center gap-2">
+                        <svg class="h-4 w-4 text-red-600" xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                          <circle cx="12" cy="12" r="10"/>
+                          <line x1="12" y1="8" x2="12" y2="12"/>
+                          <line x1="12" y1="16" x2="12.01" y2="16"/>
+                        </svg>
+                        <span class="text-muted-foreground">Blunders:</span>
+                        <span class="text-foreground font-medium">{{ game.blunders || 0 }}</span>
+                      </div>
+                      
+                      <div class="flex items-center gap-2">
+                        <svg class="h-4 w-4 text-blue-600" xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                          <path d="M14.5 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V7.5L14.5 2z"/>
+                          <polyline points="14,2 14,8 20,8"/>
+                        </svg>
+                        <span class="text-muted-foreground">Opening:</span>
+                        <span class="text-foreground font-medium">{{ game.opening || 'Unknown' }}</span>
                       </div>
                     </div>
                   </div>
@@ -160,6 +179,7 @@ interface Tournament {
 export class TournamentDetailComponent implements OnInit {
   tournamentId: number | null = null;
   tournament: Tournament | null = null;
+  tournamentPerformance: any = null; // Backend performance data
   loading = true;
   error: string | null = null;
 
@@ -184,64 +204,33 @@ export class TournamentDetailComponent implements OnInit {
     this.error = null;
     
     try {
-      // Load tournament details and games
-      const [tournamentData, games] = await Promise.all([
+      // Load tournament details, games, and performance data from BE
+      const [tournamentData, games, performance] = await Promise.all([
         this.chessApi.getTournamentById(this.tournamentId).toPromise(),
-        this.chessApi.getTournamentGames(this.tournamentId).toPromise()
+        this.chessApi.getTournamentGames(this.tournamentId).toPromise(),
+        this.chessApi.getTournamentPerformance(this.tournamentId).toPromise()
       ]);
       
-      // Process games to add analysis data and determine player perspective
-      const gamesWithAnalysis = await Promise.all(
-        games.map(async (game, index) => {
-          const targetPlayer = this.chessApi.targetPlayer;
-          const isPlayerWhite = game.white_player === targetPlayer;
-          const isPlayerBlack = game.black_player === targetPlayer;
-          const opponent = isPlayerWhite ? game.black_player : game.white_player;
-          
-          try {
-            const analysis = await this.chessApi.getGameAnalysis(game.id).toPromise();
-            
-            // Calculate player-specific blunders (only target player's moves)
-            const playerMoves = analysis.analysis?.filter((move: any) => 
-              (isPlayerWhite && move.move_number % 2 === 1) ||
-              (isPlayerBlack && move.move_number % 2 === 0)
-            ) || [];
-            const blunderCount = playerMoves.filter((move: any) => move.is_blunder === 1).length;
-            
-            // Extract ECO and opening from PGN content
-            const ecoMatch = analysis.game?.pgn_content?.match(/\[ECO "([^"]+)"\]/);
-            const eco = ecoMatch ? ecoMatch[1] : undefined;
-            
-            // Calculate accuracy for the target player
-            const accuracy = this.calculatePlayerAccuracy(analysis.analysis, isPlayerWhite ? 'white' : 'black');
-            
-            return {
-              ...game,
-              opponent,
-              playerColor: (isPlayerWhite ? 'white' : 'black') as 'white' | 'black',
-              round: index + 1, // Simple round numbering
-              accuracy,
-              blunders: blunderCount,
-              opening: this.getOpeningName(eco)
-            };
-          } catch (error) {
-            console.warn(`Failed to load analysis for game ${game.id}:`, error);
-            return {
-              ...game,
-              opponent,
-              playerColor: (isPlayerWhite ? 'white' : 'black') as 'white' | 'black',
-              round: index + 1,
-              accuracy: 0,
-              blunders: 0,
-              opening: 'Unknown Opening'
-            };
-          }
-        })
-      );
+      this.tournamentPerformance = performance;
+      
+      // Process games to add round numbers and opponent info (data already comes from BE)
+      const processedGames = games.map((game: any, index: number) => {
+        const targetPlayer = this.chessApi.targetPlayer;
+        const isPlayerWhite = game.white_player === targetPlayer;
+        const opponent = isPlayerWhite ? game.black_player : game.white_player;
+        
+        return {
+          ...game,
+          opponent,
+          round: index + 1,
+          // All performance data already comes from /api/tournaments/:id/games
+          // accuracy, blunders, opening, playerColor are already included
+        };
+      });
       
       this.tournament = {
         ...tournamentData,
-        games: gamesWithAnalysis
+        games: processedGames
       };
       
       this.loading = false;
@@ -252,121 +241,14 @@ export class TournamentDetailComponent implements OnInit {
     }
   }
 
-  calculatePlayerAccuracy(analysis: any[], playerColor: 'white' | 'black'): number {
-    if (!analysis || analysis.length === 0) return 0;
-    
-    // Filter moves for the target player (odd move numbers for white, even for black)
-    const playerMoves = analysis.filter(move => 
-      (playerColor === 'white' && move.move_number % 2 === 1) ||
-      (playerColor === 'black' && move.move_number % 2 === 0)
-    );
-    
-    if (playerMoves.length === 0) return 0;
-    
-    const avgCentipawnLoss = playerMoves.reduce((sum, move) => sum + (move.centipawn_loss || 0), 0) / playerMoves.length;
-    return Math.max(0, Math.min(100, Math.round(100 - (avgCentipawnLoss / 2))));
+  getAvgAccuracy(): string {
+    // Use BE-calculated accuracy from AccuracyCalculator module
+    return this.tournamentPerformance?.avgAccuracy?.toFixed(1) || '0.0';
   }
 
-  getOpeningName(eco?: string): string {
-    if (!eco) return 'Unknown Opening';
-    
-    // Comprehensive ECO to opening name mapping (same as games component)
-    const openings: { [key: string]: string } = {
-      // A codes - Flank openings
-      'A00': 'Uncommon Opening',
-      'A01': 'Nimzowitsch-Larsen Attack',
-      'A02': 'Bird\'s Opening',
-      'A03': 'Bird\'s Opening',
-      'A04': 'Reti Opening',
-      'A05': 'Reti Opening',
-      'A06': 'Reti Opening',
-      'A07': 'King\'s Indian Attack',
-      'A08': 'King\'s Indian Attack',
-      'A09': 'Reti Opening',
-      'A10': 'English Opening',
-      'A11': 'English Opening: Caro-Kann Defensive System',
-      'A12': 'English Opening',
-      'A13': 'English Opening',
-      'A14': 'English Opening',
-      'A15': 'English Opening',
-      'A16': 'English Opening',
-      'A17': 'English Opening',
-      'A18': 'English Opening',
-      'A19': 'English Opening',
-      'A20': 'English Opening',
-      
-      // B codes - Semi-open games
-      'B00': 'King\'s Pawn Game',
-      'B01': 'Scandinavian Defense',
-      'B02': 'Alekhine\'s Defense',
-      'B03': 'Alekhine\'s Defense',
-      'B04': 'Alekhine\'s Defense',
-      'B05': 'Alekhine\'s Defense',
-      'B06': 'Modern Defense',
-      'B07': 'Pirc Defense',
-      'B08': 'Pirc Defense',
-      'B09': 'Pirc Defense',
-      'B10': 'Caro-Kann Defense',
-      'B20': 'Sicilian Defense',
-      'B21': 'Sicilian Defense',
-      'B22': 'Sicilian Defense',
-      
-      // C codes - Open games
-      'C00': 'French Defense',
-      'C01': 'French Defense',
-      'C02': 'French Defense',
-      'C03': 'French Defense',
-      'C04': 'French Defense',
-      'C05': 'French Defense',
-      'C20': 'King\'s Pawn Game',
-      'C21': 'Center Game',
-      'C22': 'Center Game',
-      'C23': 'Bishop\'s Opening',
-      'C24': 'Bishop\'s Opening',
-      'C25': 'Vienna Game',
-      'C40': 'King\'s Knight Opening',
-      'C41': 'Philidor Defense',
-      'C42': 'Petrov Defense',
-      'C43': 'Petrov Defense',
-      'C44': 'King\'s Pawn Game',
-      'C45': 'Scotch Game',
-      'C46': 'Three Knights Opening',
-      'C47': 'Four Knights Game',
-      'C50': 'Italian Game',
-      'C60': 'Ruy Lopez',
-      'C61': 'Ruy Lopez',
-      'C62': 'Ruy Lopez',
-      
-      // D codes - Closed games
-      'D00': 'Queen\'s Pawn Game',
-      'D01': 'Richter-Veresov Attack',
-      'D02': 'Queen\'s Pawn Game',
-      'D03': 'Torre Attack',
-      'D04': 'Queen\'s Pawn Game',
-      'D05': 'Queen\'s Pawn Game',
-      'D06': 'Queen\'s Gambit',
-      'D10': 'Queen\'s Gambit Declined',
-      'D20': 'Queen\'s Gambit Accepted',
-      'D30': 'Queen\'s Gambit Declined',
-      
-      // E codes - Indian defenses
-      'E00': 'Queen\'s Pawn Game',
-      'E01': 'Catalan Opening',
-      'E02': 'Catalan Opening',
-      'E03': 'Catalan Opening',
-      'E04': 'Catalan Opening',
-      'E05': 'Catalan Opening',
-      'E10': 'Queen\'s Pawn Game',
-      'E11': 'Bogo-Indian Defense',
-      'E12': 'Queen\'s Indian Defense',
-      'E20': 'Nimzo-Indian Defense',
-      'E60': 'King\'s Indian Defense',
-      'E70': 'King\'s Indian Defense',
-      'E80': 'King\'s Indian Defense',
-      'E90': 'King\'s Indian Defense'
-    };
-    
-    return openings[eco] || `${eco} Opening`;
+  getTotalBlunders(): number {
+    // Use BE-calculated blunders from AccuracyCalculator module
+    return this.tournamentPerformance?.totalBlunders || 0;
   }
 
   get tournamentName(): string {
@@ -392,22 +274,21 @@ export class TournamentDetailComponent implements OnInit {
   }
 
   getWins(): number {
-    if (!this.tournament) return 0;
-    return this.tournament.games.filter(
-      (g) =>
-        (g.result === '1-0' && g.playerColor === 'white') ||
-        (g.result === '0-1' && g.playerColor === 'black')
-    ).length;
+    // Use BE-calculated wins from AccuracyCalculator module
+    return this.tournamentPerformance?.whiteWins || 0;
   }
 
   getDraws(): number {
-    if (!this.tournament) return 0;
-    return this.tournament.games.filter((g) => g.result === '1/2-1/2').length;
+    // Use BE-calculated draws from AccuracyCalculator module
+    return this.tournamentPerformance?.draws || 0;
   }
 
   getLosses(): number {
-    if (!this.tournament) return 0;
-    return this.tournament.games.length - this.getWins() - this.getDraws();
+    // Calculate losses from BE data
+    const totalGames = this.tournamentPerformance?.totalGames || 0;
+    const wins = this.getWins();
+    const draws = this.getDraws();
+    return totalGames - wins - draws;
   }
 
   getScore(): number {
@@ -415,26 +296,14 @@ export class TournamentDetailComponent implements OnInit {
   }
 
   getWinRate(): string {
-    if (!this.tournament || this.tournament.games.length === 0) return '0.0';
-    return ((this.getWins() / this.tournament.games.length) * 100).toFixed(1);
-  }
-
-  getAvgAccuracy(): string {
-    if (!this.tournament || this.tournament.games.length === 0) return '0.0';
-    const gamesWithAccuracy = this.tournament.games.filter(g => g.accuracy && g.accuracy > 0);
-    if (gamesWithAccuracy.length === 0) return '0.0';
-    
-    const avg = gamesWithAccuracy.reduce((sum, g) => sum + (g.accuracy || 0), 0) / gamesWithAccuracy.length;
-    return avg.toFixed(1);
-  }
-
-  getTotalBlunders(): number {
-    if (!this.tournament || this.tournament.games.length === 0) return 0;
-    return this.tournament.games.reduce((sum, g) => sum + (g.blunders || 0), 0);
+    // Use BE-calculated win rate from AccuracyCalculator module
+    const totalGames = this.tournamentPerformance?.totalGames || 0;
+    const wins = this.getWins();
+    if (totalGames === 0) return '0.0';
+    return ((wins / totalGames) * 100).toFixed(1);
   }
 
   formatDate(dateStr: string): string {
-    // Convert "2025.10.24" format to readable date
     const parts = dateStr.split('.');
     if (parts.length === 3) {
       const date = new Date(parseInt(parts[0]), parseInt(parts[1]) - 1, parseInt(parts[2]));

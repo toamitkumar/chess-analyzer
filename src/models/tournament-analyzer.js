@@ -1,4 +1,8 @@
+const AccuracyCalculator = require('./accuracy-calculator');
 const { getDatabase } = require('./database');
+
+// Get target player from database configuration
+const TARGET_PLAYER = 'AdvaitKumar1213'; // TODO: Replace with logged-in user when auth is implemented
 
 class TournamentAnalyzer {
   constructor() {
@@ -19,49 +23,84 @@ class TournamentAnalyzer {
     if (!this.db) await this.initialize();
 
     try {
-      const metrics = await this.db.all(`
-        SELECT 
-          COUNT(*) as total_games,
-          SUM(CASE WHEN result = '1-0' THEN 1 ELSE 0 END) as white_wins,
-          SUM(CASE WHEN result = '0-1' THEN 1 ELSE 0 END) as black_wins,
-          SUM(CASE WHEN result = '1/2-1/2' THEN 1 ELSE 0 END) as draws,
-          COUNT(CASE WHEN result = '1-0' THEN 1 END) + COUNT(CASE WHEN result = '0-1' THEN 1 END) as total_decisive
+      // Get all games in tournament
+      const games = await this.db.all(`
+        SELECT id, white_player, black_player, result, date
         FROM games 
         WHERE tournament_id = ?
       `, [tournamentId]);
 
+      // Filter for player-specific games and calculate wins/losses/draws
+      const playerGames = games.filter(g => g.white_player === TARGET_PLAYER || g.black_player === TARGET_PLAYER);
+      
+      let wins = 0, losses = 0, draws = 0;
+      playerGames.forEach(game => {
+        const isPlayerWhite = game.white_player === TARGET_PLAYER;
+        
+        if (game.result === '1/2-1/2') {
+          draws++;
+        } else if (
+          (isPlayerWhite && game.result === '1-0') ||
+          (!isPlayerWhite && game.result === '0-1')
+        ) {
+          wins++;
+        } else {
+          losses++;
+        }
+      });
+
+      // Get analysis metrics for player moves only
       const analysisMetrics = await this.db.all(`
         SELECT 
           COUNT(*) as total_moves,
           COUNT(CASE WHEN is_blunder = 1 THEN 1 END) as total_blunders,
-          COALESCE(SUM(centipawn_loss), 0) as total_centipawn_loss,
-          COALESCE(AVG(evaluation), 0) as avg_evaluation
+          COALESCE(SUM(centipawn_loss), 0) as total_centipawn_loss
         FROM analysis a
         JOIN games g ON a.game_id = g.id
         WHERE g.tournament_id = ?
-      `, [tournamentId]);
+          AND ((g.white_player = ? AND a.move_number % 2 = 1) OR 
+               (g.black_player = ? AND a.move_number % 2 = 0))
+      `, [tournamentId, TARGET_PLAYER, TARGET_PLAYER]);
 
-      const game = metrics[0];
       const analysis = analysisMetrics[0];
 
+      // Fetch games with analysis data for accuracy calculation
+      const gamesWithAnalysis = [];
+      for (const gameRecord of playerGames) {
+        const gameAnalysis = await this.db.all(`
+          SELECT move_number, centipawn_loss
+          FROM analysis 
+          WHERE game_id = ?
+          ORDER BY move_number
+        `, [gameRecord.id]);
+        
+        if (gameAnalysis.length > 0) {
+          gamesWithAnalysis.push({
+            ...gameRecord,
+            analysis: gameAnalysis
+          });
+        }
+      }
+
+      // Calculate player-specific accuracy using centralized calculator
+      const avgAccuracy = AccuracyCalculator.calculateOverallAccuracy(gamesWithAnalysis, TARGET_PLAYER);
+
       // Calculate performance statistics
-      const whiteWinRate = game.total_games > 0 ? Math.round((game.white_wins / game.total_games) * 100) : 0;
-      const blackWinRate = game.total_games > 0 ? Math.round((game.black_wins / game.total_games) * 100) : 0;
-      const drawRate = game.total_games > 0 ? Math.round((game.draws / game.total_games) * 100) : 0;
-      const avgAccuracy = analysis.total_moves > 0 ? 
-        Math.max(0, Math.min(100, 100 - (analysis.total_centipawn_loss / analysis.total_moves / 8))) : 0;
+      const totalPlayerGames = playerGames.length;
+      const whiteWinRate = totalPlayerGames > 0 ? Math.round((wins / totalPlayerGames) * 100) : 0;
+      const drawRate = totalPlayerGames > 0 ? Math.round((draws / totalPlayerGames) * 100) : 0;
 
       return {
-        totalGames: game.total_games,
-        whiteWins: game.white_wins,
-        blackWins: game.black_wins,
-        draws: game.draws,
-        whiteWinRate,
-        blackWinRate,
+        totalGames: totalPlayerGames,
+        whiteWins: wins, // Actually player wins regardless of color
+        blackWins: 0,    // Not used in new logic
+        draws: draws,
+        whiteWinRate: whiteWinRate, // Actually overall win rate
+        blackWinRate: 0,            // Not used in new logic
         drawRate,
         totalMoves: analysis.total_moves,
         totalBlunders: analysis.total_blunders,
-        avgAccuracy: Math.round(avgAccuracy),
+        avgAccuracy: avgAccuracy,
         avgCentipawnLoss: analysis.total_moves > 0 ? Math.round(analysis.total_centipawn_loss / analysis.total_moves) : 0
       };
     } catch (error) {
@@ -160,7 +199,12 @@ class TournamentAnalyzer {
         gameNumber: index + 1,
         gameId: game.id,
         date: game.date,
-        accuracy: game.moves > 0 ? Math.max(0, Math.min(100, 100 - (game.avg_centipawn_loss / 8))) : 0,
+        accuracy: AccuracyCalculator.calculatePlayerAccuracy(
+          game.analysis, 
+          TARGET_PLAYER, 
+          game.white_player, 
+          game.black_player
+        ),
         blunders: game.blunders,
         avgCentipawnLoss: Math.round(game.avg_centipawn_loss)
       }));
@@ -219,9 +263,9 @@ class TournamentAnalyzer {
       const whiteMetrics = await this.db.get(`
         SELECT 
           COUNT(*) as total_games,
-          COUNT(CASE WHEN g.result = '1-0' THEN 1 END) as wins,
-          COUNT(CASE WHEN g.result = '0-1' THEN 1 END) as losses,
-          COUNT(CASE WHEN g.result = '1/2-1/2' THEN 1 END) as draws,
+          COUNT(CASE WHEN result = '1-0' THEN 1 END) as wins,
+          COUNT(CASE WHEN result = '0-1' THEN 1 END) as losses,
+          COUNT(CASE WHEN result = '1/2-1/2' THEN 1 END) as draws,
           COUNT(a.id) as total_moves,
           COUNT(CASE WHEN a.is_blunder = 1 THEN 1 END) as total_blunders,
           COALESCE(SUM(a.centipawn_loss), 0) as total_centipawn_loss
@@ -238,20 +282,49 @@ class TournamentAnalyzer {
       // Calculate performance metrics
       const whiteWinRate = whiteMetrics.total_games > 0 ? Math.round((whiteMetrics.wins / whiteMetrics.total_games) * 100) : 0;
       const blackWinRate = blackMetrics.total_games > 0 ? Math.round((blackMetrics.wins / blackMetrics.total_games) * 100) : 0;
-      const whiteAccuracy = whiteMetrics.total_moves > 0 ? Math.max(0, Math.min(100, 100 - (whiteMetrics.total_centipawn_loss / whiteMetrics.total_moves / 8))) : 0;
-      const blackAccuracy = blackMetrics.total_moves > 0 ? Math.max(0, Math.min(100, 100 - (blackMetrics.total_centipawn_loss / blackMetrics.total_moves / 8))) : 0;
+      
+      // Fetch games with analysis data for accuracy calculation
+      const games = await this.db.all(`
+        SELECT id, white_player, black_player, result, date
+        FROM games g
+        ${whereClause}
+      `, params);
+
+      const gamesWithAnalysis = [];
+      for (const gameRecord of games) {
+        const gameAnalysis = await this.db.all(`
+          SELECT move_number, centipawn_loss
+          FROM analysis 
+          WHERE game_id = ?
+          ORDER BY move_number
+        `, [gameRecord.id]);
+        
+        if (gameAnalysis.length > 0) {
+          gamesWithAnalysis.push({
+            ...gameRecord,
+            analysis: gameAnalysis
+          });
+        }
+      }
+      
+      // Calculate player-specific accuracy by color using centralized calculator
+      const whiteGames = gamesWithAnalysis.filter(g => g.white_player === TARGET_PLAYER);
+      const blackGames = gamesWithAnalysis.filter(g => g.black_player === TARGET_PLAYER);
+      
+      const whiteAccuracy = AccuracyCalculator.calculateOverallAccuracy(whiteGames, TARGET_PLAYER);
+      const blackAccuracy = AccuracyCalculator.calculateOverallAccuracy(blackGames, TARGET_PLAYER);
 
       return {
         white: {
           games: whiteMetrics.total_games,
           winRate: whiteWinRate,
-          avgAccuracy: Math.round(whiteAccuracy),
+          avgAccuracy: whiteAccuracy,
           blunders: whiteMetrics.total_blunders
         },
         black: {
           games: blackMetrics.total_games,
           winRate: blackWinRate,
-          avgAccuracy: Math.round(blackAccuracy),
+          avgAccuracy: blackAccuracy,
           blunders: blackMetrics.total_blunders
         },
         overall: {

@@ -1,0 +1,1 @@
+{"ast":null,"code":"export const colors = ['white', 'black'];\nexport const roles = ['pawn', 'knight', 'bishop', 'rook', 'queen', 'king'];\nexport const files = ['a', 'b', 'c', 'd', 'e', 'f', 'g', 'h'];\nexport const ranks = ['1', '2', '3', '4', '5', '6', '7', '8'];\n//# sourceMappingURL=types.js.map","map":null,"metadata":{},"sourceType":"module","externalDependencies":[]}

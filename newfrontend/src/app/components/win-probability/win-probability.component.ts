@@ -6,19 +6,20 @@ import { CommonModule } from '@angular/common';
   standalone: true,
   imports: [CommonModule],
   template: `
-    <div class="win-probability-container">
-      <div class="probability-bar-vertical" 
+    <div class="win-probability-container" [class.h-full]="!barHeight">
+      <div class="probability-bar-vertical"
+           [class.h-full]="!barHeight"
            [style.width.px]="barWidth"
-           [style.height.px]="barHeight">
-        
+           [style.height.px]="barHeight || null">
+
         <!-- Black advantage section (top) -->
-        <div class="black-section" 
+        <div class="black-section"
              [style.height.%]="blackPercentage"
              [class.winning]="blackPercentage > 50">
         </div>
-        
+
         <!-- White advantage section (bottom) -->
-        <div class="white-section" 
+        <div class="white-section"
              [style.height.%]="whitePercentage"
              [class.winning]="whitePercentage > 50">
         </div>
@@ -61,7 +62,7 @@ import { CommonModule } from '@angular/common';
 export class WinProbabilityComponent {
   @Input() evaluation: number = 0;
   @Input() barWidth: number = 24;
-  @Input() barHeight: number = 200;
+  @Input() barHeight?: number;
   
   Math = Math;
   

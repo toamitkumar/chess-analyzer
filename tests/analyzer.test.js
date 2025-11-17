@@ -36,9 +36,9 @@ describe('ChessAnalyzer', () => {
     }
     
     const moves = ['e4', 'e5', 'Nf3'];
-    
-    const result = await analyzer.analyzeGame(moves);
-    
+
+    const result = await analyzer.analyzeGame(moves, false); // Disable alternatives for faster test
+
     expect(result.summary).toHaveProperty('totalMoves', 3);
     expect(result.summary).toHaveProperty('accuracy');
     expect(result.summary).toHaveProperty('blunders');
@@ -52,10 +52,10 @@ describe('ChessAnalyzer', () => {
       console.log('Skipping test - Stockfish not ready');
       return;
     }
-    
+
     const moves = ['e4', 'e5', 'Qh5']; // Poor early queen move
-    
-    const result = await analyzer.analyzeGame(moves);
+
+    const result = await analyzer.analyzeGame(moves, false); // Disable alternatives for faster test
     
     expect(result.summary.totalMoves).toBe(3);
     expect(result.moves).toHaveLength(3);
@@ -71,10 +71,10 @@ describe('ChessAnalyzer', () => {
       console.log('Skipping test - Stockfish not ready');
       return;
     }
-    
+
     const moves = ['e4', 'invalidmove', 'Nf3'];
-    
-    const result = await analyzer.analyzeGame(moves);
+
+    const result = await analyzer.analyzeGame(moves, false); // Disable alternatives for faster test
     
     // Should skip invalid move and analyze valid ones
     expect(result.moves.length).toBeLessThan(3);
@@ -85,10 +85,10 @@ describe('ChessAnalyzer', () => {
       console.log('Skipping test - Stockfish not ready');
       return;
     }
-    
+
     const moves = ['e4', 'e5'];
-    
-    const result = await analyzer.analyzeGame(moves);
+
+    const result = await analyzer.analyzeGame(moves, false); // Disable alternatives for faster test
     
     expect(result.summary.accuracy).toBeGreaterThanOrEqual(0);
     expect(result.summary.accuracy).toBeLessThanOrEqual(100);

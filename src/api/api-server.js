@@ -459,10 +459,30 @@ const uploadHandler = async (req, res) => {
             if (analysis.moves && analysis.moves.length > 0) {
               for (const moveAnalysis of analysis.moves) {
                 await database.insertAnalysis(gameId, moveAnalysis);
+
+                // Store up to 15 alternative moves for each position
+                if (moveAnalysis.alternatives && moveAnalysis.alternatives.length > 0) {
+                  await database.storeAlternativeMoves(gameId, moveAnalysis.move_number, moveAnalysis.alternatives);
+                  console.log(`📝 Stored ${moveAnalysis.alternatives.length} alternatives for move ${moveAnalysis.move_number}`);
+                }
+
+                // Store position evaluation with FEN
+                if (moveAnalysis.fen_before) {
+                  await database.storePositionEvaluation(
+                    gameId,
+                    moveAnalysis.move_number,
+                    moveAnalysis.fen_before,
+                    moveAnalysis.evaluation,
+                    moveAnalysis.best_move,
+                    12, // depth
+                    null // mateIn
+                  );
+                }
               }
             }
-            
+
             console.log(`💾 Game ${i + 1} stored in database with ID: ${gameId}, Tournament: ${tournament.name}`);
+            console.log(`📊 Stored alternatives for ${analysis.moves.length} positions`);
           } catch (dbError) {
             console.error(`❌ Database storage failed for game ${i + 1}:`, dbError.message);
           }
@@ -1133,10 +1153,18 @@ app.get('/api/tournaments/:id/games', async (req, res) => {
     const gamesWithAnalysis = await Promise.all(games.map(async (game) => {
       let opening = null;
       if (game.pgn_content) {
+        // Try to get ECO from PGN headers first
         const ecoMatch = game.pgn_content.match(/\[ECO "([^"]+)"\]/);
         if (ecoMatch) {
           const ecoCode = ecoMatch[1];
           opening = await getOpeningName(ecoCode);
+        } else {
+          // Fallback: Detect opening from moves
+          const openingDetector = require('../models/opening-detector');
+          const detected = openingDetector.detect(game.pgn_content);
+          if (detected) {
+            opening = detected.name;
+          }
         }
       }
       
@@ -1287,13 +1315,21 @@ app.get('/api/games', async (req, res) => {
     const gamesWithOpenings = await Promise.all(games.map(async (game) => {
       let opening = null;
       if (game.pgn_content) {
+        // Try to get ECO from PGN headers first
         const ecoMatch = game.pgn_content.match(/\[ECO "([^"]+)"\]/);
         if (ecoMatch) {
           const ecoCode = ecoMatch[1];
           opening = await getOpeningName(ecoCode);
+        } else {
+          // Fallback: Detect opening from moves
+          const openingDetector = require('../models/opening-detector');
+          const detected = openingDetector.detect(game.pgn_content);
+          if (detected) {
+            opening = detected.name;
+          }
         }
       }
-      
+
       return {
         ...game,
         opening: opening || 'Unknown Opening'
@@ -1380,10 +1416,18 @@ app.get('/api/games/:id', async (req, res) => {
     // Extract opening from PGN content
     let opening = null;
     if (game.pgn_content) {
+      // Try to get ECO from PGN headers first
       const ecoMatch = game.pgn_content.match(/\[ECO "([^"]+)"\]/);
       if (ecoMatch) {
         const ecoCode = ecoMatch[1];
         opening = await getOpeningName(ecoCode);
+      } else {
+        // Fallback: Detect opening from moves
+        const openingDetector = require('../models/opening-detector');
+        const detected = openingDetector.detect(game.pgn_content);
+        if (detected) {
+          opening = detected.name;
+        }
       }
     }
     
@@ -1508,10 +1552,18 @@ app.get('/api/games/:id/performance', async (req, res) => {
     // Extract opening from PGN content (same logic as other endpoints)
     let opening = 'Unknown';
     if (game.pgn_content) {
+      // Try to get ECO from PGN headers first
       const ecoMatch = game.pgn_content.match(/\[ECO "([^"]+)"\]/);
       if (ecoMatch) {
         const ecoCode = ecoMatch[1];
         opening = await getOpeningName(ecoCode);
+      } else {
+        // Fallback: Detect opening from moves
+        const openingDetector = require('../models/opening-detector');
+        const detected = openingDetector.detect(game.pgn_content);
+        if (detected) {
+          opening = detected.name;
+        }
       }
     }
     

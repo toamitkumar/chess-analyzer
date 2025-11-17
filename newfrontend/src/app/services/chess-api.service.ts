@@ -74,12 +74,32 @@ export class ChessApiService {
     return this.http.get<any[]>(`${this.baseUrl}/games`);
   }
 
+  getGame(gameId: number): Observable<any> {
+    return this.http.get(`${this.baseUrl}/games/${gameId}`);
+  }
+
   getGameAnalysis(gameId: number): Observable<any> {
     return this.http.get(`${this.baseUrl}/games/${gameId}/analysis`);
   }
 
   getGamePerformance(gameId: number): Observable<any> {
     return this.http.get(`${this.baseUrl}/games/${gameId}/performance`);
+  }
+
+  getGameAlternatives(gameId: number, moveNumber: number): Observable<any> {
+    return this.http.get(`${this.baseUrl}/games/${gameId}/alternatives/${moveNumber}`);
+  }
+
+  getGameBlunders(gameId: number): Observable<any> {
+    return this.http.get(`${this.baseUrl}/games/${gameId}/blunders`);
+  }
+
+  getGameAccuracy(gameId: number): Observable<any> {
+    return this.http.get(`${this.baseUrl}/games/${gameId}/accuracy`);
+  }
+
+  getGamePhases(gameId: number): Observable<any> {
+    return this.http.get(`${this.baseUrl}/games/${gameId}/phases`);
   }
 
   // Tournament API methods

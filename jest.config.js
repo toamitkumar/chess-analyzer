@@ -7,5 +7,6 @@ module.exports = {
   ],
   coverageReporters: ['text', 'lcov', 'html'],
   testMatch: ['**/tests/**/*.test.js'],
-  verbose: true
+  verbose: true,
+  setupFiles: ['<rootDir>/tests/setup.js']
 };

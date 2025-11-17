@@ -76,7 +76,7 @@ describe('Analysis Structure Tests', () => {
     }
 
     const moves = ['e4', 'e5', 'Qh5']; // Qh5 is typically a poor move
-    const result = await analyzer.analyzeGame(moves);
+    const result = await analyzer.analyzeGame(moves, false); // Disable alternatives for faster test
 
     // Verify blunder structure
     expect(result.summary.blunders).toBeGreaterThanOrEqual(0);

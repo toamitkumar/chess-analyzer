@@ -7,7 +7,10 @@ const TARGET_PLAYER = 'AdvaitKumar1213';
 
 class Database {
   constructor() {
-    this.dbPath = path.join(__dirname, '../../data/chess_analysis.db');
+    // Use different database for testing vs development
+    const isTestEnvironment = process.env.NODE_ENV === 'test';
+    const dbFileName = isTestEnvironment ? 'chess_analysis_test.db' : 'chess_analysis.db';
+    this.dbPath = path.join(__dirname, '../../data', dbFileName);
     this.db = null;
     this.ensureDataDirectory();
   }
@@ -278,23 +281,39 @@ class Database {
   // Analysis operations
   async insertAnalysis(gameId, analysisData) {
     const sql = `
-      INSERT INTO analysis (game_id, move_number, move, evaluation, centipawn_loss, best_move, alternatives, is_blunder, time_spent, time_remaining)
-      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+      INSERT INTO analysis (
+        game_id, move_number, move, evaluation, centipawn_loss, best_move, alternatives,
+        is_blunder, is_mistake, is_inaccuracy, fen_after, time_spent, time_remaining,
+        move_quality, move_accuracy, win_probability_before, win_probability_after,
+        is_best, is_excellent, is_good
+      )
+      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
     `;
-    
+
     const params = [
       gameId,
-      analysisData.move_number || 1, // Use move_number from analyzer
+      analysisData.move_number || 1,
       analysisData.move || '',
       analysisData.evaluation || 0,
-      analysisData.centipawn_loss || 0, // Use centipawn_loss from analyzer
-      analysisData.best_move || '', // Use best_move from analyzer
+      analysisData.centipawn_loss || 0,
+      analysisData.best_move || '',
       JSON.stringify(analysisData.alternatives || []),
-      analysisData.is_blunder || false, // Use is_blunder from analyzer
+      analysisData.is_blunder || false,
+      analysisData.is_mistake || false,
+      analysisData.is_inaccuracy || false,
+      analysisData.fen_after || null,
       analysisData.timeSpent || 0,
-      analysisData.timeRemaining || 0
+      analysisData.timeRemaining || 0,
+      // New Lichess/Chess.com style fields
+      analysisData.move_quality || null,
+      analysisData.move_accuracy || null,
+      analysisData.win_probability_before || null,
+      analysisData.win_probability_after || null,
+      analysisData.is_best || false,
+      analysisData.is_excellent || false,
+      analysisData.is_good || false
     ];
-    
+
     return await this.run(sql, params);
   }
 

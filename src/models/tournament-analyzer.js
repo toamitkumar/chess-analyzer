@@ -180,34 +180,60 @@ class TournamentAnalyzer {
     if (!this.db) await this.initialize();
 
     try {
-      const trends = await this.db.all(`
-        SELECT 
+      // First get all games in the tournament
+      const games = await this.db.all(`
+        SELECT
           g.id,
+          g.white_player,
+          g.black_player,
           g.date,
-          g.created_at,
-          COUNT(a.id) as moves,
-          COUNT(CASE WHEN a.is_blunder = 1 THEN 1 END) as blunders,
-          COALESCE(AVG(a.centipawn_loss), 0) as avg_centipawn_loss
+          g.created_at
         FROM games g
-        LEFT JOIN analysis a ON g.id = a.game_id
         WHERE g.tournament_id = ?
-        GROUP BY g.id
+          AND (g.white_player = ? OR g.black_player = ?)
         ORDER BY g.created_at ASC
-      `, [tournamentId]);
+      `, [tournamentId, TARGET_PLAYER, TARGET_PLAYER]);
 
-      return trends.map((game, index) => ({
-        gameNumber: index + 1,
-        gameId: game.id,
-        date: game.date,
-        accuracy: AccuracyCalculator.calculatePlayerAccuracy(
-          game.analysis, 
-          TARGET_PLAYER, 
-          game.white_player, 
+      // Fetch analysis data for each game
+      const trends = [];
+      for (let index = 0; index < games.length; index++) {
+        const game = games[index];
+
+        const gameAnalysis = await this.db.all(`
+          SELECT move_number, centipawn_loss, is_blunder
+          FROM analysis
+          WHERE game_id = ?
+          ORDER BY move_number
+        `, [game.id]);
+
+        const blunders = gameAnalysis.filter(a => a.is_blunder === 1).length;
+        const accuracy = AccuracyCalculator.calculatePlayerAccuracy(
+          gameAnalysis,
+          TARGET_PLAYER,
+          game.white_player,
           game.black_player
-        ),
-        blunders: game.blunders,
-        avgCentipawnLoss: Math.round(game.avg_centipawn_loss)
-      }));
+        );
+
+        // Calculate average centipawn loss for player moves only
+        const isPlayerWhite = game.white_player === TARGET_PLAYER;
+        const playerMoves = gameAnalysis.filter(move =>
+          (isPlayerWhite && move.move_number % 2 === 1) ||
+          (!isPlayerWhite && move.move_number % 2 === 0)
+        );
+        const totalCpl = playerMoves.reduce((sum, move) => sum + (move.centipawn_loss || 0), 0);
+        const avgCentipawnLoss = playerMoves.length > 0 ? Math.round(totalCpl / playerMoves.length) : 0;
+
+        trends.push({
+          gameNumber: index + 1,
+          gameId: game.id,
+          date: game.date,
+          accuracy,
+          blunders,
+          avgCentipawnLoss
+        });
+      }
+
+      return trends;
     } catch (error) {
       console.error('❌ Failed to get tournament trends:', error.message);
       throw error;

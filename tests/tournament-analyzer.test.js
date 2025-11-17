@@ -90,21 +90,23 @@ describe('TournamentAnalyzer', () => {
 
   describe('getTournamentPerformance', () => {
     test('should calculate tournament performance metrics', async () => {
-      // Add test games
+      // Add test games with target player (AdvaitKumar1213)
+      const TARGET_PLAYER = 'AdvaitKumar1213';
+
       const game1 = await testDb.run(`
         INSERT INTO games (pgn_file_path, white_player, black_player, result, tournament_id)
         VALUES (?, ?, ?, ?, ?)
-      `, ['db', 'Player1', 'Player2', '1-0', tournamentId]);
+      `, ['db', TARGET_PLAYER, 'Opponent1', '1-0', tournamentId]);
 
       const game2 = await testDb.run(`
         INSERT INTO games (pgn_file_path, white_player, black_player, result, tournament_id)
         VALUES (?, ?, ?, ?, ?)
-      `, ['db', 'Player3', 'Player4', '0-1', tournamentId]);
+      `, ['db', 'Opponent2', TARGET_PLAYER, '0-1', tournamentId]);
 
       const game3 = await testDb.run(`
         INSERT INTO games (pgn_file_path, white_player, black_player, result, tournament_id)
         VALUES (?, ?, ?, ?, ?)
-      `, ['db', 'Player5', 'Player6', '1/2-1/2', tournamentId]);
+      `, ['db', TARGET_PLAYER, 'Opponent3', '1/2-1/2', tournamentId]);
 
       // Add analysis data
       await testDb.run(`
@@ -120,14 +122,14 @@ describe('TournamentAnalyzer', () => {
       const performance = await tournamentAnalyzer.getTournamentPerformance(tournamentId);
 
       expect(performance.totalGames).toBe(3);
-      expect(performance.whiteWins).toBe(1);
-      expect(performance.blackWins).toBe(1);
+      expect(performance.whiteWins).toBe(2); // Actually total player wins (2 wins: 1 as white, 1 as black)
+      expect(performance.blackWins).toBe(0); // Not used in new logic
       expect(performance.draws).toBe(1);
-      expect(performance.whiteWinRate).toBe(33); // 1/3 * 100
-      expect(performance.blackWinRate).toBe(33);
+      expect(performance.whiteWinRate).toBe(67); // Math.round(2/3 * 100) = 67 (actually overall win rate)
+      expect(performance.blackWinRate).toBe(0); // Not used in new logic
       expect(performance.drawRate).toBe(33);
-      expect(performance.totalMoves).toBe(2);
-      expect(performance.totalBlunders).toBe(1);
+      expect(performance.totalMoves).toBe(1); // Only TARGET_PLAYER's moves (move 1 by white)
+      expect(performance.totalBlunders).toBe(0); // Move 2 blunder is by Opponent1, not TARGET_PLAYER
     });
 
     test('should handle tournament with no games', async () => {
@@ -143,22 +145,24 @@ describe('TournamentAnalyzer', () => {
 
   describe('compareTournaments', () => {
     test('should compare multiple tournaments', async () => {
+      const TARGET_PLAYER = 'AdvaitKumar1213';
+
       // Create second tournament
       const tournament2 = await testDb.run(`
         INSERT INTO tournaments (name, event_type)
         VALUES (?, ?)
       `, ['Tournament 2', 'rapid']);
 
-      // Add games to both tournaments
+      // Add games to both tournaments with target player
       await testDb.run(`
         INSERT INTO games (pgn_file_path, white_player, black_player, result, tournament_id)
         VALUES (?, ?, ?, ?, ?)
-      `, ['db', 'P1', 'P2', '1-0', tournamentId]);
+      `, ['db', TARGET_PLAYER, 'Opponent', '1-0', tournamentId]);
 
       await testDb.run(`
         INSERT INTO games (pgn_file_path, white_player, black_player, result, tournament_id)
         VALUES (?, ?, ?, ?, ?)
-      `, ['db', 'P3', 'P4', '0-1', tournament2.id]);
+      `, ['db', TARGET_PLAYER, 'Opponent', '0-1', tournament2.id]);
 
       const comparison = await tournamentAnalyzer.compareTournaments([tournamentId, tournament2.id]);
 
@@ -172,11 +176,13 @@ describe('TournamentAnalyzer', () => {
 
   describe('getTournamentHeatmap', () => {
     test('should generate tournament-specific heatmap', async () => {
+      const TARGET_PLAYER = 'AdvaitKumar1213';
+
       // Add game with blunder analysis
       const game = await testDb.run(`
         INSERT INTO games (pgn_file_path, white_player, black_player, result, tournament_id)
         VALUES (?, ?, ?, ?, ?)
-      `, ['db', 'Player1', 'Player2', '1-0', tournamentId]);
+      `, ['db', TARGET_PLAYER, 'Opponent', '1-0', tournamentId]);
 
       await testDb.run(`
         INSERT INTO analysis (game_id, move_number, move, evaluation, centipawn_loss, best_move, is_blunder)
@@ -196,16 +202,18 @@ describe('TournamentAnalyzer', () => {
 
   describe('getTournamentTrends', () => {
     test('should calculate tournament trends over time', async () => {
+      const TARGET_PLAYER = 'AdvaitKumar1213';
+
       // Add games with different accuracies
       const game1 = await testDb.run(`
         INSERT INTO games (pgn_file_path, white_player, black_player, result, tournament_id, created_at)
         VALUES (?, ?, ?, ?, ?, ?)
-      `, ['db', 'P1', 'P2', '1-0', tournamentId, '2024-01-01 10:00:00']);
+      `, ['db', TARGET_PLAYER, 'Opponent1', '1-0', tournamentId, '2024-01-01 10:00:00']);
 
       const game2 = await testDb.run(`
         INSERT INTO games (pgn_file_path, white_player, black_player, result, tournament_id, created_at)
         VALUES (?, ?, ?, ?, ?, ?)
-      `, ['db', 'P3', 'P4', '0-1', tournamentId, '2024-01-01 11:00:00']);
+      `, ['db', TARGET_PLAYER, 'Opponent2', '0-1', tournamentId, '2024-01-01 11:00:00']);
 
       // Add analysis with different centipawn losses
       await testDb.run(`
@@ -231,6 +239,8 @@ describe('TournamentAnalyzer', () => {
 
   describe('rankTournaments', () => {
     test('should rank tournaments by performance', async () => {
+      const TARGET_PLAYER = 'AdvaitKumar1213';
+
       // Create second tournament
       const tournament2 = await testDb.run(`
         INSERT INTO tournaments (name, event_type, total_games)
@@ -244,12 +254,12 @@ describe('TournamentAnalyzer', () => {
       const game1 = await testDb.run(`
         INSERT INTO games (pgn_file_path, white_player, black_player, result, tournament_id)
         VALUES (?, ?, ?, ?, ?)
-      `, ['db', 'P1', 'P2', '1-0', tournamentId]);
+      `, ['db', TARGET_PLAYER, 'Opponent1', '1-0', tournamentId]);
 
       const game2 = await testDb.run(`
         INSERT INTO games (pgn_file_path, white_player, black_player, result, tournament_id)
         VALUES (?, ?, ?, ?, ?)
-      `, ['db', 'P3', 'P4', '1-0', tournament2.id]);
+      `, ['db', TARGET_PLAYER, 'Opponent2', '1-0', tournament2.id]);
 
       // Add analysis - tournament2 has better accuracy
       await testDb.run(`
@@ -272,11 +282,13 @@ describe('TournamentAnalyzer', () => {
 
   describe('getFilteredPerformance', () => {
     test('should get overall performance when no tournament specified', async () => {
+      const TARGET_PLAYER = 'AdvaitKumar1213';
+
       // Add test game
       const game = await testDb.run(`
         INSERT INTO games (pgn_file_path, white_player, black_player, result, tournament_id)
         VALUES (?, ?, ?, ?, ?)
-      `, ['db', 'Player1', 'Player2', '1-0', tournamentId]);
+      `, ['db', TARGET_PLAYER, 'Opponent', '1-0', tournamentId]);
 
       await testDb.run(`
         INSERT INTO analysis (game_id, move_number, move, centipawn_loss)
@@ -292,6 +304,8 @@ describe('TournamentAnalyzer', () => {
     });
 
     test('should get tournament-filtered performance', async () => {
+      const TARGET_PLAYER = 'AdvaitKumar1213';
+
       // Create second tournament
       const tournament2 = await testDb.run(`
         INSERT INTO tournaments (name, event_type)
@@ -302,12 +316,12 @@ describe('TournamentAnalyzer', () => {
       await testDb.run(`
         INSERT INTO games (pgn_file_path, white_player, black_player, result, tournament_id)
         VALUES (?, ?, ?, ?, ?)
-      `, ['db', 'P1', 'P2', '1-0', tournamentId]);
+      `, ['db', TARGET_PLAYER, 'Opponent', '1-0', tournamentId]);
 
       await testDb.run(`
         INSERT INTO games (pgn_file_path, white_player, black_player, result, tournament_id)
         VALUES (?, ?, ?, ?, ?)
-      `, ['db', 'P3', 'P4', '0-1', tournament2.id]);
+      `, ['db', TARGET_PLAYER, 'Opponent', '0-1', tournament2.id]);
 
       const performance = await tournamentAnalyzer.getFilteredPerformance(tournamentId);
 
@@ -337,16 +351,18 @@ describe('TournamentAnalyzer', () => {
 
   describe('getTournamentSummary', () => {
     test('should generate comprehensive tournament summary', async () => {
+      const TARGET_PLAYER = 'AdvaitKumar1213';
+
       // Add games with trends
       const game1 = await testDb.run(`
         INSERT INTO games (pgn_file_path, white_player, black_player, result, tournament_id, created_at)
         VALUES (?, ?, ?, ?, ?, ?)
-      `, ['db', 'P1', 'P2', '1-0', tournamentId, '2024-01-01 10:00:00']);
+      `, ['db', TARGET_PLAYER, 'Opponent1', '1-0', tournamentId, '2024-01-01 10:00:00']);
 
       const game2 = await testDb.run(`
         INSERT INTO games (pgn_file_path, white_player, black_player, result, tournament_id, created_at)
         VALUES (?, ?, ?, ?, ?, ?)
-      `, ['db', 'P3', 'P4', '0-1', tournamentId, '2024-01-01 11:00:00']);
+      `, ['db', TARGET_PLAYER, 'Opponent2', '0-1', tournamentId, '2024-01-01 11:00:00']);
 
       // Add analysis
       await testDb.run(`

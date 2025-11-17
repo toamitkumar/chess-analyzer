@@ -4,3 +4,13 @@ coverage/
 .DS_Store
 test_output.txt
 *_analysis.json
+
+# Database files
+*.db
+*.db-journal
+*.db-wal
+*.db-shm
+
+# Angular cache
+.angular/cache/
+newfrontend/.angular/cache/

@@ -10,30 +10,47 @@ class Migration001 {
 
   async up() {
     console.log('🔄 Running migration: Add PGN content and tournaments');
-    
-    // Add new columns to games table
-    await this.db.run(`ALTER TABLE games ADD COLUMN pgn_content TEXT`);
-    await this.db.run(`ALTER TABLE games ADD COLUMN content_hash TEXT`);
-    await this.db.run(`ALTER TABLE games ADD COLUMN tournament_id INTEGER`);
-    
-    // Create tournaments table
+
+    const { idType, timestampType } = this.db.getSQLTypes();
+
+    // Add new columns to games table (PostgreSQL 9.6+ supports IF NOT EXISTS)
+    try {
+      await this.db.run(`ALTER TABLE games ADD COLUMN IF NOT EXISTS pgn_content TEXT`);
+    } catch (e) {
+      // SQLite doesn't support IF NOT EXISTS in older versions, ignore if column exists
+      if (!e.message.includes('duplicate column')) throw e;
+    }
+
+    try {
+      await this.db.run(`ALTER TABLE games ADD COLUMN IF NOT EXISTS content_hash TEXT`);
+    } catch (e) {
+      if (!e.message.includes('duplicate column')) throw e;
+    }
+
+    try {
+      await this.db.run(`ALTER TABLE games ADD COLUMN IF NOT EXISTS tournament_id INTEGER`);
+    } catch (e) {
+      if (!e.message.includes('duplicate column')) throw e;
+    }
+
+    // Create tournaments table with database-agnostic syntax
     await this.db.run(`
-      CREATE TABLE tournaments (
-        id INTEGER PRIMARY KEY AUTOINCREMENT,
+      CREATE TABLE IF NOT EXISTS tournaments (
+        id ${idType},
         name TEXT NOT NULL UNIQUE,
         event_type TEXT,
         location TEXT,
         start_date TEXT,
         end_date TEXT,
         total_games INTEGER DEFAULT 0,
-        created_at DATETIME DEFAULT CURRENT_TIMESTAMP
+        created_at ${timestampType} DEFAULT CURRENT_TIMESTAMP
       )
     `);
     
-    // Create indexes
-    await this.db.run(`CREATE INDEX idx_games_tournament_id ON games(tournament_id)`);
-    await this.db.run(`CREATE INDEX idx_games_content_hash ON games(content_hash)`);
-    await this.db.run(`CREATE INDEX idx_tournaments_name ON tournaments(name)`);
+    // Create indexes (IF NOT EXISTS makes them idempotent)
+    await this.db.run(`CREATE INDEX IF NOT EXISTS idx_games_tournament_id ON games(tournament_id)`);
+    await this.db.run(`CREATE INDEX IF NOT EXISTS idx_games_content_hash ON games(content_hash)`);
+    await this.db.run(`CREATE INDEX IF NOT EXISTS idx_tournaments_name ON tournaments(name)`);
     
     // Migrate existing file-based games to database storage
     await this.migrateExistingGames();

@@ -1,8 +1,13 @@
-import { Component } from '@angular/core';
+import { Component, AfterViewInit, ViewChild, ElementRef, OnDestroy } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { HttpClientModule } from '@angular/common/http';
+import { FormsModule } from '@angular/forms';
 import { LayoutComponent } from '../../components/layout/layout.component';
 import { ChessApiService } from '../../services/chess-api.service';
+import { Chess } from 'chess.js';
+import { Chessground } from '@lichess-org/chessground';
+import type { Api } from '@lichess-org/chessground/api';
+import type { Color, Key } from '@lichess-org/chessground/types';
 
 interface UploadFile {
   name: string;
@@ -13,33 +18,73 @@ interface UploadFile {
   error?: string;
 }
 
+interface ManualPGNForm {
+  tournamentName: string;
+  date: string;
+  opponent: string;
+  opponentElo: number | null;
+  playerElo: number | null;
+  result: '1-0' | '0-1' | '1/2-1/2' | '*';
+  variant: 'Rapid' | 'Classic' | 'Blitz';
+  termination: 'mate' | 'resigned' | 'time-over' | 'draw-agreement';
+  playerColor: 'white' | 'black';
+  moves: string;
+}
+
 @Component({
   selector: 'app-upload',
   standalone: true,
-  imports: [CommonModule, HttpClientModule, LayoutComponent],
+  imports: [CommonModule, HttpClientModule, FormsModule, LayoutComponent],
+  styles: [`
+    @import '@lichess-org/chessground/assets/chessground.base.css';
+    @import '@lichess-org/chessground/assets/chessground.brown.css';
+    @import '@lichess-org/chessground/assets/chessground.cburnett.css';
+
+    .chessboard {
+      width: 100%;
+      aspect-ratio: 1;
+    }
+  `],
   template: `
     <app-layout>
       <div class="mx-auto max-w-3xl space-y-6">
         <div>
           <h1 class="text-3xl font-bold text-foreground">Upload Games</h1>
-          <p class="text-muted-foreground">Import PGN files to analyze your chess games</p>
+          <p class="text-muted-foreground">Import PGN files or enter games manually</p>
         </div>
 
-        <div class="rounded-lg border bg-card text-card-foreground shadow-sm">
+        <!-- Tab Navigation -->
+        <div class="flex gap-4 border-b border-border">
+          <button
+            (click)="activeTab = 'file'"
+            [class]="'px-4 py-2 font-medium transition-colors ' +
+              (activeTab === 'file' ? 'border-b-2 border-accent text-accent' : 'text-muted-foreground hover:text-foreground')">
+            File Upload
+          </button>
+          <button
+            (click)="activeTab = 'manual'; onManualTabClick()"
+            [class]="'px-4 py-2 font-medium transition-colors ' +
+              (activeTab === 'manual' ? 'border-b-2 border-accent text-accent' : 'text-muted-foreground hover:text-foreground')">
+            Manual Entry
+          </button>
+        </div>
+
+        <!-- File Upload Tab -->
+        <div *ngIf="activeTab === 'file'" class="rounded-lg border bg-card text-card-foreground shadow-sm">
           <div class="flex flex-col space-y-1.5 p-6">
             <h3 class="text-2xl font-semibold leading-none tracking-tight">PGN File Upload</h3>
             <p class="text-sm text-muted-foreground">Upload your chess games in PGN format for comprehensive analysis</p>
           </div>
           <div class="p-6 pt-0 space-y-6">
             <div
-              [class]="'relative flex min-h-[300px] cursor-pointer flex-col items-center justify-center rounded-lg border-2 border-dashed transition-all ' + 
+              [class]="'relative flex min-h-[300px] cursor-pointer flex-col items-center justify-center rounded-lg border-2 border-dashed transition-all ' +
                 (dragActive ? 'border-accent bg-accent/10' : 'border-border bg-muted/20 hover:border-accent/50 hover:bg-muted/40')"
               (dragenter)="handleDragEnter($event)"
               (dragleave)="handleDragLeave($event)"
               (dragover)="handleDragOver($event)"
               (drop)="handleDrop($event)"
               (click)="fileInput.click()">
-              
+
               <input
                 #fileInput
                 type="file"
@@ -47,7 +92,7 @@ interface UploadFile {
                 accept=".pgn"
                 (change)="handleFileInput($event)"
                 class="hidden" />
-              
+
               <div class="flex flex-col items-center gap-4 text-center">
                 <div class="rounded-full bg-accent/10 p-6">
                   <svg class="h-12 w-12 text-accent" xmlns="http://www.w3.org/2000/svg" width="48" height="48" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
@@ -71,13 +116,13 @@ interface UploadFile {
                   {{ getCompletionPercentage() }}% complete
                 </div>
               </div>
-              
+
               <!-- Progress bar -->
               <div *ngIf="uploadStatus === 'uploading'" class="w-full bg-muted rounded-full h-2">
-                <div class="bg-blue-500 h-2 rounded-full transition-all duration-300" 
+                <div class="bg-blue-500 h-2 rounded-full transition-all duration-300"
                      [style.width.%]="getCompletionPercentage()"></div>
               </div>
-              
+
               <div class="space-y-2">
                 <div *ngFor="let file of files; let i = index"
                      class="flex items-center justify-between rounded-lg border border-border bg-card p-3">
@@ -155,6 +200,334 @@ interface UploadFile {
           </div>
         </div>
 
+        <!-- Manual Entry Tab -->
+        <div *ngIf="activeTab === 'manual'" class="rounded-lg border bg-card text-card-foreground shadow-sm">
+          <div class="flex flex-col space-y-1.5 p-6">
+            <h3 class="text-2xl font-semibold leading-none tracking-tight">Manual Game Entry</h3>
+            <p class="text-sm text-muted-foreground">Enter game details and moves from your tournament</p>
+          </div>
+          <div class="p-6 pt-0 space-y-6">
+            <form (ngSubmit)="handleManualSubmit()" #manualForm="ngForm">
+              <!-- Tournament Name -->
+              <div class="space-y-2">
+                <label class="text-sm font-medium leading-none peer-disabled:cursor-not-allowed peer-disabled:opacity-70">
+                  Tournament Name *
+                </label>
+                <input
+                  type="text"
+                  [(ngModel)]="manualPGN.tournamentName"
+                  name="tournamentName"
+                  required
+                  placeholder="e.g., Club Championship 2025"
+                  class="flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background file:border-0 file:bg-transparent file:text-sm file:font-medium placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50" />
+              </div>
+
+              <!-- Player Color Selection -->
+              <div class="space-y-2">
+                <label class="text-sm font-medium leading-none">
+                  Your Color *
+                </label>
+                <div class="flex gap-4">
+                  <label class="flex items-center gap-2 cursor-pointer">
+                    <input
+                      type="radio"
+                      [(ngModel)]="manualPGN.playerColor"
+                      name="playerColor"
+                      value="white"
+                      required
+                      class="w-4 h-4 text-accent border-gray-300 focus:ring-accent" />
+                    <span class="text-sm">White</span>
+                  </label>
+                  <label class="flex items-center gap-2 cursor-pointer">
+                    <input
+                      type="radio"
+                      [(ngModel)]="manualPGN.playerColor"
+                      name="playerColor"
+                      value="black"
+                      required
+                      class="w-4 h-4 text-accent border-gray-300 focus:ring-accent" />
+                    <span class="text-sm">Black</span>
+                  </label>
+                </div>
+              </div>
+
+              <!-- Opponent Name -->
+              <div class="space-y-2">
+                <label class="text-sm font-medium leading-none">
+                  Opponent Name *
+                </label>
+                <input
+                  type="text"
+                  [(ngModel)]="manualPGN.opponent"
+                  name="opponent"
+                  required
+                  placeholder="e.g., John Doe"
+                  class="flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background file:border-0 file:bg-transparent file:text-sm file:font-medium placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50" />
+              </div>
+
+              <!-- Ratings -->
+              <div class="grid grid-cols-2 gap-4">
+                <div class="space-y-2">
+                  <label class="text-sm font-medium leading-none">
+                    Your Rating (Elo)
+                  </label>
+                  <input
+                    type="number"
+                    [(ngModel)]="manualPGN.playerElo"
+                    name="playerElo"
+                    placeholder="e.g., 1500"
+                    min="0"
+                    max="3000"
+                    class="flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background file:border-0 file:bg-transparent file:text-sm file:font-medium placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50" />
+                </div>
+                <div class="space-y-2">
+                  <label class="text-sm font-medium leading-none">
+                    Opponent Rating (Elo)
+                  </label>
+                  <input
+                    type="number"
+                    [(ngModel)]="manualPGN.opponentElo"
+                    name="opponentElo"
+                    placeholder="e.g., 1600"
+                    min="0"
+                    max="3000"
+                    class="flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background file:border-0 file:bg-transparent file:text-sm file:font-medium placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50" />
+                </div>
+              </div>
+
+              <!-- Date and Result -->
+              <div class="grid grid-cols-2 gap-4">
+                <div class="space-y-2">
+                  <label class="text-sm font-medium leading-none">
+                    Date *
+                  </label>
+                  <input
+                    type="date"
+                    [(ngModel)]="manualPGN.date"
+                    name="date"
+                    required
+                    class="flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background file:border-0 file:bg-transparent file:text-sm file:font-medium placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50" />
+                </div>
+                <div class="space-y-2">
+                  <label class="text-sm font-medium leading-none">
+                    Result *
+                  </label>
+                  <select
+                    [(ngModel)]="manualPGN.result"
+                    name="result"
+                    required
+                    class="flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background file:border-0 file:bg-transparent file:text-sm file:font-medium placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50">
+                    <option value="1-0">White Wins (1-0)</option>
+                    <option value="0-1">Black Wins (0-1)</option>
+                    <option value="1/2-1/2">Draw (1/2-1/2)</option>
+                    <option value="*">Ongoing (*)</option>
+                  </select>
+                </div>
+              </div>
+
+              <!-- Variant and Termination -->
+              <div class="grid grid-cols-2 gap-4">
+                <div class="space-y-2">
+                  <label class="text-sm font-medium leading-none">
+                    Time Control *
+                  </label>
+                  <select
+                    [(ngModel)]="manualPGN.variant"
+                    name="variant"
+                    required
+                    class="flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background file:border-0 file:bg-transparent file:text-sm file:font-medium placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50">
+                    <option value="Rapid">Rapid</option>
+                    <option value="Classic">Classic</option>
+                    <option value="Blitz">Blitz</option>
+                  </select>
+                </div>
+                <div class="space-y-2">
+                  <label class="text-sm font-medium leading-none">
+                    Termination *
+                  </label>
+                  <select
+                    [(ngModel)]="manualPGN.termination"
+                    name="termination"
+                    required
+                    class="flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background file:border-0 file:bg-transparent file:text-sm file:font-medium placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50">
+                    <option value="mate">Checkmate</option>
+                    <option value="resigned">Resigned</option>
+                    <option value="time-over">Time Over</option>
+                    <option value="draw-agreement">Draw Agreement</option>
+                  </select>
+                </div>
+              </div>
+
+              <!-- Interactive Chessboard -->
+              <div class="space-y-2">
+                <label class="text-sm font-medium leading-none">
+                  Play Moves on Board
+                </label>
+                <div class="rounded-md border border-input p-4 bg-background">
+                  <div class="flex justify-between items-center mb-3">
+                    <span class="text-sm text-muted-foreground">Drag pieces to make moves</span>
+                    <div class="flex gap-2">
+                      <button
+                        type="button"
+                        (click)="undoMove()"
+                        class="inline-flex items-center justify-center rounded-md text-sm font-medium ring-offset-background transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 border border-input bg-background hover:bg-accent hover:text-accent-foreground h-9 px-3">
+                        <svg class="h-4 w-4 mr-1" xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                          <path d="M3 7v6h6"/>
+                          <path d="M21 17a9 9 0 0 0-9-9 9 9 0 0 0-6 2.3L3 13"/>
+                        </svg>
+                        Undo
+                      </button>
+                      <button
+                        type="button"
+                        (click)="resetBoard()"
+                        class="inline-flex items-center justify-center rounded-md text-sm font-medium ring-offset-background transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 border border-input bg-background hover:bg-accent hover:text-accent-foreground h-9 px-3">
+                        <svg class="h-4 w-4 mr-1" xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                          <path d="M3 12a9 9 0 0 1 9-9 9.75 9.75 0 0 1 6.74 2.74L21 8"/>
+                          <path d="M21 3v5h-5"/>
+                          <path d="M21 12a9 9 0 0 1-9 9 9.75 9.75 0 0 1-6.74-2.74L3 16"/>
+                          <path d="M8 16H3v5"/>
+                        </svg>
+                        Reset
+                      </button>
+                    </div>
+                  </div>
+                  <div #chessboard class="chessboard mx-auto" style="max-width: 400px;"></div>
+
+                  <!-- Move Navigation Controls -->
+                  <div *ngIf="moveHistory.length > 0" class="mt-4 space-y-2">
+                    <div class="flex items-center justify-center gap-2">
+                      <button
+                        type="button"
+                        (click)="goToFirstMove()"
+                        [disabled]="currentMoveIndex === -1"
+                        class="inline-flex items-center justify-center rounded-md text-sm font-medium ring-offset-background transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 border border-input bg-background hover:bg-accent hover:text-accent-foreground h-9 px-3 disabled:pointer-events-none disabled:opacity-50"
+                        title="Go to start">
+                        <svg class="h-4 w-4" xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                          <polyline points="11,17 6,12 11,7"/>
+                          <polyline points="18,17 13,12 18,7"/>
+                        </svg>
+                      </button>
+                      <button
+                        type="button"
+                        (click)="goToPreviousMove()"
+                        [disabled]="currentMoveIndex < 0"
+                        class="inline-flex items-center justify-center rounded-md text-sm font-medium ring-offset-background transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 border border-input bg-background hover:bg-accent hover:text-accent-foreground h-9 px-3 disabled:pointer-events-none disabled:opacity-50"
+                        title="Previous move">
+                        <svg class="h-4 w-4" xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                          <polyline points="15,18 9,12 15,6"/>
+                        </svg>
+                      </button>
+                      <span class="px-4 py-2 text-sm font-medium text-foreground min-w-[60px] text-center">
+                        {{ getCurrentMoveDisplay() }}
+                      </span>
+                      <button
+                        type="button"
+                        (click)="goToNextMove()"
+                        [disabled]="currentMoveIndex >= moveHistory.length - 1"
+                        class="inline-flex items-center justify-center rounded-md text-sm font-medium ring-offset-background transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 border border-input bg-background hover:bg-accent hover:text-accent-foreground h-9 px-3 disabled:pointer-events-none disabled:opacity-50"
+                        title="Next move">
+                        <svg class="h-4 w-4" xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                          <polyline points="9,18 15,12 9,6"/>
+                        </svg>
+                      </button>
+                      <button
+                        type="button"
+                        (click)="goToLastMove()"
+                        [disabled]="currentMoveIndex >= moveHistory.length - 1"
+                        class="inline-flex items-center justify-center rounded-md text-sm font-medium ring-offset-background transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 border border-input bg-background hover:bg-accent hover:text-accent-foreground h-9 px-3 disabled:pointer-events-none disabled:opacity-50"
+                        title="Go to end">
+                        <svg class="h-4 w-4" xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                          <polyline points="13,17 18,12 13,7"/>
+                          <polyline points="6,17 11,12 6,7"/>
+                        </svg>
+                      </button>
+                    </div>
+                    <div class="text-center text-xs text-muted-foreground">
+                      Navigate through game moves
+                    </div>
+                  </div>
+                </div>
+              </div>
+
+              <!-- Moves -->
+              <div class="space-y-2">
+                <label class="text-sm font-medium leading-none">
+                  Moves (Generated from Board or Paste PGN) *
+                </label>
+                <textarea
+                  [(ngModel)]="manualPGN.moves"
+                  name="moves"
+                  required
+                  rows="8"
+                  readonly
+                  placeholder="Play moves on the board above, or paste PGN here (Ctrl/Cmd+V) and it will be plotted on the board..."
+                  [class]="'flex min-h-[80px] w-full rounded-md border border-input bg-muted px-3 py-2 text-sm ring-offset-background placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 ' + (movesValidationError ? 'border-red-500' : '')"
+                  (paste)="onPgnPaste($event)"></textarea>
+                <div *ngIf="movesValidationError" class="text-sm text-red-500 flex items-center gap-2">
+                  <svg class="h-4 w-4" xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                    <circle cx="12" cy="12" r="10"/>
+                    <line x1="12" y1="8" x2="12" y2="12"/>
+                    <line x1="12" y1="16" x2="12.01" y2="16"/>
+                  </svg>
+                  {{ movesValidationError }}
+                </div>
+                <div *ngIf="!movesValidationError && manualPGN.moves" class="text-sm text-green-500 flex items-center gap-2">
+                  <svg class="h-4 w-4" xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                    <path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"/>
+                    <polyline points="22,4 12,14.01 9,11.01"/>
+                  </svg>
+                  Moves appear valid
+                </div>
+              </div>
+
+              <!-- Action Buttons -->
+              <div class="flex gap-3">
+                <!-- Verify Button -->
+                <button
+                  type="button"
+                  (click)="verifyMoves()"
+                  [disabled]="!manualPGN.moves.trim() || manualSubmitStatus === 'uploading'"
+                  class="flex-1 inline-flex items-center justify-center rounded-md text-sm font-medium ring-offset-background transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 border border-input bg-background hover:bg-accent hover:text-accent-foreground h-11 px-8 disabled:pointer-events-none disabled:opacity-50">
+                  <svg class="h-4 w-4 mr-2" xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                    <path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"/>
+                    <polyline points="22,4 12,14.01 9,11.01"/>
+                  </svg>
+                  Verify Moves
+                </button>
+
+                <!-- Submit Button -->
+                <button
+                  type="submit"
+                  [disabled]="!manualForm.valid || !!movesValidationError || manualSubmitStatus === 'uploading'"
+                  class="flex-1 inline-flex items-center justify-center rounded-md text-sm font-medium ring-offset-background transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:pointer-events-none disabled:opacity-50 bg-primary text-primary-foreground hover:bg-primary/90 h-11 px-8">
+                <ng-container [ngSwitch]="manualSubmitStatus">
+                  <span *ngSwitchCase="'uploading'">Submitting...</span>
+                  <span *ngSwitchCase="'success'" class="flex items-center gap-2">
+                    <svg class="h-5 w-5" xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                      <path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"/>
+                      <polyline points="22,4 12,14.01 9,11.01"/>
+                    </svg>
+                    Game Submitted Successfully
+                  </span>
+                  <span *ngSwitchDefault class="flex items-center gap-2">
+                    <svg class="h-5 w-5" xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                      <path d="M5 12h14"/>
+                      <path d="m12 5 7 7-7 7"/>
+                    </svg>
+                    Submit Game for Analysis
+                  </span>
+                </ng-container>
+                </button>
+              </div>
+
+              <div *ngIf="manualSubmitStatus === 'error'" class="text-sm text-red-500 p-4 bg-red-50 dark:bg-red-900/10 rounded-lg">
+                {{ manualSubmitError }}
+              </div>
+            </form>
+          </div>
+        </div>
+
+        <!-- How it works -->
         <div class="rounded-lg border border-accent/20 bg-accent/5 text-card-foreground shadow-sm">
           <div class="flex flex-col space-y-1.5 p-6">
             <h3 class="text-base font-semibold leading-none tracking-tight">How it works</h3>
@@ -163,11 +536,11 @@ interface UploadFile {
             <ol class="space-y-2 text-sm text-foreground">
               <li class="flex gap-2">
                 <span class="font-semibold text-accent">1.</span>
-                <span>Upload your PGN files containing chess games</span>
+                <span>Upload PGN files or enter game details manually</span>
               </li>
               <li class="flex gap-2">
                 <span class="font-semibold text-accent">2.</span>
-                <span>Our engine analyzes each move for accuracy and mistakes</span>
+                <span>Our Stockfish engine analyzes each move for accuracy and mistakes</span>
               </li>
               <li class="flex gap-2">
                 <span class="font-semibold text-accent">3.</span>
@@ -180,13 +553,389 @@ interface UploadFile {
     </app-layout>
   `
 })
-export class UploadComponent {
+export class UploadComponent implements AfterViewInit, OnDestroy {
+  @ViewChild('chessboard') chessboardEl!: ElementRef;
+
+  // Chessboard properties
+  private chessboard: Api | null = null;
+  private chessGame: Chess = new Chess();
+  private moveHistory: string[] = [];
+  currentMoveIndex: number = -1; // -1 means at starting position
+  activeTab: 'file' | 'manual' = 'file';
   dragActive = false;
   files: UploadFile[] = [];
   uploadStatus: 'idle' | 'uploading' | 'success' | 'error' = 'idle';
 
+  // Manual PGN entry
+  manualPGN: ManualPGNForm = {
+    tournamentName: '',
+    date: new Date().toISOString().split('T')[0],
+    opponent: '',
+    opponentElo: null,
+    playerElo: null,
+    result: '1-0',
+    variant: 'Rapid',
+    termination: 'mate',
+    playerColor: 'white',
+    moves: ''
+  };
+  movesValidationError: string | null = null;
+  manualSubmitStatus: 'idle' | 'uploading' | 'success' | 'error' = 'idle';
+  manualSubmitError: string = '';
+
   constructor(private chessApi: ChessApiService) {}
 
+  ngAfterViewInit() {
+    // Initialize chessboard when view is ready and manual tab is active
+    if (this.activeTab === 'manual') {
+      setTimeout(() => this.initializeChessboard(), 0);
+    }
+  }
+
+  ngOnDestroy() {
+    // Cleanup chessboard
+    if (this.chessboard) {
+      this.chessboard.destroy();
+    }
+  }
+
+  onManualTabClick() {
+    // Initialize board after a short delay to ensure the DOM element is rendered
+    setTimeout(() => this.initializeChessboard(), 100);
+  }
+
+  private initializeChessboard() {
+    if (!this.chessboardEl || this.chessboard) return;
+
+    this.chessboard = Chessground(this.chessboardEl.nativeElement, {
+      movable: {
+        free: false,
+        color: 'both',
+        dests: this.getLegalMoves(),
+        events: {
+          after: (orig: Key, dest: Key) => this.onBoardMove(orig, dest)
+        }
+      },
+      draggable: {
+        enabled: true,
+        showGhost: true
+      },
+      highlight: {
+        lastMove: true,
+        check: true
+      },
+      selectable: {
+        enabled: true
+      }
+    });
+  }
+
+  private getLegalMoves(): Map<Key, Key[]> {
+    const dests = new Map<Key, Key[]>();
+    const moves = this.chessGame.moves({ verbose: true });
+
+    for (const move of moves) {
+      const from = move.from as Key;
+      const to = move.to as Key;
+
+      if (!dests.has(from)) {
+        dests.set(from, []);
+      }
+      dests.get(from)!.push(to);
+    }
+
+    return dests;
+  }
+
+  private getCheckmateHighlight() {
+    if (!this.chessGame.isCheckmate()) {
+      return [];
+    }
+
+    // Find the king that is in checkmate (the king of the side to move)
+    const board = this.chessGame.board();
+    const turn = this.chessGame.turn(); // 'w' or 'b' - the side that is checkmated
+
+    for (let row = 0; row < 8; row++) {
+      for (let col = 0; col < 8; col++) {
+        const square = board[row][col];
+        if (square && square.type === 'k' && square.color === turn) {
+          // Found the checkmated king
+          const file = String.fromCharCode(97 + col); // a-h
+          const rank = String(8 - row); // 8-1
+          return [{
+            orig: (file + rank) as Key,
+            brush: 'red'
+          }];
+        }
+      }
+    }
+
+    return [];
+  }
+
+  private onBoardMove(from: Key, to: Key) {
+    try {
+      // Try to make the move
+      const move = this.chessGame.move({
+        from,
+        to,
+        promotion: 'q' // Always promote to queen for simplicity
+      }, { strict: false });
+
+      if (move) {
+        // Update board to reflect the move and show new legal moves
+        this.chessboard?.set({
+          fen: this.chessGame.fen(),
+          movable: {
+            dests: this.getLegalMoves()
+          },
+          drawable: {
+            shapes: this.getCheckmateHighlight()
+          }
+        });
+
+        // Update moves field with SAN notation
+        this.updateMovesFromGame();
+        console.log('Move made:', move.san, this.chessGame.isCheckmate() ? '(Checkmate!)' : '');
+      } else {
+        // Invalid move, reset board
+        this.chessboard?.set({
+          fen: this.chessGame.fen()
+        });
+      }
+    } catch (error) {
+      console.error('Error making move:', error);
+      // Reset board on error
+      this.chessboard?.set({
+        fen: this.chessGame.fen()
+      });
+    }
+  }
+
+  private updateMovesFromGame() {
+    const history = this.chessGame.history();
+    this.moveHistory = [...history];
+    this.currentMoveIndex = this.moveHistory.length - 1;
+    this.manualPGN.moves = history.join(' ');
+    this.validateMoves();
+  }
+
+  resetBoard() {
+    this.chessGame.reset();
+    this.moveHistory = [];
+    this.currentMoveIndex = -1;
+    this.chessboard?.set({
+      fen: this.chessGame.fen(),
+      movable: {
+        dests: this.getLegalMoves()
+      },
+      drawable: {
+        shapes: []
+      }
+    });
+    this.manualPGN.moves = '';
+    this.movesValidationError = null;
+  }
+
+  undoMove() {
+    const move = this.chessGame.undo();
+    if (move) {
+      this.chessboard?.set({
+        fen: this.chessGame.fen(),
+        movable: {
+          dests: this.getLegalMoves()
+        },
+        drawable: {
+          shapes: this.getCheckmateHighlight()
+        }
+      });
+      this.updateMovesFromGame();
+    }
+  }
+
+  verifyMoves() {
+    this.validateMoves();
+    if (!this.movesValidationError) {
+      alert('✓ All moves are valid and ready to submit!');
+    }
+  }
+
+  onPgnPaste(event: ClipboardEvent) {
+    event.preventDefault();
+    const pastedText = event.clipboardData?.getData('text') || '';
+
+    if (!pastedText.trim()) {
+      return;
+    }
+
+    try {
+      // Clean and parse the pasted PGN
+      let movesText = pastedText
+        .replace(/[\u200B-\u200D\uFEFF]/g, '') // Remove invisible characters
+        .replace(/\d+\.\s*/g, ' ') // Remove move numbers
+        .replace(/1-0|0-1|1\/2-1\/2|\*/g, '') // Remove result
+        .replace(/\s+/g, ' ') // Normalize whitespace
+        .trim();
+
+      const moves = movesText.split(' ').filter(m => m.length > 0);
+
+      if (moves.length === 0) {
+        alert('No valid moves found in pasted text');
+        return;
+      }
+
+      // Reset the game and board
+      this.chessGame.reset();
+      this.moveHistory = [];
+      this.currentMoveIndex = -1;
+
+      // Apply each move
+      const chess = new Chess();
+      const validMoves: string[] = [];
+
+      for (let i = 0; i < moves.length; i++) {
+        const move = moves[i].trim();
+        if (!move) continue;
+
+        try {
+          const result = chess.move(move, { strict: false });
+          if (result) {
+            validMoves.push(result.san);
+          } else {
+            alert(`Invalid move "${move}" at position ${i + 1}. Stopped parsing.`);
+            break;
+          }
+        } catch (error) {
+          alert(`Error parsing move "${move}" at position ${i + 1}. Stopped parsing.`);
+          break;
+        }
+      }
+
+      if (validMoves.length > 0) {
+        // Reset and apply all valid moves to our game
+        this.chessGame.reset();
+        this.moveHistory = [];
+
+        for (const move of validMoves) {
+          this.chessGame.move(move, { strict: false });
+          this.moveHistory.push(move);
+        }
+
+        // Update the board to final position
+        this.currentMoveIndex = this.moveHistory.length - 1;
+        this.chessboard?.set({
+          fen: this.chessGame.fen(),
+          movable: {
+            dests: this.getLegalMoves()
+          },
+          drawable: {
+            shapes: this.getCheckmateHighlight()
+          }
+        });
+
+        // Update moves field
+        this.manualPGN.moves = validMoves.join(' ');
+        this.validateMoves();
+
+        console.log(`Pasted and plotted ${validMoves.length} moves`);
+      }
+    } catch (error: any) {
+      console.error('Error pasting PGN:', error);
+      alert(`Error pasting PGN: ${error.message}`);
+    }
+  }
+
+  // Move navigation methods
+  goToFirstMove() {
+    if (this.moveHistory.length === 0) return;
+
+    this.currentMoveIndex = -1;
+    this.chessGame.reset();
+
+    this.chessboard?.set({
+      fen: this.chessGame.fen(),
+      movable: {
+        dests: new Map() // Disable moves when navigating
+      },
+      drawable: {
+        shapes: this.getCheckmateHighlight()
+      }
+    });
+  }
+
+  goToPreviousMove() {
+    if (this.currentMoveIndex < 0) return;
+
+    this.currentMoveIndex--;
+    this.chessGame.reset();
+
+    // Replay moves up to current index
+    for (let i = 0; i <= this.currentMoveIndex; i++) {
+      this.chessGame.move(this.moveHistory[i], { strict: false });
+    }
+
+    this.chessboard?.set({
+      fen: this.chessGame.fen(),
+      movable: {
+        dests: new Map() // Disable moves when navigating
+      },
+      drawable: {
+        shapes: this.getCheckmateHighlight()
+      }
+    });
+  }
+
+  goToNextMove() {
+    if (this.currentMoveIndex >= this.moveHistory.length - 1) return;
+
+    this.currentMoveIndex++;
+    const move = this.moveHistory[this.currentMoveIndex];
+    this.chessGame.move(move, { strict: false });
+
+    // Enable moves if at the last position, otherwise disable
+    const isAtLastMove = this.currentMoveIndex === this.moveHistory.length - 1;
+    this.chessboard?.set({
+      fen: this.chessGame.fen(),
+      movable: {
+        dests: isAtLastMove ? this.getLegalMoves() : new Map()
+      },
+      drawable: {
+        shapes: this.getCheckmateHighlight()
+      }
+    });
+  }
+
+  goToLastMove() {
+    if (this.moveHistory.length === 0) return;
+
+    this.currentMoveIndex = this.moveHistory.length - 1;
+    this.chessGame.reset();
+
+    // Replay all moves
+    for (const move of this.moveHistory) {
+      this.chessGame.move(move, { strict: false });
+    }
+
+    // Enable moves when at the last position
+    this.chessboard?.set({
+      fen: this.chessGame.fen(),
+      movable: {
+        dests: this.getLegalMoves()
+      },
+      drawable: {
+        shapes: this.getCheckmateHighlight()
+      }
+    });
+  }
+
+  getCurrentMoveDisplay(): string {
+    if (this.moveHistory.length === 0) return '0/0';
+    const current = this.currentMoveIndex === -1 ? 0 : this.currentMoveIndex + 1;
+    return `${current}/${this.moveHistory.length}`;
+  }
+
+  // File upload methods
   handleDragEnter(e: DragEvent) {
     e.preventDefault();
     e.stopPropagation();
@@ -215,11 +964,11 @@ export class UploadComponent {
     );
 
     if (droppedFiles.length > 0) {
-      this.files = [...this.files, ...droppedFiles.map(f => ({ 
-        name: f.name, 
-        size: f.size, 
-        file: f, 
-        status: 'pending' as const 
+      this.files = [...this.files, ...droppedFiles.map(f => ({
+        name: f.name,
+        size: f.size,
+        file: f,
+        status: 'pending' as const
       }))];
       console.log(`${droppedFiles.length} PGN file(s) added`);
     } else {
@@ -234,11 +983,11 @@ export class UploadComponent {
         file => file.name.endsWith('.pgn')
       );
       if (selectedFiles.length > 0) {
-        this.files = [...this.files, ...selectedFiles.map(f => ({ 
-          name: f.name, 
-          size: f.size, 
-          file: f, 
-          status: 'pending' as const 
+        this.files = [...this.files, ...selectedFiles.map(f => ({
+          name: f.name,
+          size: f.size,
+          file: f,
+          status: 'pending' as const
         }))];
         console.log(`${selectedFiles.length} PGN file(s) added`);
       } else {
@@ -254,13 +1003,13 @@ export class UploadComponent {
     }
 
     this.uploadStatus = 'uploading';
-    
+
     try {
       // Upload files one by one
       for (let i = 0; i < this.files.length; i++) {
         const fileItem = this.files[i];
         fileItem.status = 'uploading';
-        
+
         try {
           const result = await this.chessApi.uploadPgnFile(fileItem.file).toPromise();
           fileItem.status = 'success';
@@ -272,10 +1021,10 @@ export class UploadComponent {
           console.error(`Failed to upload ${fileItem.name}:`, error);
         }
       }
-      
+
       const successCount = this.files.filter(f => f.status === 'success').length;
       const errorCount = this.files.filter(f => f.status === 'error').length;
-      
+
       if (errorCount === 0) {
         this.uploadStatus = 'success';
         console.log(`Successfully processed ${successCount} game(s)`);
@@ -283,13 +1032,13 @@ export class UploadComponent {
         this.uploadStatus = 'error';
         console.log(`Processed ${successCount} games, ${errorCount} failed`);
       }
-      
+
       // Reset after 3 seconds
       setTimeout(() => {
         this.files = [];
         this.uploadStatus = 'idle';
       }, 3000);
-      
+
     } catch (error) {
       this.uploadStatus = 'error';
       console.error('Upload process failed:', error);
@@ -305,5 +1054,97 @@ export class UploadComponent {
     if (this.files.length === 0) return 0;
     const completedFiles = this.files.filter(f => f.status === 'success' || f.status === 'error').length;
     return Math.round((completedFiles / this.files.length) * 100);
+  }
+
+  // Manual PGN entry methods
+  validateMoves() {
+    if (!this.manualPGN.moves.trim()) {
+      this.movesValidationError = null;
+      return;
+    }
+
+    try {
+      // Clean and parse moves from input
+      let movesText = this.manualPGN.moves
+        .replace(/[\u200B-\u200D\uFEFF]/g, '') // Remove zero-width spaces and other invisible characters
+        .replace(/\d+\.\s*/g, ' ') // Remove move numbers with optional space
+        .replace(/1-0|0-1|1\/2-1\/2|\*/g, '') // Remove result
+        .replace(/\s+/g, ' ') // Normalize all whitespace to single spaces
+        .trim();
+
+      const moves = movesText.split(' ').filter(m => m.length > 0);
+
+      if (moves.length === 0) {
+        this.movesValidationError = 'Please enter at least one move';
+        return;
+      }
+
+      // Use chess.js to validate moves are legal
+      const chess = new Chess();
+
+      for (let i = 0; i < moves.length; i++) {
+        const move = moves[i].trim();
+
+        // Skip empty moves
+        if (!move) continue;
+
+        try {
+          const result = chess.move(move, { strict: false }); // non-strict allows various notation formats
+
+          if (!result) {
+            this.movesValidationError = `Illegal move "${move}" at position ${i + 1}. Current board position doesn't allow this move.`;
+            return;
+          }
+        } catch (error: any) {
+          this.movesValidationError = `Invalid move "${move}" at position ${i + 1}: ${error.message || 'Invalid notation'}`;
+          return;
+        }
+      }
+
+      // All moves are valid
+      this.movesValidationError = null;
+
+    } catch (error: any) {
+      this.movesValidationError = `Error validating moves: ${error.message || 'Unknown error'}`;
+    }
+  }
+
+  async handleManualSubmit() {
+    this.validateMoves();
+
+    if (this.movesValidationError) {
+      return;
+    }
+
+    this.manualSubmitStatus = 'uploading';
+    this.manualSubmitError = '';
+
+    try {
+      const result = await this.chessApi.submitManualPGN(this.manualPGN).toPromise();
+      this.manualSubmitStatus = 'success';
+      console.log('Manual game submitted successfully:', result);
+
+      // Reset form after 3 seconds
+      setTimeout(() => {
+        this.manualPGN = {
+          tournamentName: '',
+          date: new Date().toISOString().split('T')[0],
+          opponent: '',
+          opponentElo: null,
+          playerElo: null,
+          result: '1-0',
+          variant: 'Rapid',
+          termination: 'mate',
+          playerColor: 'white',
+          moves: ''
+        };
+        this.manualSubmitStatus = 'idle';
+        this.movesValidationError = null;
+      }, 3000);
+    } catch (error: any) {
+      this.manualSubmitStatus = 'error';
+      this.manualSubmitError = error.error?.error || error.message || 'Failed to submit game';
+      console.error('Failed to submit manual game:', error);
+    }
   }
 }

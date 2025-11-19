@@ -70,6 +70,10 @@ export class ChessApiService {
     return this.http.post(`${this.baseUrl}/upload`, formData);
   }
 
+  submitManualPGN(data: any): Observable<any> {
+    return this.http.post(`${this.baseUrl}/manual-pgn`, data);
+  }
+
   getGames(): Observable<any[]> {
     return this.http.get<any[]>(`${this.baseUrl}/games`);
   }

@@ -551,6 +551,70 @@ const uploadHandler = async (req, res) => {
   }
 };
 
+// Manual PGN entry endpoint
+app.post('/api/manual-pgn', async (req, res) => {
+  try {
+    const { tournamentName, date, opponent, opponentElo, playerElo, result, variant, termination, playerColor, moves } = req.body;
+
+    // Validate required fields
+    if (!tournamentName || !opponent || !moves || !result || !playerColor || !variant || !termination) {
+      return res.status(400).json({ error: 'Missing required fields' });
+    }
+
+    // Determine white and black players based on player color
+    const whitePlayer = playerColor === 'white' ? TARGET_PLAYER : opponent;
+    const blackPlayer = playerColor === 'black' ? TARGET_PLAYER : opponent;
+    const whiteElo = playerColor === 'white' ? playerElo : opponentElo;
+    const blackElo = playerColor === 'black' ? playerElo : opponentElo;
+
+    // Format the date for PGN (YYYY.MM.DD)
+    const formattedDate = date ? date.replace(/-/g, '.') : new Date().toISOString().split('T')[0].replace(/-/g, '.');
+
+    // Construct PGN content with proper headers
+    let pgnContent = `[Event "${tournamentName}"]\n`;
+    pgnContent += `[Site "Tournament"]\n`;
+    pgnContent += `[Date "${formattedDate}"]\n`;
+    pgnContent += `[Round "?"]\n`;
+    pgnContent += `[White "${whitePlayer}"]\n`;
+    pgnContent += `[Black "${blackPlayer}"]\n`;
+    pgnContent += `[Result "${result}"]\n`;
+
+    if (whiteElo) {
+      pgnContent += `[WhiteElo "${whiteElo}"]\n`;
+    }
+    if (blackElo) {
+      pgnContent += `[BlackElo "${blackElo}"]\n`;
+    }
+
+    // Add TimeControl and Termination headers
+    pgnContent += `[TimeControl "${variant}"]\n`;
+    pgnContent += `[Termination "${termination}"]\n`;
+
+    pgnContent += `\n${moves.trim()}\n`;
+
+    // Add result at the end if not already present
+    if (!moves.trim().endsWith(result)) {
+      pgnContent += ` ${result}\n`;
+    }
+
+    console.log(`📝 Manual PGN entry: ${whitePlayer} vs ${blackPlayer} at ${tournamentName} (${variant}, ${termination})`);
+
+    // Process using the existing upload handler logic
+    // Create a modified request object to simulate file upload
+    const modifiedReq = {
+      ...req,
+      body: pgnContent,
+      file: null
+    };
+
+    // Call uploadHandler with the constructed PGN
+    await uploadHandler(modifiedReq, res);
+  } catch (error) {
+    console.error('Manual PGN entry error:', error);
+    res.status(500).json({ error: 'Failed to process manual PGN entry' });
+  }
+});
+
 // Bind both routes to the same handler
 app.post('/api/upload', upload.single('pgn'), uploadHandler);
 app.post('/api/upload/pgn', upload.single('pgn'), uploadHandler);

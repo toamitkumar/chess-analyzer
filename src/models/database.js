@@ -1,6 +1,6 @@
-const sqlite3 = require('sqlite3').verbose();
 const path = require('path');
 const fs = require('fs');
+const db = require('../config/database');
 
 // Configuration - TODO: Replace with logged-in user when auth is implemented
 const TARGET_PLAYER = 'AdvaitKumar1213';
@@ -11,7 +11,7 @@ class Database {
     const isTestEnvironment = process.env.NODE_ENV === 'test';
     const dbFileName = isTestEnvironment ? 'chess_analysis_test.db' : 'chess_analysis.db';
     this.dbPath = path.join(__dirname, '../../data', dbFileName);
-    this.db = null;
+    this.db = db; // Use the dual database layer
     this.ensureDataDirectory();
   }
 
@@ -23,24 +23,12 @@ class Database {
   }
 
   async connect() {
-    return new Promise((resolve, reject) => {
-      this.db = new sqlite3.Database(this.dbPath, (err) => {
-        if (err) {
-          console.error('❌ Database connection failed:', err.message);
-          reject(err);
-        } else {
-          console.log('✅ Connected to SQLite database');
-          resolve();
-        }
-      });
-    });
+    // Database connection is handled automatically by the config/database layer
+    console.log('✅ Database connection ready (dual-mode: SQLite/PostgreSQL)');
   }
 
   async initialize() {
-    if (!this.db) {
-      await this.connect();
-    }
-    
+    await this.connect();
     await this.createTables();
     await this.runMigrations();
     await this.initializePerformanceMetrics();
@@ -176,44 +164,32 @@ class Database {
     }
   }
 
-  // Utility methods
+  // Utility methods - now using dual database layer
   async run(sql, params = []) {
-    return new Promise((resolve, reject) => {
-      this.db.run(sql, params, function(err) {
-        if (err) {
-          console.error('❌ Database run error:', err.message);
-          reject(err);
-        } else {
-          resolve({ id: this.lastID, changes: this.changes });
-        }
-      });
-    });
+    try {
+      return await this.db.run(sql, params);
+    } catch (err) {
+      console.error('❌ Database run error:', err.message);
+      throw err;
+    }
   }
 
   async get(sql, params = []) {
-    return new Promise((resolve, reject) => {
-      this.db.get(sql, params, (err, row) => {
-        if (err) {
-          console.error('❌ Database get error:', err.message);
-          reject(err);
-        } else {
-          resolve(row);
-        }
-      });
-    });
+    try {
+      return await this.db.get(sql, params);
+    } catch (err) {
+      console.error('❌ Database get error:', err.message);
+      throw err;
+    }
   }
 
   async all(sql, params = []) {
-    return new Promise((resolve, reject) => {
-      this.db.all(sql, params, (err, rows) => {
-        if (err) {
-          console.error('❌ Database all error:', err.message);
-          reject(err);
-        } else {
-          resolve(rows);
-        }
-      });
-    });
+    try {
+      return await this.db.query(sql, params);
+    } catch (err) {
+      console.error('❌ Database all error:', err.message);
+      throw err;
+    }
   }
 
   // Game operations (updated for database storage)
@@ -605,20 +581,14 @@ class Database {
   }
 
   async close() {
-    return new Promise((resolve) => {
+    try {
       if (this.db) {
-        this.db.close((err) => {
-          if (err) {
-            console.error('❌ Database close error:', err.message);
-          } else {
-            console.log('✅ Database connection closed');
-          }
-          resolve();
-        });
-      } else {
-        resolve();
+        await this.db.close();
+        console.log('✅ Database connection closed');
       }
-    });
+    } catch (err) {
+      console.error('❌ Database close error:', err.message);
+    }
   }
 }
 

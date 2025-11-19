@@ -12,7 +12,18 @@ class Database {
     const dbFileName = isTestEnvironment ? 'chess_analysis_test.db' : 'chess_analysis.db';
     this.dbPath = path.join(__dirname, '../../data', dbFileName);
     this.db = db; // Use the dual database layer
+    this.usePostgres = !!process.env.DATABASE_URL;
     this.ensureDataDirectory();
+  }
+
+  // Helper method for database-agnostic SQL types
+  getSQLTypes() {
+    return {
+      idType: this.usePostgres ? 'SERIAL PRIMARY KEY' : 'INTEGER PRIMARY KEY AUTOINCREMENT',
+      timestampType: this.usePostgres ? 'TIMESTAMP' : 'DATETIME',
+      textType: 'TEXT',
+      boolType: 'BOOLEAN'
+    };
   }
 
   ensureDataDirectory() {
@@ -36,40 +47,42 @@ class Database {
   }
 
   async createTables() {
+    const { idType, timestampType, textType, boolType } = this.getSQLTypes();
+
     const tables = [
       // Games table (base schema)
       `CREATE TABLE IF NOT EXISTS games (
-        id INTEGER PRIMARY KEY AUTOINCREMENT,
-        pgn_file_path TEXT NOT NULL,
-        white_player TEXT NOT NULL,
-        black_player TEXT NOT NULL,
-        result TEXT NOT NULL,
-        date TEXT,
-        event TEXT,
+        id ${idType},
+        pgn_file_path ${textType} NOT NULL,
+        white_player ${textType} NOT NULL,
+        black_player ${textType} NOT NULL,
+        result ${textType} NOT NULL,
+        date ${textType},
+        event ${textType},
         white_elo INTEGER,
         black_elo INTEGER,
         moves_count INTEGER,
-        created_at DATETIME DEFAULT CURRENT_TIMESTAMP
+        created_at ${timestampType} DEFAULT CURRENT_TIMESTAMP
       )`,
-      
+
       // Analysis table
       `CREATE TABLE IF NOT EXISTS analysis (
-        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        id ${idType},
         game_id INTEGER NOT NULL,
         move_number INTEGER NOT NULL,
-        move TEXT NOT NULL,
+        move ${textType} NOT NULL,
         evaluation REAL,
         centipawn_loss INTEGER,
-        best_move TEXT,
-        alternatives TEXT,
-        is_blunder BOOLEAN DEFAULT FALSE,
+        best_move ${textType},
+        alternatives ${textType},
+        is_blunder ${boolType} DEFAULT FALSE,
         FOREIGN KEY (game_id) REFERENCES games(id) ON DELETE CASCADE
       )`,
-      
+
       // Performance metrics table
       `CREATE TABLE IF NOT EXISTS performance_metrics (
-        id INTEGER PRIMARY KEY AUTOINCREMENT,
-        color TEXT NOT NULL UNIQUE,
+        id ${idType},
+        color ${textType} NOT NULL UNIQUE,
         total_games INTEGER DEFAULT 0,
         wins INTEGER DEFAULT 0,
         losses INTEGER DEFAULT 0,
@@ -77,15 +90,15 @@ class Database {
         total_moves INTEGER DEFAULT 0,
         total_blunders INTEGER DEFAULT 0,
         total_centipawn_loss INTEGER DEFAULT 0,
-        last_updated DATETIME DEFAULT CURRENT_TIMESTAMP
+        last_updated ${timestampType} DEFAULT CURRENT_TIMESTAMP
       )`,
 
       // Migration tracking table
       `CREATE TABLE IF NOT EXISTS migrations (
-        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        id ${idType},
         version INTEGER NOT NULL UNIQUE,
-        name TEXT NOT NULL,
-        applied_at DATETIME DEFAULT CURRENT_TIMESTAMP
+        name ${textType} NOT NULL,
+        applied_at ${timestampType} DEFAULT CURRENT_TIMESTAMP
       )`
     ];
 

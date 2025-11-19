@@ -21,7 +21,7 @@ export const Layout = ({ children }: { children: React.ReactNode }) => {
               <div className="flex h-10 w-10 items-center justify-center rounded-lg bg-primary">
                 <span className="text-xl font-bold text-primary-foreground">♔</span>
               </div>
-              <span className="text-xl font-bold text-foreground">ChessMind</span>
+              <span className="text-xl font-bold text-foreground">ChessPulse</span>
             </div>
             
             <div className="flex gap-1">

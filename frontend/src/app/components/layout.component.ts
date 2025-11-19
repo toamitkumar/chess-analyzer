@@ -22,7 +22,7 @@ import {
               <div class="flex h-10 w-10 items-center justify-center rounded-xl gradient-primary shadow-glow transition-all duration-300 group-hover:scale-110 group-hover:rotate-6 animate-float">
                 <span class="text-xl font-bold text-primary-foreground">♔</span>
               </div>
-              <span class="text-xl font-bold text-gradient">ChessMind</span>
+              <span class="text-xl font-bold text-gradient">ChessPulse</span>
             </div>
             
             <div class="flex gap-1">

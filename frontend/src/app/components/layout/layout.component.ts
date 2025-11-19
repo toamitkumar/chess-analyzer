@@ -15,7 +15,7 @@ import { RouterModule } from '@angular/router';
               <div class="flex h-10 w-10 items-center justify-center rounded-lg bg-primary">
                 <span class="text-xl font-bold text-primary-foreground">♔</span>
               </div>
-              <span class="text-xl font-bold text-foreground">ChessMind</span>
+              <span class="text-xl font-bold text-foreground">ChessPulse</span>
             </div>
             
             <div class="flex gap-1">

@@ -1,7 +1,7 @@
 {
-  "name": "chessify-analyzer",
+  "name": "chesspulse",
   "version": "1.0.0",
-  "description": "Chess PGN analyzer using Stockfish",
+  "description": "ChessPulse - Track your chess performance, analyze games, and improve with AI-powered insights",
   "main": "index.js",
   "scripts": {
     "start": "node src/api/api-server.js",

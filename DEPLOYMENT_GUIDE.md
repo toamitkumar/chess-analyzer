@@ -19,7 +19,7 @@ Your PGN files and analysis data are **mission-critical** and must never be lost
 ### Step 1: Install PostgreSQL Dependencies
 
 ```bash
-cd /Users/amit.kumar3/projects/chess-analysis/chessify
+cd /Users/amit.kumar3/projects/chess-analysis/chesspulse
 npm install pg pg-hstore
 ```
 

@@ -11,8 +11,8 @@
     "test:watch": "jest --watch",
     "test:coverage": "jest --coverage",
     "test:clean": "rm -f data/chess_analysis_test.db data/test_*.db tests/data/*.db",
-    "build": "cd frontend/chess-ui && npm install && npx ng build",
-    "heroku-postbuild": "cd frontend/chess-ui && npm install && npx ng build"
+    "build": "cd frontend && npm install && npm run build --configuration production",
+    "heroku-postbuild": "cd frontend && npm install && npm run build --configuration production"
   },
   "engines": {
     "node": "20.x",

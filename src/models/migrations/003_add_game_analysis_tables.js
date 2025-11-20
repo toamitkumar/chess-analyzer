@@ -7,30 +7,32 @@ class Migration003 {
 
   async up() {
     console.log('🔄 Running migration: Add game analysis tables for alternative moves and position evaluations');
-    
+
+    const { idType, timestampType } = this.db.getSQLTypes();
+
     // Alternative moves table
     await this.db.run(`
       CREATE TABLE IF NOT EXISTS alternative_moves (
-        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        id ${idType},
         game_id INTEGER NOT NULL,
         move_number INTEGER NOT NULL,
         alternative_move TEXT NOT NULL,
         evaluation INTEGER NOT NULL,
         depth INTEGER NOT NULL,
         line_moves TEXT,
-        created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+        created_at ${timestampType} DEFAULT CURRENT_TIMESTAMP,
         FOREIGN KEY (game_id) REFERENCES games(id)
       )
     `);
-    
+
     await this.db.run(`
       CREATE INDEX IF NOT EXISTS idx_alternative_moves_game_move ON alternative_moves(game_id, move_number)
     `);
-    
+
     // Position evaluations table
     await this.db.run(`
       CREATE TABLE IF NOT EXISTS position_evaluations (
-        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        id ${idType},
         game_id INTEGER NOT NULL,
         move_number INTEGER NOT NULL,
         fen TEXT NOT NULL,
@@ -38,15 +40,15 @@ class Migration003 {
         best_move TEXT NOT NULL,
         depth INTEGER NOT NULL,
         mate_in INTEGER,
-        created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+        created_at ${timestampType} DEFAULT CURRENT_TIMESTAMP,
         FOREIGN KEY (game_id) REFERENCES games(id)
       )
     `);
-    
+
     await this.db.run(`
       CREATE INDEX IF NOT EXISTS idx_position_evaluations_game_move ON position_evaluations(game_id, move_number)
     `);
-    
+
     console.log('✅ Game analysis tables created successfully');
   }
 

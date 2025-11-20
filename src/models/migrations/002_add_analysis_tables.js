@@ -7,11 +7,13 @@ class Migration002 {
 
   async up() {
     console.log('🔄 Running migration: Add phase, opening, and tactical analysis tables');
-    
+
+    const { idType } = this.db.getSQLTypes();
+
     // Phase-specific analysis table
     await this.db.run(`
       CREATE TABLE IF NOT EXISTS phase_analysis (
-        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        id ${idType},
         game_id INTEGER NOT NULL,
         phase TEXT NOT NULL CHECK (phase IN ('opening', 'middlegame', 'endgame')),
         accuracy REAL DEFAULT 0,
@@ -27,7 +29,7 @@ class Migration002 {
     // Opening analysis table
     await this.db.run(`
       CREATE TABLE IF NOT EXISTS opening_analysis (
-        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        id ${idType},
         game_id INTEGER NOT NULL,
         eco_code TEXT,
         opening_name TEXT,
@@ -42,7 +44,7 @@ class Migration002 {
     // Tactical motifs table
     await this.db.run(`
       CREATE TABLE IF NOT EXISTS tactical_motifs (
-        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        id ${idType},
         game_id INTEGER NOT NULL,
         move_number INTEGER NOT NULL,
         motif_type TEXT NOT NULL,
@@ -57,7 +59,7 @@ class Migration002 {
     // Phase statistics summary table
     await this.db.run(`
       CREATE TABLE IF NOT EXISTS phase_stats (
-        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        id ${idType},
         game_id INTEGER NOT NULL,
         opening_accuracy REAL DEFAULT 0,
         middlegame_accuracy REAL DEFAULT 0,
@@ -75,7 +77,7 @@ class Migration002 {
     // Opening repertoire statistics
     await this.db.run(`
       CREATE TABLE IF NOT EXISTS opening_stats (
-        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        id ${idType},
         eco_code TEXT NOT NULL,
         opening_name TEXT,
         player_color TEXT NOT NULL CHECK (player_color IN ('white', 'black')),

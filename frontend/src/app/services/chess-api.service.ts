@@ -40,7 +40,8 @@ export interface PerformanceData {
   providedIn: 'root'
 })
 export class ChessApiService {
-  private baseUrl = 'http://localhost:3000/api';
+  // Use relative URL - works in both development (with proxy) and production
+  private baseUrl = '/api';
   public readonly targetPlayer = 'AdvaitKumar1213'; // Centralized target player
 
   constructor(private http: HttpClient) {}

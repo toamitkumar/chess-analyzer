@@ -1,0 +1,16 @@
+[phases.setup]
+nixPkgs = ["nodejs-20_x", "npm"]
+
+[phases.install]
+cmds = [
+  "npm ci",
+  "cd frontend/chess-ui && npm ci"
+]
+
+[phases.build]
+cmds = [
+  "cd frontend/chess-ui && npm run build"
+]
+
+[start]
+cmd = "npm start"

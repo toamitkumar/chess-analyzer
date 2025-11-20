@@ -491,7 +491,7 @@ class Database {
         losses = (SELECT COUNT(*) FROM games WHERE result = '0-1'),
         draws = (SELECT COUNT(*) FROM games WHERE result = '1/2-1/2'),
         total_moves = (SELECT COUNT(*) FROM analysis WHERE game_id IN (SELECT id FROM games)),
-        total_blunders = (SELECT COUNT(*) FROM analysis WHERE is_blunder = 1 AND game_id IN (SELECT id FROM games)),
+        total_blunders = (SELECT COUNT(*) FROM analysis WHERE is_blunder = TRUE AND game_id IN (SELECT id FROM games)),
         total_centipawn_loss = (SELECT COALESCE(SUM(centipawn_loss), 0) FROM analysis WHERE game_id IN (SELECT id FROM games)),
         last_updated = CURRENT_TIMESTAMP
       WHERE color = 'white'
@@ -506,7 +506,7 @@ class Database {
         losses = (SELECT COUNT(*) FROM games WHERE result = '1-0'),
         draws = (SELECT COUNT(*) FROM games WHERE result = '1/2-1/2'),
         total_moves = (SELECT COUNT(*) FROM analysis WHERE game_id IN (SELECT id FROM games)),
-        total_blunders = (SELECT COUNT(*) FROM analysis WHERE is_blunder = 1 AND game_id IN (SELECT id FROM games)),
+        total_blunders = (SELECT COUNT(*) FROM analysis WHERE is_blunder = TRUE AND game_id IN (SELECT id FROM games)),
         total_centipawn_loss = (SELECT COALESCE(SUM(centipawn_loss), 0) FROM analysis WHERE game_id IN (SELECT id FROM games)),
         last_updated = CURRENT_TIMESTAMP
       WHERE color = 'black'
@@ -540,9 +540,9 @@ class Database {
     // Get analysis statistics for target player only
     const analysisParams = tournamentId ? [playerName, playerName, tournamentId] : [playerName, playerName];
     const analysisStats = await this.get(`
-      SELECT 
+      SELECT
         COUNT(*) as total_moves,
-        COUNT(CASE WHEN is_blunder = 1 THEN 1 END) as total_blunders,
+        COUNT(CASE WHEN is_blunder = TRUE THEN 1 END) as total_blunders,
         COALESCE(SUM(centipawn_loss), 0) as total_centipawn_loss
       FROM analysis a
       JOIN games g ON a.game_id = g.id

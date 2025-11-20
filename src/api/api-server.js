@@ -1304,7 +1304,7 @@ app.get('/api/heatmap-db', async (req, res) => {
         COUNT(*) as count,
         AVG(centipawn_loss) as avg_loss
       FROM analysis 
-      WHERE is_blunder = 1 
+      WHERE is_blunder = TRUE 
         AND SUBSTR(move, -2) GLOB '[a-h][1-8]'
       GROUP BY square
     `);
@@ -1552,7 +1552,7 @@ app.get('/api/games/:id/blunders', async (req, res) => {
       SELECT a.*, alt.alternative_move, alt.evaluation as alt_evaluation
       FROM analysis a
       LEFT JOIN alternative_moves alt ON a.game_id = alt.game_id AND a.move_number = alt.move_number
-      WHERE a.game_id = ? AND a.is_blunder = 1
+      WHERE a.game_id = ? AND a.is_blunder = TRUE
       ORDER BY a.move_number
     `, [gameId]);
     

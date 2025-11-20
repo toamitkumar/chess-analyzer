@@ -53,7 +53,7 @@ class TournamentAnalyzer {
       const analysisMetrics = await this.db.all(`
         SELECT 
           COUNT(*) as total_moves,
-          COUNT(CASE WHEN is_blunder = 1 THEN 1 END) as total_blunders,
+          COUNT(CASE WHEN is_blunder = TRUE THEN 1 END) as total_blunders,
           COALESCE(SUM(centipawn_loss), 0) as total_centipawn_loss
         FROM analysis a
         JOIN games g ON a.game_id = g.id
@@ -145,7 +145,7 @@ class TournamentAnalyzer {
         FROM analysis a
         JOIN games g ON a.game_id = g.id
         WHERE g.tournament_id = ? 
-          AND a.is_blunder = 1 
+          AND a.is_blunder = TRUE 
           AND SUBSTR(a.move, -2) GLOB '[a-h][1-8]'
         GROUP BY square
       `, [tournamentId]);
@@ -293,7 +293,7 @@ class TournamentAnalyzer {
           COUNT(CASE WHEN result = '0-1' THEN 1 END) as losses,
           COUNT(CASE WHEN result = '1/2-1/2' THEN 1 END) as draws,
           COUNT(a.id) as total_moves,
-          COUNT(CASE WHEN a.is_blunder = 1 THEN 1 END) as total_blunders,
+          COUNT(CASE WHEN a.is_blunder = TRUE THEN 1 END) as total_blunders,
           COALESCE(SUM(a.centipawn_loss), 0) as total_centipawn_loss
         FROM games g
         LEFT JOIN analysis a ON g.id = a.game_id

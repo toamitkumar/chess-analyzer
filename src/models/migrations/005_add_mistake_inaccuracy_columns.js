@@ -15,7 +15,7 @@ class Migration005 {
       `);
       console.log('✅ Added is_mistake column');
     } catch (error) {
-      if (error.message.includes('duplicate column')) {
+      if (error.message.includes('duplicate column') || error.message.includes('already exists')) {
         console.log('⏭️ is_mistake column already exists');
       } else {
         throw error;
@@ -29,7 +29,7 @@ class Migration005 {
       `);
       console.log('✅ Added is_inaccuracy column');
     } catch (error) {
-      if (error.message.includes('duplicate column')) {
+      if (error.message.includes('duplicate column') || error.message.includes('already exists')) {
         console.log('⏭️ is_inaccuracy column already exists');
       } else {
         throw error;
@@ -43,7 +43,7 @@ class Migration005 {
       `);
       console.log('✅ Added fen_after column');
     } catch (error) {
-      if (error.message.includes('duplicate column')) {
+      if (error.message.includes('duplicate column') || error.message.includes('already exists')) {
         console.log('⏭️ fen_after column already exists');
       } else {
         throw error;

@@ -17,20 +17,20 @@ class Migration001 {
     try {
       await this.db.run(`ALTER TABLE games ADD COLUMN IF NOT EXISTS pgn_content TEXT`);
     } catch (e) {
-      // SQLite doesn't support IF NOT EXISTS in older versions, ignore if column exists
-      if (!e.message.includes('duplicate column')) throw e;
+      // Ignore if column exists (SQLite: "duplicate column", PostgreSQL: "already exists")
+      if (!e.message.includes('duplicate column') && !e.message.includes('already exists')) throw e;
     }
 
     try {
       await this.db.run(`ALTER TABLE games ADD COLUMN IF NOT EXISTS content_hash TEXT`);
     } catch (e) {
-      if (!e.message.includes('duplicate column')) throw e;
+      if (!e.message.includes('duplicate column') && !e.message.includes('already exists')) throw e;
     }
 
     try {
       await this.db.run(`ALTER TABLE games ADD COLUMN IF NOT EXISTS tournament_id INTEGER`);
     } catch (e) {
-      if (!e.message.includes('duplicate column')) throw e;
+      if (!e.message.includes('duplicate column') && !e.message.includes('already exists')) throw e;
     }
 
     // Create tournaments table with database-agnostic syntax

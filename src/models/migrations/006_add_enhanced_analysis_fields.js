@@ -15,7 +15,7 @@ class Migration006 {
       `);
       console.log('✅ Added move_quality column');
     } catch (error) {
-      if (error.message.includes('duplicate column')) {
+      if (error.message.includes('duplicate column') || error.message.includes('already exists')) {
         console.log('⏭️ move_quality column already exists');
       } else {
         throw error;
@@ -29,7 +29,7 @@ class Migration006 {
       `);
       console.log('✅ Added move_accuracy column');
     } catch (error) {
-      if (error.message.includes('duplicate column')) {
+      if (error.message.includes('duplicate column') || error.message.includes('already exists')) {
         console.log('⏭️ move_accuracy column already exists');
       } else {
         throw error;
@@ -43,7 +43,7 @@ class Migration006 {
       `);
       console.log('✅ Added win_probability_before column');
     } catch (error) {
-      if (error.message.includes('duplicate column')) {
+      if (error.message.includes('duplicate column') || error.message.includes('already exists')) {
         console.log('⏭️ win_probability_before column already exists');
       } else {
         throw error;
@@ -57,7 +57,7 @@ class Migration006 {
       `);
       console.log('✅ Added win_probability_after column');
     } catch (error) {
-      if (error.message.includes('duplicate column')) {
+      if (error.message.includes('duplicate column') || error.message.includes('already exists')) {
         console.log('⏭️ win_probability_after column already exists');
       } else {
         throw error;
@@ -71,7 +71,7 @@ class Migration006 {
       `);
       console.log('✅ Added is_best column');
     } catch (error) {
-      if (error.message.includes('duplicate column')) {
+      if (error.message.includes('duplicate column') || error.message.includes('already exists')) {
         console.log('⏭️ is_best column already exists');
       } else {
         throw error;
@@ -85,7 +85,7 @@ class Migration006 {
       `);
       console.log('✅ Added is_excellent column');
     } catch (error) {
-      if (error.message.includes('duplicate column')) {
+      if (error.message.includes('duplicate column') || error.message.includes('already exists')) {
         console.log('⏭️ is_excellent column already exists');
       } else {
         throw error;
@@ -99,7 +99,7 @@ class Migration006 {
       `);
       console.log('✅ Added is_good column');
     } catch (error) {
-      if (error.message.includes('duplicate column')) {
+      if (error.message.includes('duplicate column') || error.message.includes('already exists')) {
         console.log('⏭️ is_good column already exists');
       } else {
         throw error;

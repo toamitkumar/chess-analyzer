@@ -60,7 +60,7 @@ class Migration002 {
     await this.db.run(`
       CREATE TABLE IF NOT EXISTS phase_stats (
         id ${idType},
-        game_id INTEGER NOT NULL,
+        game_id INTEGER NOT NULL UNIQUE,
         opening_accuracy REAL DEFAULT 0,
         middlegame_accuracy REAL DEFAULT 0,
         endgame_accuracy REAL DEFAULT 0,

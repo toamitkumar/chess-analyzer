@@ -168,12 +168,21 @@ class Database {
   async initializePerformanceMetrics() {
     // Initialize white and black performance metrics if they don't exist
     const colors = ['white', 'black'];
-    
+
     for (const color of colors) {
-      await this.run(
-        `INSERT OR IGNORE INTO performance_metrics (color) VALUES (?)`,
-        [color]
-      );
+      if (this.usePostgres) {
+        // PostgreSQL: INSERT ... ON CONFLICT DO NOTHING
+        await this.run(
+          `INSERT INTO performance_metrics (color) VALUES ($1) ON CONFLICT (color) DO NOTHING`,
+          [color]
+        );
+      } else {
+        // SQLite: INSERT OR IGNORE
+        await this.run(
+          `INSERT OR IGNORE INTO performance_metrics (color) VALUES (?)`,
+          [color]
+        );
+      }
     }
   }
 
@@ -352,33 +361,51 @@ class Database {
   }
 
   async updateOpeningStats(ecoCode, playerColor, gameResult, accuracy, blunders) {
-    const sql = `
-      INSERT OR REPLACE INTO opening_stats 
-      (eco_code, player_color, games_played, wins, draws, losses, avg_accuracy, total_blunders, last_played)
-      VALUES (
-        ?, ?, 
-        COALESCE((SELECT games_played FROM opening_stats WHERE eco_code = ? AND player_color = ?), 0) + 1,
-        COALESCE((SELECT wins FROM opening_stats WHERE eco_code = ? AND player_color = ?), 0) + ?,
-        COALESCE((SELECT draws FROM opening_stats WHERE eco_code = ? AND player_color = ?), 0) + ?,
-        COALESCE((SELECT losses FROM opening_stats WHERE eco_code = ? AND player_color = ?), 0) + ?,
-        ?, ?, DATE('now')
-      )
-    `;
-    
     const wins = gameResult === '1-0' && playerColor === 'white' || gameResult === '0-1' && playerColor === 'black' ? 1 : 0;
     const draws = gameResult === '1/2-1/2' ? 1 : 0;
     const losses = wins === 0 && draws === 0 ? 1 : 0;
-    
-    const params = [
-      ecoCode, playerColor,
-      ecoCode, playerColor,
-      ecoCode, playerColor, wins,
-      ecoCode, playerColor, draws,
-      ecoCode, playerColor, losses,
-      accuracy, blunders
-    ];
-    
-    return await this.run(sql, params);
+
+    if (this.usePostgres) {
+      // PostgreSQL: INSERT ... ON CONFLICT ... DO UPDATE
+      const sql = `
+        INSERT INTO opening_stats
+        (eco_code, player_color, games_played, wins, draws, losses, avg_accuracy, total_blunders, last_played)
+        VALUES ($1, $2, 1, $3, $4, $5, $6, $7, CURRENT_DATE)
+        ON CONFLICT (eco_code, player_color) DO UPDATE SET
+          games_played = opening_stats.games_played + 1,
+          wins = opening_stats.wins + $3,
+          draws = opening_stats.draws + $4,
+          losses = opening_stats.losses + $5,
+          avg_accuracy = $6,
+          total_blunders = opening_stats.total_blunders + $7,
+          last_played = CURRENT_DATE
+      `;
+      const params = [ecoCode, playerColor, wins, draws, losses, accuracy, blunders];
+      return await this.run(sql, params);
+    } else {
+      // SQLite: INSERT OR REPLACE
+      const sql = `
+        INSERT OR REPLACE INTO opening_stats
+        (eco_code, player_color, games_played, wins, draws, losses, avg_accuracy, total_blunders, last_played)
+        VALUES (
+          ?, ?,
+          COALESCE((SELECT games_played FROM opening_stats WHERE eco_code = ? AND player_color = ?), 0) + 1,
+          COALESCE((SELECT wins FROM opening_stats WHERE eco_code = ? AND player_color = ?), 0) + ?,
+          COALESCE((SELECT draws FROM opening_stats WHERE eco_code = ? AND player_color = ?), 0) + ?,
+          COALESCE((SELECT losses FROM opening_stats WHERE eco_code = ? AND player_color = ?), 0) + ?,
+          ?, ?, DATE('now')
+        )
+      `;
+      const params = [
+        ecoCode, playerColor,
+        ecoCode, playerColor,
+        ecoCode, playerColor, wins,
+        ecoCode, playerColor, draws,
+        ecoCode, playerColor, losses,
+        accuracy, blunders
+      ];
+      return await this.run(sql, params);
+    }
   }
 
   // Tactical motifs operations
@@ -407,14 +434,6 @@ class Database {
 
   // Phase statistics operations
   async insertPhaseStats(gameId, statsData) {
-    const sql = `
-      INSERT OR REPLACE INTO phase_stats 
-      (game_id, opening_accuracy, middlegame_accuracy, endgame_accuracy, 
-       opening_blunders, middlegame_blunders, endgame_blunders,
-       opening_moves, middlegame_moves, endgame_moves)
-      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
-    `;
-    
     const params = [
       gameId,
       statsData.openingAccuracy || 0,
@@ -427,8 +446,38 @@ class Database {
       statsData.middlegameMoves || 0,
       statsData.endgameMoves || 0
     ];
-    
-    return await this.run(sql, params);
+
+    if (this.usePostgres) {
+      // PostgreSQL: INSERT ... ON CONFLICT ... DO UPDATE
+      const sql = `
+        INSERT INTO phase_stats
+        (game_id, opening_accuracy, middlegame_accuracy, endgame_accuracy,
+         opening_blunders, middlegame_blunders, endgame_blunders,
+         opening_moves, middlegame_moves, endgame_moves)
+        VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10)
+        ON CONFLICT (game_id) DO UPDATE SET
+          opening_accuracy = $2,
+          middlegame_accuracy = $3,
+          endgame_accuracy = $4,
+          opening_blunders = $5,
+          middlegame_blunders = $6,
+          endgame_blunders = $7,
+          opening_moves = $8,
+          middlegame_moves = $9,
+          endgame_moves = $10
+      `;
+      return await this.run(sql, params);
+    } else {
+      // SQLite: INSERT OR REPLACE
+      const sql = `
+        INSERT OR REPLACE INTO phase_stats
+        (game_id, opening_accuracy, middlegame_accuracy, endgame_accuracy,
+         opening_blunders, middlegame_blunders, endgame_blunders,
+         opening_moves, middlegame_moves, endgame_moves)
+        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+      `;
+      return await this.run(sql, params);
+    }
   }
 
   // Performance metrics operations (unchanged)

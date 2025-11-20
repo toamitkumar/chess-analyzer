@@ -62,16 +62,24 @@ const db = {
       let paramIndex = 1;
       pgSql = pgSql.replace(/\?/g, () => `$${paramIndex++}`);
 
+      // Add RETURNING id for INSERT statements if not already present
+      const isInsert = /^\s*INSERT\s+INTO/i.test(pgSql);
+      const hasReturning = /RETURNING/i.test(pgSql);
+      if (isInsert && !hasReturning) {
+        pgSql = pgSql.trim().replace(/;?\s*$/, '') + ' RETURNING id';
+      }
+
       const result = await pgPool.query(pgSql, params);
       return {
         lastID: result.rows[0]?.id,
-        changes: result.rowCount
+        changes: result.rowCount,
+        id: result.rows[0]?.id  // Add id field for compatibility
       };
     } else {
       return new Promise((resolve, reject) => {
         sqliteDb.run(sql, params, function(err) {
           if (err) reject(err);
-          else resolve({ lastID: this.lastID, changes: this.changes });
+          else resolve({ lastID: this.lastID, changes: this.changes, id: this.lastID });
         });
       });
     }

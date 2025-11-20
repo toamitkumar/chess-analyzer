@@ -165,10 +165,22 @@ class Migration004 {
     ];
 
     // Insert all openings using individual run statements
+    // Use database-agnostic upsert syntax
+    const usePostgres = !!process.env.DATABASE_URL;
+
     for (const [eco, name] of openings) {
-      await this.db.run('INSERT OR REPLACE INTO chess_openings (eco_code, opening_name) VALUES (?, ?)', [eco, name]);
+      if (usePostgres) {
+        // PostgreSQL: INSERT ... ON CONFLICT
+        await this.db.run(
+          'INSERT INTO chess_openings (eco_code, opening_name) VALUES ($1, $2) ON CONFLICT (eco_code) DO UPDATE SET opening_name = $2',
+          [eco, name]
+        );
+      } else {
+        // SQLite: INSERT OR REPLACE
+        await this.db.run('INSERT OR REPLACE INTO chess_openings (eco_code, opening_name) VALUES (?, ?)', [eco, name]);
+      }
     }
-    
+
     console.log(`✅ Inserted ${openings.length} chess opening mappings`);
   }
 

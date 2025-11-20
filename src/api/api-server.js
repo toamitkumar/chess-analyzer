@@ -921,7 +921,7 @@ app.get('/api/tournaments/:id/player-performance', async (req, res) => {
         (isPlayerBlack && move.move_number % 2 === 0)
       );
       
-      totalBlunders += playerMoves.filter(move => move.is_blunder === 1).length;
+      totalBlunders += playerMoves.filter(move => move.is_blunder === true).length;
       totalCentipawnLoss += playerMoves.reduce((sum, move) => sum + (move.centipawn_loss || 0), 0);
       totalMoves += playerMoves.length;
     }
@@ -1042,7 +1042,7 @@ app.get('/api/player-performance', async (req, res) => {
         (isPlayerBlack && move.move_number % 2 === 0)
       );
       
-      totalBlunders += playerMoves.filter(move => move.is_blunder === 1).length;
+      totalBlunders += playerMoves.filter(move => move.is_blunder === true).length;
       totalCentipawnLoss += playerMoves.reduce((sum, move) => sum + (move.centipawn_loss || 0), 0);
       totalMoves += playerMoves.length;
     }
@@ -1267,7 +1267,7 @@ app.get('/api/tournaments/:id/games', async (req, res) => {
             (isPlayerWhite && move.move_number % 2 === 1) ||
             (isPlayerBlack && move.move_number % 2 === 0)
           );
-          playerBlunders = playerMoves.filter(move => move.is_blunder === 1).length;
+          playerBlunders = playerMoves.filter(move => move.is_blunder === true).length;
         }
       }
       
@@ -1658,7 +1658,7 @@ app.get('/api/games/:id/performance', async (req, res) => {
     );
     
     // Count blunders
-    const playerBlunders = playerMoves.filter(move => move.is_blunder === 1).length;
+    const playerBlunders = playerMoves.filter(move => move.is_blunder === true).length;
     
     res.json({
       gameId: gameId,

@@ -206,7 +206,7 @@ class TournamentAnalyzer {
           ORDER BY move_number
         `, [game.id]);
 
-        const blunders = gameAnalysis.filter(a => a.is_blunder === 1).length;
+        const blunders = gameAnalysis.filter(a => a.is_blunder === true).length;
         const accuracy = AccuracyCalculator.calculatePlayerAccuracy(
           gameAnalysis,
           TARGET_PLAYER,

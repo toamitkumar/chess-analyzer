@@ -256,6 +256,7 @@ export class ChessBoardComponent implements OnInit, AfterViewInit, OnDestroy, On
   @Input() initialPosition: string = 'rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1';
   @Input() whitePlayer: string = '';
   @Input() blackPlayer: string = '';
+  @Input() previewFen: string | null = null; // For previewing alternative moves
   @Output() moveChanged = new EventEmitter<number>();
 
   private board: ReturnType<typeof Chessground> | null = null;
@@ -282,10 +283,15 @@ export class ChessBoardComponent implements OnInit, AfterViewInit, OnDestroy, On
         this.game.load(this.initialPosition);
       }
     }
-    
+
     if (changes['currentMoveIndex'] && changes['currentMoveIndex'].currentValue !== undefined) {
       // Update board position when currentMoveIndex input changes
       this.goToMove(changes['currentMoveIndex'].currentValue);
+    }
+
+    if (changes['previewFen']) {
+      // Update board to show preview position or return to current position
+      this.updateBoardPosition();
     }
   }
 
@@ -395,10 +401,10 @@ export class ChessBoardComponent implements OnInit, AfterViewInit, OnDestroy, On
   goToMove(moveIndex: number) {
     this.internalMoveIndex = moveIndex;
     this.currentMove = moveIndex >= 0 ? this.moves[moveIndex] : null;
-    
+
     // Reset game to initial position
     this.game = new Chess(this.initialPosition);
-    
+
     // Play moves up to current position
     let lastMove: { from: Key; to: Key } | undefined;
     for (let i = 0; i <= moveIndex; i++) {
@@ -413,22 +419,60 @@ export class ChessBoardComponent implements OnInit, AfterViewInit, OnDestroy, On
         }
       }
     }
-    
+
     // Update board position with move quality highlighting
-    if (this.board) {
+    this.updateBoardPosition();
+
+    // Emit move change event
+    this.moveChanged.emit(moveIndex);
+  }
+
+  private updateBoardPosition(): void {
+    if (!this.board) return;
+
+    // If preview FEN is provided, show it instead of the current position
+    if (this.previewFen) {
+      try {
+        // Create a temporary chess instance to validate the preview FEN and get last move
+        const previewGame = new Chess(this.previewFen);
+        this.board.set({
+          fen: this.previewFen,
+          drawable: {
+            autoShapes: [] // Clear any move quality annotations when previewing
+          }
+        });
+      } catch (error) {
+        console.error('Invalid preview FEN:', error);
+      }
+    } else {
+      // Show the current position from the game
+      let lastMove: { from: Key; to: Key } | undefined;
+
+      // Recalculate last move for current position
+      const tempGame = new Chess(this.initialPosition);
+      for (let i = 0; i <= this.internalMoveIndex; i++) {
+        if (this.moves[i]) {
+          try {
+            const move = tempGame.move(this.moves[i].move);
+            if (i === this.internalMoveIndex) {
+              lastMove = { from: move.from as Key, to: move.to as Key };
+            }
+          } catch (error) {
+            break;
+          }
+        }
+      }
+
       this.board.set({
         fen: this.game.fen(),
         lastMove: lastMove ? [lastMove.from, lastMove.to] : undefined
       });
-      
+
       // Add move quality highlighting
       if (lastMove && this.currentMove) {
         this.highlightMoveQuality(lastMove.from, lastMove.to);
       }
     }
-    
-    // Emit move change event
-    this.moveChanged.emit(moveIndex);
   }
 
   private highlightMoveQuality(from: Key, to: Key): void {

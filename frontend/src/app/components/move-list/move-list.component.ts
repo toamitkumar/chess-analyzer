@@ -9,11 +9,20 @@ export interface MoveVariant {
   explanation?: string;
 }
 
+export interface AlternativeMoveDetail {
+  move: string;
+  evaluation: number;
+  depth: number;
+  line: string[];
+  rank?: number;
+}
+
 export interface MoveAnnotation {
   evalChange: string;
   label: string;
   betterMove: string;
   alternatives?: string[];
+  alternativeDetails?: AlternativeMoveDetail[];
 }
 
 export interface EnhancedMove {
@@ -96,15 +105,37 @@ interface MovePair {
               <span [class]="'annotation-label ' + pair.white.annotation.label.toLowerCase()">
                 {{ pair.white.annotation.label }}.
               </span>
-              <span class="better-move">{{ pair.white.annotation.betterMove }}.</span>
+              <span class="better-move">{{ pair.white.annotation.betterMove }}</span>
+
+              <!-- Show alternatives toggle button -->
+              <button
+                *ngIf="pair.white.annotation.alternativeDetails && pair.white.annotation.alternativeDetails.length > 0"
+                class="show-alternatives-btn"
+                (click)="toggleAlternatives(pair.whiteIndex, $event)">
+                <svg class="chevron-icon" [class.rotated]="isAlternativesExpanded(pair.whiteIndex)" viewBox="0 0 20 20" fill="currentColor">
+                  <path fill-rule="evenodd" d="M5.293 7.293a1 1 0 011.414 0L10 10.586l3.293-3.293a1 1 0 111.414 1.414l-4 4a1 1 0 01-1.414 0l-4-4a1 1 0 010-1.414z" clip-rule="evenodd" />
+                </svg>
+                {{ isAlternativesExpanded(pair.whiteIndex) ? 'Hide' : 'Show' }} alternatives
+              </button>
             </div>
-            <div class="alternatives-list" *ngIf="pair.white.annotation.alternatives && pair.white.annotation.alternatives.length > 0">
-              <span *ngFor="let alt of pair.white.annotation.alternatives; let i = index">
-                <span *ngIf="i > 0"> </span>
-                <span class="alternative-item" (click)="selectAlternative(alt, pair.whiteIndex)">
-                  {{ pair.moveNumber }}. {{ alt }}
-                </span>
-              </span>
+
+            <!-- Expanded alternatives list -->
+            <div class="alternatives-expanded" *ngIf="isAlternativesExpanded(pair.whiteIndex) && pair.white.annotation.alternativeDetails">
+              <div
+                *ngFor="let alt of pair.white.annotation.alternativeDetails; let i = index"
+                class="alternative-row"
+                (click)="selectAlternative(alt.move, pair.whiteIndex)">
+                <div class="alt-rank">{{ i + 1 }}</div>
+                <div class="alt-move-section">
+                  <div class="alt-primary-move">{{ alt.move }}</div>
+                  <div class="alt-continuation" *ngIf="alt.line && alt.line.length > 1">
+                    {{ alt.line.slice(1, 4).join(' ') }}{{ alt.line.length > 4 ? '...' : '' }}
+                  </div>
+                </div>
+                <div [class]="'alt-eval ' + getEvalClass(alt.evaluation)">
+                  {{ formatEvaluation(alt.evaluation) }}
+                </div>
+              </div>
             </div>
           </div>
 
@@ -117,15 +148,37 @@ interface MovePair {
               <span [class]="'annotation-label ' + pair.black.annotation.label.toLowerCase()">
                 {{ pair.black.annotation.label }}.
               </span>
-              <span class="better-move">{{ pair.black.annotation.betterMove }}.</span>
+              <span class="better-move">{{ pair.black.annotation.betterMove }}</span>
+
+              <!-- Show alternatives toggle button -->
+              <button
+                *ngIf="pair.black.annotation.alternativeDetails && pair.black.annotation.alternativeDetails.length > 0"
+                class="show-alternatives-btn"
+                (click)="toggleAlternatives(pair.blackIndex!, $event)">
+                <svg class="chevron-icon" [class.rotated]="isAlternativesExpanded(pair.blackIndex!)" viewBox="0 0 20 20" fill="currentColor">
+                  <path fill-rule="evenodd" d="M5.293 7.293a1 1 0 011.414 0L10 10.586l3.293-3.293a1 1 0 111.414 1.414l-4 4a1 1 0 01-1.414 0l-4-4a1 1 0 010-1.414z" clip-rule="evenodd" />
+                </svg>
+                {{ isAlternativesExpanded(pair.blackIndex!) ? 'Hide' : 'Show' }} alternatives
+              </button>
             </div>
-            <div class="alternatives-list" *ngIf="pair.black.annotation.alternatives && pair.black.annotation.alternatives.length > 0">
-              <span *ngFor="let alt of pair.black.annotation.alternatives; let i = index">
-                <span *ngIf="i > 0"> </span>
-                <span class="alternative-item" (click)="selectAlternative(alt, pair.blackIndex!)">
-                  {{ pair.moveNumber }}... {{ alt }}
-                </span>
-              </span>
+
+            <!-- Expanded alternatives list -->
+            <div class="alternatives-expanded" *ngIf="isAlternativesExpanded(pair.blackIndex!) && pair.black.annotation.alternativeDetails">
+              <div
+                *ngFor="let alt of pair.black.annotation.alternativeDetails; let i = index"
+                class="alternative-row"
+                (click)="selectAlternative(alt.move, pair.blackIndex!)">
+                <div class="alt-rank">{{ i + 1 }}</div>
+                <div class="alt-move-section">
+                  <div class="alt-primary-move">{{ alt.move }}</div>
+                  <div class="alt-continuation" *ngIf="alt.line && alt.line.length > 1">
+                    {{ alt.line.slice(1, 4).join(' ') }}{{ alt.line.length > 4 ? '...' : '' }}
+                  </div>
+                </div>
+                <div [class]="'alt-eval ' + getEvalClass(alt.evaluation)">
+                  {{ formatEvaluation(alt.evaluation) }}
+                </div>
+              </div>
             </div>
           </div>
         </div>
@@ -285,12 +338,65 @@ interface MovePair {
       @apply text-gray-700;
     }
 
-    .alternatives-list {
-      @apply text-gray-500;
+    .show-alternatives-btn {
+      @apply ml-2 text-xs text-blue-600 hover:text-blue-800 font-medium;
+      @apply inline-flex items-center gap-1 transition-colors;
+      @apply border-none bg-transparent cursor-pointer p-0;
     }
 
-    .alternative-item {
-      @apply hover:text-gray-900 hover:underline cursor-pointer transition-colors;
+    .chevron-icon {
+      @apply w-3 h-3 transition-transform duration-200;
+    }
+
+    .chevron-icon.rotated {
+      @apply rotate-180;
+    }
+
+    .alternatives-expanded {
+      @apply mt-2 space-y-1 bg-gray-50 rounded p-2 border border-gray-200;
+    }
+
+    .alternative-row {
+      @apply flex items-center gap-2 p-2 rounded cursor-pointer;
+      @apply hover:bg-white hover:shadow-sm transition-all;
+      @apply border border-transparent hover:border-gray-200;
+    }
+
+    .alt-rank {
+      @apply w-5 h-5 rounded-full bg-gray-200 text-gray-700 text-xs font-semibold;
+      @apply flex items-center justify-center flex-shrink-0;
+    }
+
+    .alternative-row:first-child .alt-rank {
+      @apply bg-green-100 text-green-700;
+    }
+
+    .alt-move-section {
+      @apply flex-1 min-w-0;
+    }
+
+    .alt-primary-move {
+      @apply font-mono text-xs font-semibold text-gray-900;
+    }
+
+    .alt-continuation {
+      @apply text-xs font-mono text-gray-500 truncate;
+    }
+
+    .alt-eval {
+      @apply font-mono text-xs font-bold flex-shrink-0;
+    }
+
+    .alt-eval.winning {
+      @apply text-green-600;
+    }
+
+    .alt-eval.equal {
+      @apply text-gray-600;
+    }
+
+    .alt-eval.losing {
+      @apply text-red-600;
     }
 
     /* Scrollbar styling */
@@ -337,6 +443,7 @@ export class MoveListComponent implements OnChanges, AfterViewInit {
 
   movePairs: MovePair[] = [];
   private previousMoveIndex: number = -1;
+  expandedAlternatives: Set<number> = new Set(); // Track which moves have expanded alternatives
 
   ngAfterViewInit() {
     setTimeout(() => this.scrollToCurrentMove(), 100);
@@ -399,5 +506,35 @@ export class MoveListComponent implements OnChanges, AfterViewInit {
 
   selectAlternative(alternative: string, moveIndex: number): void {
     this.alternativeSelected.emit({ alternative, moveIndex });
+  }
+
+  toggleAlternatives(moveIndex: number, event: Event): void {
+    event.stopPropagation(); // Prevent triggering move selection
+    if (this.expandedAlternatives.has(moveIndex)) {
+      this.expandedAlternatives.delete(moveIndex);
+    } else {
+      this.expandedAlternatives.add(moveIndex);
+    }
+  }
+
+  isAlternativesExpanded(moveIndex: number): boolean {
+    return this.expandedAlternatives.has(moveIndex);
+  }
+
+  formatEvaluation(centipawns: number): string {
+    if (Math.abs(centipawns) > 9000) {
+      const mateIn = Math.ceil((10000 - Math.abs(centipawns)) / 10);
+      return centipawns > 0 ? `+M${mateIn}` : `-M${mateIn}`;
+    }
+
+    const pawns = centipawns / 100;
+    if (pawns === 0) return '0.00';
+    return pawns > 0 ? `+${pawns.toFixed(2)}` : pawns.toFixed(2);
+  }
+
+  getEvalClass(centipawns: number): string {
+    if (centipawns > 50) return 'winning';
+    if (centipawns < -50) return 'losing';
+    return 'equal';
   }
 }

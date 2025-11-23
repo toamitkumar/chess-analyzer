@@ -2,6 +2,7 @@ import { Component, OnInit } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { ActivatedRoute, Router } from '@angular/router';
 import { HttpClientModule } from '@angular/common/http';
+import { Chess } from 'chess.js';
 import { LayoutComponent } from '../../components/layout/layout.component';
 import { ChessBoardComponent } from '../../components/chess-board/chess-board.component';
 import { MoveListComponent, EnhancedMove, MoveAnnotation } from '../../components/move-list/move-list.component';
@@ -187,66 +188,11 @@ interface GameAnalysisResponse {
                         [currentMoveIndex]="currentMove"
                         [whitePlayer]="gameData.white_player"
                         [blackPlayer]="gameData.black_player"
+                        [previewFen]="previewFen"
                         (moveChanged)="onMoveChanged($event)">
                       </app-chess-board>
                     </div>
                   </div>
-                </div>
-              </div>
-
-              <!-- Engine Analysis Info -->
-              <div *ngIf="selectedMoveAlternatives.length > 0" class="rounded-lg border bg-blue-50 border-blue-200 mb-4 overflow-hidden">
-                <div class="flex items-start justify-between p-4 cursor-pointer" (click)="toggleEngineAnalysis()">
-                  <div class="flex gap-3 flex-1">
-                    <div class="flex-shrink-0">
-                      <svg class="h-5 w-5 text-blue-600" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor">
-                        <path fill-rule="evenodd" d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zm-7-4a1 1 0 11-2 0 1 1 0 012 0zM9 9a1 1 0 000 2v3a1 1 0 001 1h1a1 1 0 100-2v-3a1 1 0 00-1-1H9z" clip-rule="evenodd" />
-                      </svg>
-                    </div>
-                    <div class="flex-1">
-                      <h4 class="text-sm font-semibold text-blue-900">Engine Analysis</h4>
-                    </div>
-                  </div>
-                  <svg
-                    class="h-5 w-5 text-blue-600 transition-transform duration-200 flex-shrink-0 ml-2"
-                    [class.rotate-180]="engineAnalysisExpanded"
-                    xmlns="http://www.w3.org/2000/svg"
-                    viewBox="0 0 20 20"
-                    fill="currentColor">
-                    <path fill-rule="evenodd" d="M5.293 7.293a1 1 0 011.414 0L10 10.586l3.293-3.293a1 1 0 111.414 1.414l-4 4a1 1 0 01-1.414 0l-4-4a1 1 0 010-1.414z" clip-rule="evenodd" />
-                  </svg>
-                </div>
-                <div *ngIf="engineAnalysisExpanded" class="px-4 pb-4 pt-0">
-                  <p class="text-sm text-blue-800 ml-8">
-                    Stockfish engine has analyzed this position to depth {{ selectedMoveDepth }}. The alternatives below show stronger moves you could have played, with their evaluations in centipawns (100cp = 1 pawn advantage). Click any move to see its continuation.
-                  </p>
-                </div>
-              </div>
-
-              <!-- Alternative Moves Panel -->
-              <div *ngIf="selectedMoveAlternatives.length > 0" class="rounded-lg border bg-card shadow-sm overflow-hidden">
-                <div class="flex items-center justify-between p-4 border-b cursor-pointer hover:bg-gray-50" (click)="toggleAlternativesPanel()">
-                  <h3 class="text-lg font-semibold">Alternative Moves</h3>
-                  <svg
-                    class="h-5 w-5 text-gray-600 transition-transform duration-200"
-                    [class.rotate-180]="alternativesPanelExpanded"
-                    xmlns="http://www.w3.org/2000/svg"
-                    viewBox="0 0 20 20"
-                    fill="currentColor">
-                    <path fill-rule="evenodd" d="M5.293 7.293a1 1 0 011.414 0L10 10.586l3.293-3.293a1 1 0 111.414 1.414l-4 4a1 1 0 01-1.414 0l-4-4a1 1 0 010-1.414z" clip-rule="evenodd" />
-                  </svg>
-                </div>
-                <div *ngIf="alternativesPanelExpanded">
-                  <app-alternative-moves-panel
-                    [alternatives]="selectedMoveAlternatives"
-                    [currentMoveNumber]="currentMove + 1"
-                    [loading]="loadingAlternatives"
-                    [analysisDepth]="selectedMoveDepth"
-                    [showAnalyzeDeeper]="false"
-                    (alternativeSelected)="onAlternativePanelSelected($event)"
-                    (alternativePreview)="onAlternativePanelPreview($event)"
-                    (deeperAnalysisRequested)="onDeeperAnalysis()">
-                  </app-alternative-moves-panel>
                 </div>
               </div>
 
@@ -585,10 +531,20 @@ export class GameDetailComponent implements OnInit {
             const bestMove = alternatives.alternatives[0];
             const altMoves = alternatives.alternatives.slice(0, 3).map((alt: any) => alt.move);
 
+            // Map full alternative data
+            const altDetails = alternatives.alternatives.map((alt: any) => ({
+              move: alt.move,
+              evaluation: alt.evaluation,
+              depth: alt.depth || 12,
+              line: alt.line || [alt.move],
+              rank: alt.rank
+            }));
+
             // Update the annotation with real data
             if (this.enhancedMoves[i] && this.enhancedMoves[i].annotation) {
               this.enhancedMoves[i].annotation!.betterMove = `${bestMove.move} was best`;
               this.enhancedMoves[i].annotation!.alternatives = altMoves;
+              this.enhancedMoves[i].annotation!.alternativeDetails = altDetails;
             }
           }
         } catch (error) {
@@ -674,21 +630,26 @@ export class GameDetailComponent implements OnInit {
 
   onMoveChanged(moveIndex: number) {
     this.currentMove = moveIndex;
-    this.previewFen = null;
+    this.previewFen = null; // Clear preview when navigating
     this.updateCurrentMoveVariations();
     this.loadAlternativesForCurrentMove();
   }
 
   onMoveSelected(moveIndex: number) {
     this.currentMove = moveIndex;
-    this.previewFen = null;
+    this.previewFen = null; // Clear preview when selecting a move
     this.updateCurrentMoveVariations();
     this.loadAlternativesForCurrentMove();
   }
 
   onAlternativeSelected(event: {alternative: string, moveIndex: number}) {
     console.log('Alternative selected:', event.alternative, 'at move', event.moveIndex);
-    // TODO: Implement alternative move preview on board
+
+    // Navigate to the move first, then show the alternative
+    this.currentMove = event.moveIndex;
+
+    // Calculate and show the FEN after applying the alternative move
+    this.calculateAndShowAlternativeFen(event.alternative);
   }
 
   onVariationSelected(variation: Variation) {
@@ -736,17 +697,48 @@ export class GameDetailComponent implements OnInit {
 
   onAlternativePanelSelected(alternative: AlternativeMove) {
     console.log('Selected alternative from panel:', alternative);
-    // Clear preview and show selected alternative info
-    this.previewFen = null;
+
+    // Calculate and show the FEN after applying the alternative move
+    this.calculateAndShowAlternativeFen(alternative.move);
   }
 
   onAlternativePanelPreview(alternative: AlternativeMove | null) {
-    if (alternative && alternative.line && alternative.line.length > 0) {
-      // For now, we'll just log the preview.
-      // To show on board, we'd need to calculate the resulting FEN after applying the move
-      console.log('Preview alternative:', alternative.move, 'line:', alternative.line);
-      // TODO: Calculate and set previewFen based on the alternative move
+    if (alternative && alternative.move) {
+      // Show preview of the alternative move on hover
+      this.calculateAndShowAlternativeFen(alternative.move);
     } else {
+      // Clear preview when mouse leaves
+      this.previewFen = null;
+    }
+  }
+
+  private calculateAndShowAlternativeFen(alternativeMove: string): void {
+    try {
+      const tempGame = new Chess();
+
+      // Get the FEN before the current move
+      let startingFen: string;
+      if (this.currentMove === 0) {
+        startingFen = 'rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1';
+      } else {
+        startingFen = this.moves[this.currentMove - 1].fen_after;
+      }
+
+      // Load the starting position
+      tempGame.load(startingFen);
+
+      // Apply the alternative move
+      const result = tempGame.move(alternativeMove);
+
+      if (result) {
+        // Set the preview FEN
+        this.previewFen = tempGame.fen();
+      } else {
+        console.error('Invalid alternative move:', alternativeMove);
+        this.previewFen = null;
+      }
+    } catch (error) {
+      console.error('Error calculating alternative move FEN:', error);
       this.previewFen = null;
     }
   }

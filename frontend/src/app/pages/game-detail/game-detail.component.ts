@@ -129,19 +129,31 @@ interface GameAnalysisResponse {
           </ng-template>
 
           <!-- Analysis Overview Info -->
-          <div class="rounded-lg border bg-gradient-to-r from-blue-50 to-indigo-50 border-blue-200 p-4 mb-6">
-            <div class="flex gap-3">
-              <div class="flex-shrink-0">
-                <svg class="h-6 w-6 text-blue-600" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                  <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9.663 17h4.673M12 3v1m6.364 1.636l-.707.707M21 12h-1M4 12H3m3.343-5.657l-.707-.707m2.828 9.9a5 5 0 117.072 0l-.548.547A3.374 3.374 0 0014 18.469V19a2 2 0 11-4 0v-.531c0-.895-.356-1.754-.988-2.386l-.548-.547z" />
-                </svg>
+          <div class="rounded-lg border bg-gradient-to-r from-blue-50 to-indigo-50 border-blue-200 mb-6 overflow-hidden">
+            <div class="flex items-start justify-between p-4 cursor-pointer" (click)="toggleOverview()">
+              <div class="flex gap-3 flex-1">
+                <div class="flex-shrink-0">
+                  <svg class="h-6 w-6 text-blue-600" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9.663 17h4.673M12 3v1m6.364 1.636l-.707.707M21 12h-1M4 12H3m3.343-5.657l-.707-.707m2.828 9.9a5 5 0 117.072 0l-.548.547A3.374 3.374 0 0014 18.469V19a2 2 0 11-4 0v-.531c0-.895-.356-1.754-.988-2.386l-.548-.547z" />
+                  </svg>
+                </div>
+                <div class="flex-1">
+                  <h4 class="text-base font-semibold text-blue-900">About Engine Analysis</h4>
+                </div>
               </div>
-              <div class="flex-1">
-                <h4 class="text-base font-semibold text-blue-900 mb-1">About Engine Analysis</h4>
-                <p class="text-sm text-blue-800">
-                  This game has been analyzed by the Stockfish chess engine, the world's strongest chess program. Each move is evaluated and classified (best, excellent, good, inaccuracy, mistake, or blunder). When you click on a mistake or blunder, you'll see alternative moves the engine recommends with explanations. Use keyboard arrows to navigate moves, or click moves in the move list.
-                </p>
-              </div>
+              <svg
+                class="h-5 w-5 text-blue-600 transition-transform duration-200 flex-shrink-0 ml-2"
+                [class.rotate-180]="overviewExpanded"
+                xmlns="http://www.w3.org/2000/svg"
+                viewBox="0 0 20 20"
+                fill="currentColor">
+                <path fill-rule="evenodd" d="M5.293 7.293a1 1 0 011.414 0L10 10.586l3.293-3.293a1 1 0 111.414 1.414l-4 4a1 1 0 01-1.414 0l-4-4a1 1 0 010-1.414z" clip-rule="evenodd" />
+              </svg>
+            </div>
+            <div *ngIf="overviewExpanded" class="px-4 pb-4 pt-0">
+              <p class="text-sm text-blue-800 ml-9">
+                This game has been analyzed by the Stockfish chess engine, the world's strongest chess program. Each move is evaluated and classified (best, excellent, good, inaccuracy, mistake, or blunder). When you click on a mistake or blunder, you'll see alternative moves the engine recommends with explanations. Use keyboard arrows to navigate moves, or click moves in the move list.
+              </p>
             </div>
           </div>
 
@@ -183,33 +195,60 @@ interface GameAnalysisResponse {
               </div>
 
               <!-- Engine Analysis Info -->
-              <div *ngIf="selectedMoveAlternatives.length > 0" class="rounded-lg border bg-blue-50 border-blue-200 p-4 mb-4">
-                <div class="flex gap-3">
-                  <div class="flex-shrink-0">
-                    <svg class="h-5 w-5 text-blue-600" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor">
-                      <path fill-rule="evenodd" d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zm-7-4a1 1 0 11-2 0 1 1 0 012 0zM9 9a1 1 0 000 2v3a1 1 0 001 1h1a1 1 0 100-2v-3a1 1 0 00-1-1H9z" clip-rule="evenodd" />
-                    </svg>
+              <div *ngIf="selectedMoveAlternatives.length > 0" class="rounded-lg border bg-blue-50 border-blue-200 mb-4 overflow-hidden">
+                <div class="flex items-start justify-between p-4 cursor-pointer" (click)="toggleEngineAnalysis()">
+                  <div class="flex gap-3 flex-1">
+                    <div class="flex-shrink-0">
+                      <svg class="h-5 w-5 text-blue-600" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor">
+                        <path fill-rule="evenodd" d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zm-7-4a1 1 0 11-2 0 1 1 0 012 0zM9 9a1 1 0 000 2v3a1 1 0 001 1h1a1 1 0 100-2v-3a1 1 0 00-1-1H9z" clip-rule="evenodd" />
+                      </svg>
+                    </div>
+                    <div class="flex-1">
+                      <h4 class="text-sm font-semibold text-blue-900">Engine Analysis</h4>
+                    </div>
                   </div>
-                  <div class="flex-1">
-                    <h4 class="text-sm font-semibold text-blue-900 mb-1">Engine Analysis</h4>
-                    <p class="text-sm text-blue-800">
-                      Stockfish engine has analyzed this position to depth {{ selectedMoveDepth }}. The alternatives below show stronger moves you could have played, with their evaluations in centipawns (100cp = 1 pawn advantage). Click any move to see its continuation.
-                    </p>
-                  </div>
+                  <svg
+                    class="h-5 w-5 text-blue-600 transition-transform duration-200 flex-shrink-0 ml-2"
+                    [class.rotate-180]="engineAnalysisExpanded"
+                    xmlns="http://www.w3.org/2000/svg"
+                    viewBox="0 0 20 20"
+                    fill="currentColor">
+                    <path fill-rule="evenodd" d="M5.293 7.293a1 1 0 011.414 0L10 10.586l3.293-3.293a1 1 0 111.414 1.414l-4 4a1 1 0 01-1.414 0l-4-4a1 1 0 010-1.414z" clip-rule="evenodd" />
+                  </svg>
+                </div>
+                <div *ngIf="engineAnalysisExpanded" class="px-4 pb-4 pt-0">
+                  <p class="text-sm text-blue-800 ml-8">
+                    Stockfish engine has analyzed this position to depth {{ selectedMoveDepth }}. The alternatives below show stronger moves you could have played, with their evaluations in centipawns (100cp = 1 pawn advantage). Click any move to see its continuation.
+                  </p>
                 </div>
               </div>
 
               <!-- Alternative Moves Panel -->
-              <app-alternative-moves-panel
-                [alternatives]="selectedMoveAlternatives"
-                [currentMoveNumber]="currentMove + 1"
-                [loading]="loadingAlternatives"
-                [analysisDepth]="selectedMoveDepth"
-                [showAnalyzeDeeper]="false"
-                (alternativeSelected)="onAlternativePanelSelected($event)"
-                (alternativePreview)="onAlternativePanelPreview($event)"
-                (deeperAnalysisRequested)="onDeeperAnalysis()">
-              </app-alternative-moves-panel>
+              <div *ngIf="selectedMoveAlternatives.length > 0" class="rounded-lg border bg-card shadow-sm overflow-hidden">
+                <div class="flex items-center justify-between p-4 border-b cursor-pointer hover:bg-gray-50" (click)="toggleAlternativesPanel()">
+                  <h3 class="text-lg font-semibold">Alternative Moves</h3>
+                  <svg
+                    class="h-5 w-5 text-gray-600 transition-transform duration-200"
+                    [class.rotate-180]="alternativesPanelExpanded"
+                    xmlns="http://www.w3.org/2000/svg"
+                    viewBox="0 0 20 20"
+                    fill="currentColor">
+                    <path fill-rule="evenodd" d="M5.293 7.293a1 1 0 011.414 0L10 10.586l3.293-3.293a1 1 0 111.414 1.414l-4 4a1 1 0 01-1.414 0l-4-4a1 1 0 010-1.414z" clip-rule="evenodd" />
+                  </svg>
+                </div>
+                <div *ngIf="alternativesPanelExpanded">
+                  <app-alternative-moves-panel
+                    [alternatives]="selectedMoveAlternatives"
+                    [currentMoveNumber]="currentMove + 1"
+                    [loading]="loadingAlternatives"
+                    [analysisDepth]="selectedMoveDepth"
+                    [showAnalyzeDeeper]="false"
+                    (alternativeSelected)="onAlternativePanelSelected($event)"
+                    (alternativePreview)="onAlternativePanelPreview($event)"
+                    (deeperAnalysisRequested)="onDeeperAnalysis()">
+                  </app-alternative-moves-panel>
+                </div>
+              </div>
 
               <!-- Move List on Mobile (appears right after board) -->
               <div class="lg:hidden">
@@ -219,19 +258,31 @@ interface GameAnalysisResponse {
               <!-- Multi-Variation Analysis -->
               <div *ngIf="currentMoveVariations.length > 0">
                 <!-- Multi-Variation Info -->
-                <div class="rounded-lg border bg-purple-50 border-purple-200 p-4 mb-4">
-                  <div class="flex gap-3">
-                    <div class="flex-shrink-0">
-                      <svg class="h-5 w-5 text-purple-600" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor">
-                        <path d="M11 3a1 1 0 10-2 0v1a1 1 0 102 0V3zM15.657 5.757a1 1 0 00-1.414-1.414l-.707.707a1 1 0 001.414 1.414l.707-.707zM18 10a1 1 0 01-1 1h-1a1 1 0 110-2h1a1 1 0 011 1zM5.05 6.464A1 1 0 106.464 5.05l-.707-.707a1 1 0 00-1.414 1.414l.707.707zM5 10a1 1 0 01-1 1H3a1 1 0 110-2h1a1 1 0 011 1zM8 16v-1h4v1a2 2 0 11-4 0zM12 14c.015-.34.208-.646.477-.859a4 4 0 10-4.954 0c.27.213.462.519.476.859h4.002z" />
-                      </svg>
+                <div class="rounded-lg border bg-purple-50 border-purple-200 mb-4 overflow-hidden">
+                  <div class="flex items-start justify-between p-4 cursor-pointer" (click)="toggleMultiVariation()">
+                    <div class="flex gap-3 flex-1">
+                      <div class="flex-shrink-0">
+                        <svg class="h-5 w-5 text-purple-600" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor">
+                          <path d="M11 3a1 1 0 10-2 0v1a1 1 0 102 0V3zM15.657 5.757a1 1 0 00-1.414-1.414l-.707.707a1 1 0 001.414 1.414l.707-.707zM18 10a1 1 0 01-1 1h-1a1 1 0 110-2h1a1 1 0 011 1zM5.05 6.464A1 1 0 106.464 5.05l-.707-.707a1 1 0 00-1.414 1.414l.707.707zM5 10a1 1 0 01-1 1H3a1 1 0 110-2h1a1 1 0 011 1zM8 16v-1h4v1a2 2 0 11-4 0zM12 14c.015-.34.208-.646.477-.859a4 4 0 10-4.954 0c.27.213.462.519.476.859h4.002z" />
+                        </svg>
+                      </div>
+                      <div class="flex-1">
+                        <h4 class="text-sm font-semibold text-purple-900">Critical Position - Multiple Lines</h4>
+                      </div>
                     </div>
-                    <div class="flex-1">
-                      <h4 class="text-sm font-semibold text-purple-900 mb-1">Critical Position - Multiple Lines</h4>
-                      <p class="text-sm text-purple-800">
-                        This was a critical moment where you made a {{ getCurrentMoveQuality() }}. The engine has calculated multiple possible continuations ranked by strength. The best line (top variation) shows what you should have played. Positive evaluations favor White, negative favor Black.
-                      </p>
-                    </div>
+                    <svg
+                      class="h-5 w-5 text-purple-600 transition-transform duration-200 flex-shrink-0 ml-2"
+                      [class.rotate-180]="multiVariationExpanded"
+                      xmlns="http://www.w3.org/2000/svg"
+                      viewBox="0 0 20 20"
+                      fill="currentColor">
+                      <path fill-rule="evenodd" d="M5.293 7.293a1 1 0 011.414 0L10 10.586l3.293-3.293a1 1 0 111.414 1.414l-4 4a1 1 0 01-1.414 0l-4-4a1 1 0 010-1.414z" clip-rule="evenodd" />
+                    </svg>
+                  </div>
+                  <div *ngIf="multiVariationExpanded" class="px-4 pb-4 pt-0">
+                    <p class="text-sm text-purple-800 ml-8">
+                      This was a critical moment where you made a {{ getCurrentMoveQuality() }}. The engine has calculated multiple possible continuations ranked by strength. The best line (top variation) shows what you should have played. Positive evaluations favor White, negative favor Black.
+                    </p>
                   </div>
                 </div>
 
@@ -405,6 +456,12 @@ export class GameDetailComponent implements OnInit {
   // UI state
   loading = true;
   error: string | null = null;
+
+  // Collapsible sections state
+  overviewExpanded = false;  // Collapsed by default
+  engineAnalysisExpanded = false;  // Collapsed by default
+  multiVariationExpanded = false;  // Collapsed by default
+  alternativesPanelExpanded = true;  // Expanded by default
 
   constructor(
     private route: ActivatedRoute,
@@ -782,5 +839,21 @@ export class GameDetailComponent implements OnInit {
       if (move.is_inaccuracy) return 'inaccuracy';
     }
     return 'suboptimal move';
+  }
+
+  toggleOverview() {
+    this.overviewExpanded = !this.overviewExpanded;
+  }
+
+  toggleEngineAnalysis() {
+    this.engineAnalysisExpanded = !this.engineAnalysisExpanded;
+  }
+
+  toggleMultiVariation() {
+    this.multiVariationExpanded = !this.multiVariationExpanded;
+  }
+
+  toggleAlternativesPanel() {
+    this.alternativesPanelExpanded = !this.alternativesPanelExpanded;
   }
 }

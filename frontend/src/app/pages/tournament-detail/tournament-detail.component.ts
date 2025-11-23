@@ -42,8 +42,8 @@ interface Tournament {
   template: `
     <app-layout>
       <div class="space-y-6">
-        <div class="flex items-center gap-4">
-          <button 
+        <div class="flex flex-col sm:flex-row items-start sm:items-center gap-3 sm:gap-4">
+          <button
             (click)="goBack()"
             class="inline-flex items-center justify-center rounded-md text-sm font-medium ring-offset-background transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:pointer-events-none disabled:opacity-50 hover:bg-accent hover:text-accent-foreground h-10 w-10">
             <svg class="h-4 w-4" xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
@@ -53,7 +53,7 @@ interface Tournament {
           </button>
           <div class="flex-1">
             <div class="flex items-center gap-2">
-              <svg class="h-6 w-6 text-primary" xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+              <svg class="h-5 w-5 sm:h-6 sm:w-6 text-primary" xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
                 <path d="M6 9H4.5a2.5 2.5 0 0 1 0-5H6"/>
                 <path d="M18 9h1.5a2.5 2.5 0 0 0 0-5H18"/>
                 <path d="M4 22h16"/>
@@ -61,9 +61,9 @@ interface Tournament {
                 <path d="M14 14.66V17c0 .55.47.98.97 1.21C16.15 18.75 17 20.24 17 22"/>
                 <path d="M18 2H6v7a6 6 0 0 0 12 0V2Z"/>
               </svg>
-              <h1 class="text-3xl font-bold text-foreground">{{ tournamentName }}</h1>
+              <h1 class="text-2xl sm:text-3xl font-bold text-foreground">{{ tournamentName }}</h1>
             </div>
-            <p class="text-muted-foreground">{{ dateRange }}</p>
+            <p class="text-sm sm:text-base text-muted-foreground">{{ dateRange }}</p>
           </div>
         </div>
 
@@ -101,19 +101,19 @@ interface Tournament {
           <div class="p-6 pt-0">
             <div class="space-y-3">
               <div *ngFor="let game of tournament?.games || []"
-                   class="flex items-center justify-between rounded-lg border p-4 transition-all hover:bg-muted/50 cursor-pointer"
+                   class="flex items-center justify-between rounded-lg border p-3 sm:p-4 transition-all hover:bg-muted/50 cursor-pointer"
                    (click)="navigateToGame(game.id)">
-                <div class="flex items-center gap-4">
-                  <div class="flex h-10 w-10 items-center justify-center rounded-full bg-primary/10">
-                    <span class="text-sm font-bold text-primary">R{{ game.round }}</span>
+                <div class="flex items-center gap-3 sm:gap-4 flex-1 min-w-0">
+                  <div class="flex h-8 w-8 sm:h-10 sm:w-10 flex-shrink-0 items-center justify-center rounded-full bg-primary/10">
+                    <span class="text-xs sm:text-sm font-bold text-primary">R{{ game.round }}</span>
                   </div>
-                  <div class="space-y-1">
-                    <div class="flex items-center gap-2">
+                  <div class="space-y-1 flex-1 min-w-0">
+                    <div class="flex flex-wrap items-center gap-2">
                       <span [class]="'inline-flex items-center rounded-full px-2.5 py-0.5 text-xs font-medium ' + getResultBadgeClass(game.result, game.playerColor)">
                         {{ getResultText(game.result, game.playerColor) }}
                       </span>
-                      <span class="text-sm text-muted-foreground">vs</span>
-                      <span class="font-medium">{{ game.opponent }}</span>
+                      <span class="text-xs sm:text-sm text-muted-foreground">vs</span>
+                      <span class="text-sm sm:text-base font-medium truncate">{{ game.opponent }}</span>
                       <div class="flex items-center gap-1">
                         <div [class]="'h-4 w-4 rounded-full flex items-center justify-center ' + (game.playerColor === 'white' ? 'bg-muted' : 'bg-secondary')">
                           <svg class="h-3 w-3" xmlns="http://www.w3.org/2000/svg" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
@@ -123,48 +123,29 @@ interface Tournament {
                         </div>
                       </div>
                     </div>
-                    <div class="flex items-center gap-3 text-xs text-muted-foreground">
-                      <div class="flex items-center gap-2">
-                        <svg class="h-4 w-4 text-muted-foreground" xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-                          <path d="M9 11H5a2 2 0 0 0-2 2v3c0 5.5 4.5 10 10 10s10-4.5 10-10v-3a2 2 0 0 0-2-2h-4"/>
-                          <path d="M9 7V4a2 2 0 0 1 4 0v3"/>
-                        </svg>
-                        <span class="text-muted-foreground">Moves:</span>
-                        <span class="text-foreground font-medium">{{ game.moves_count }}</span>
-                      </div>
-                      
-                      <div class="flex items-center gap-2">
-                        <svg class="h-4 w-4 text-green-600" xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-                          <path d="M9 12l2 2 4-4"/>
+                    <div class="flex flex-wrap items-center gap-2 sm:gap-3 text-xs text-muted-foreground">
+                      <span class="hidden sm:inline truncate">{{ game.opening || 'Unknown' }}</span>
+                      <div class="flex items-center gap-1">
+                        <svg class="h-3 w-3 text-muted-foreground" xmlns="http://www.w3.org/2000/svg" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
                           <circle cx="12" cy="12" r="10"/>
+                          <circle cx="12" cy="12" r="6"/>
+                          <circle cx="12" cy="12" r="2"/>
                         </svg>
-                        <span class="text-muted-foreground">Accuracy:</span>
-                        <span class="text-foreground font-medium">{{ game.accuracy || 0 }}%</span>
+                        {{ game.accuracy || 0 }}% accuracy
                       </div>
-                      
-                      <div class="flex items-center gap-2">
-                        <svg class="h-4 w-4 text-red-600" xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-                          <circle cx="12" cy="12" r="10"/>
-                          <line x1="12" y1="8" x2="12" y2="12"/>
-                          <line x1="12" y1="16" x2="12.01" y2="16"/>
+                      <div *ngIf="(game.blunders || 0) > 0" class="flex items-center gap-1 text-yellow-600">
+                        <svg class="h-3 w-3" xmlns="http://www.w3.org/2000/svg" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                          <path d="m21.73 18-8-14a2 2 0 0 0-3.48 0l-8 14A2 2 0 0 0 4 21h16a2 2 0 0 0 1.73-3Z"/>
+                          <path d="M12 9v4"/>
+                          <path d="m12 17 .01 0"/>
                         </svg>
-                        <span class="text-muted-foreground">Blunders:</span>
-                        <span class="text-foreground font-medium">{{ game.blunders || 0 }}</span>
-                      </div>
-                      
-                      <div class="flex items-center gap-2">
-                        <svg class="h-4 w-4 text-blue-600" xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-                          <path d="M14.5 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V7.5L14.5 2z"/>
-                          <polyline points="14,2 14,8 20,8"/>
-                        </svg>
-                        <span class="text-muted-foreground">Opening:</span>
-                        <span class="text-foreground font-medium">{{ game.opening || 'Unknown' }}</span>
+                        {{ game.blunders }} blunder{{ game.blunders > 1 ? 's' : '' }}
                       </div>
                     </div>
                   </div>
                 </div>
-                <button class="inline-flex items-center justify-center rounded-md text-sm font-medium ring-offset-background transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:pointer-events-none disabled:opacity-50 hover:bg-accent hover:text-accent-foreground h-10 w-10">
-                  <svg class="h-5 w-5" xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                <button class="inline-flex flex-shrink-0 items-center justify-center rounded-md text-sm font-medium ring-offset-background transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:pointer-events-none disabled:opacity-50 hover:bg-accent hover:text-accent-foreground h-8 w-8 sm:h-10 sm:w-10">
+                  <svg class="h-4 w-4 sm:h-5 sm:w-5" xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
                     <path d="m9 18 6-6-6-6"/>
                   </svg>
                 </button>

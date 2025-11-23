@@ -87,26 +87,26 @@ interface Tournament {
             <h3 class="text-2xl font-semibold leading-none tracking-tight">Tournament History</h3>
           </div>
           <div class="p-6 pt-0">
-            <div class="relative w-full overflow-auto">
+            <div class="relative w-full overflow-x-auto">
               <table class="w-full caption-bottom text-sm">
                 <thead class="[&_tr]:border-b">
                   <tr class="border-b transition-colors hover:bg-muted/50 data-[state=selected]:bg-muted">
-                    <th class="h-12 px-4 text-left align-middle font-medium text-muted-foreground [&:has([role=checkbox])]:pr-0">Tournament</th>
-                    <th class="h-12 px-4 text-left align-middle font-medium text-muted-foreground [&:has([role=checkbox])]:pr-0">Date Range</th>
-                    <th class="h-12 px-4 text-left align-middle font-medium text-muted-foreground [&:has([role=checkbox])]:pr-0">Games</th>
-                    <th class="h-12 px-4 text-left align-middle font-medium text-muted-foreground [&:has([role=checkbox])]:pr-0">Score</th>
-                    <th class="h-12 px-4 text-left align-middle font-medium text-muted-foreground [&:has([role=checkbox])]:pr-0">Win Rate</th>
-                    <th class="h-12 px-4 text-left align-middle font-medium text-muted-foreground [&:has([role=checkbox])]:pr-0">Accuracy</th>
-                    <th class="h-12 px-4 text-left align-middle font-medium text-muted-foreground [&:has([role=checkbox])]:pr-0">Blunders</th>
+                    <th class="h-12 px-2 sm:px-4 text-left align-middle font-medium text-muted-foreground [&:has([role=checkbox])]:pr-0">Tournament</th>
+                    <th class="hidden lg:table-cell h-12 px-4 text-left align-middle font-medium text-muted-foreground [&:has([role=checkbox])]:pr-0">Date Range</th>
+                    <th class="h-12 px-2 sm:px-4 text-left align-middle font-medium text-muted-foreground [&:has([role=checkbox])]:pr-0">Games</th>
+                    <th class="hidden md:table-cell h-12 px-4 text-left align-middle font-medium text-muted-foreground [&:has([role=checkbox])]:pr-0">Score</th>
+                    <th class="h-12 px-2 sm:px-4 text-left align-middle font-medium text-muted-foreground [&:has([role=checkbox])]:pr-0">Win Rate</th>
+                    <th class="hidden lg:table-cell h-12 px-4 text-left align-middle font-medium text-muted-foreground [&:has([role=checkbox])]:pr-0">Accuracy</th>
+                    <th class="hidden md:table-cell h-12 px-4 text-left align-middle font-medium text-muted-foreground [&:has([role=checkbox])]:pr-0">Blunders</th>
                   </tr>
                 </thead>
                 <tbody class="[&_tr:last-child]:border-0">
-                  <tr *ngFor="let tournament of tournaments" 
+                  <tr *ngFor="let tournament of tournaments"
                       class="border-b transition-colors hover:bg-muted/50 data-[state=selected]:bg-muted cursor-pointer"
                       [routerLink]="['/tournaments', tournament.id]">
-                    <td class="p-4 align-middle [&:has([role=checkbox])]:pr-0">
+                    <td class="p-2 sm:p-4 align-middle [&:has([role=checkbox])]:pr-0">
                       <div class="flex items-center gap-2">
-                        <svg class="h-4 w-4 text-primary" xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                        <svg class="h-4 w-4 text-primary hidden sm:block" xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
                           <path d="M6 9H4.5a2.5 2.5 0 0 1 0-5H6"/>
                           <path d="M18 9h1.5a2.5 2.5 0 0 0 0-5H18"/>
                           <path d="M4 22h16"/>
@@ -114,30 +114,33 @@ interface Tournament {
                           <path d="M14 14.66V17c0 .55.47.98.97 1.21C16.15 18.75 17 20.24 17 22"/>
                           <path d="M18 2H6v7a6 6 0 0 0 12 0V2Z"/>
                         </svg>
-                        <span class="font-medium">{{ tournament.name }}</span>
+                        <div class="flex flex-col">
+                          <span class="font-medium text-sm sm:text-base">{{ tournament.name }}</span>
+                          <span class="text-xs text-muted-foreground lg:hidden">{{ formatDateRange(tournament.start_date, tournament.end_date) }}</span>
+                        </div>
                       </div>
                     </td>
-                    <td class="p-4 align-middle [&:has([role=checkbox])]:pr-0 text-muted-foreground">
+                    <td class="hidden lg:table-cell p-4 align-middle [&:has([role=checkbox])]:pr-0 text-muted-foreground">
                       {{ formatDateRange(tournament.start_date, tournament.end_date) }}
                     </td>
-                    <td class="p-4 align-middle [&:has([role=checkbox])]:pr-0">
+                    <td class="p-2 sm:p-4 align-middle [&:has([role=checkbox])]:pr-0 text-center sm:text-left">
                       {{ tournament.total_games }}
                     </td>
-                    <td class="p-4 align-middle [&:has([role=checkbox])]:pr-0">
+                    <td class="hidden md:table-cell p-4 align-middle [&:has([role=checkbox])]:pr-0">
                       <div class="flex items-center gap-1">
                         <span class="font-medium">{{ calculateScore(tournament.wins || 0, tournament.draws || 0) }}</span>
                         <span class="text-xs text-muted-foreground">/ {{ tournament.total_games }}</span>
                       </div>
                     </td>
-                    <td class="p-4 align-middle [&:has([role=checkbox])]:pr-0">
-                      <span [class]="'inline-flex items-center rounded-full px-2.5 py-0.5 text-xs font-medium ' + 
-                        (calculateWinRate(tournament.wins || 0, tournament.total_games) > 50 ? 
-                         'bg-primary text-primary-foreground' : 
+                    <td class="p-2 sm:p-4 align-middle [&:has([role=checkbox])]:pr-0">
+                      <span [class]="'inline-flex items-center rounded-full px-2 sm:px-2.5 py-0.5 text-xs font-medium ' +
+                        (calculateWinRate(tournament.wins || 0, tournament.total_games) > 50 ?
+                         'bg-primary text-primary-foreground' :
                          'bg-secondary text-secondary-foreground')">
                         {{ calculateWinRate(tournament.wins || 0, tournament.total_games) }}%
                       </span>
                     </td>
-                    <td class="p-4 align-middle [&:has([role=checkbox])]:pr-0">
+                    <td class="hidden lg:table-cell p-4 align-middle [&:has([role=checkbox])]:pr-0">
                       <div class="flex items-center gap-1">
                         <svg class="h-3 w-3 text-muted-foreground" xmlns="http://www.w3.org/2000/svg" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
                           <circle cx="12" cy="12" r="10"/>
@@ -147,7 +150,7 @@ interface Tournament {
                         <span>{{ tournament.avgAccuracy || 0 }}%</span>
                       </div>
                     </td>
-                    <td class="p-4 align-middle [&:has([role=checkbox])]:pr-0">
+                    <td class="hidden md:table-cell p-4 align-middle [&:has([role=checkbox])]:pr-0">
                       <div *ngIf="(tournament.totalBlunders || 0) > 0" class="flex items-center gap-1 text-yellow-600">
                         <svg class="h-3 w-3" xmlns="http://www.w3.org/2000/svg" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
                           <path d="m21.73 18-8-14a2 2 0 0 0-3.48 0l-8 14A2 2 0 0 0 4 21h16a2 2 0 0 0 1.73-3Z"/>

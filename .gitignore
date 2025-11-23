@@ -14,3 +14,4 @@ test_output.txt
 # Angular cache
 .angular/cache/
 newfrontend/.angular/cache/
+frontend/.angular/cache/

@@ -87,8 +87,26 @@ interface Tournament {
             <h3 class="text-2xl font-semibold leading-none tracking-tight">Tournament History</h3>
           </div>
           <div class="p-6 pt-0">
+            <!-- Loading state -->
+            <div *ngIf="loading" class="flex justify-center items-center py-8">
+              <div class="text-muted-foreground">Loading tournaments...</div>
+            </div>
+
+            <!-- Error state -->
+            <div *ngIf="error && !loading" class="rounded-lg border border-red-200 bg-red-50 p-4">
+              <div class="text-red-800">Error loading tournaments: {{ error }}</div>
+            </div>
+
+            <!-- Empty state -->
+            <div *ngIf="!loading && !error && tournaments.length === 0" class="text-center py-12">
+              <div class="text-muted-foreground">
+                <p class="text-lg font-medium">No tournaments found</p>
+                <p class="text-sm mt-2">Upload some PGN files to create tournament records.</p>
+              </div>
+            </div>
+
             <!-- Desktop table view -->
-            <div class="hidden md:block overflow-x-auto">
+            <div *ngIf="!loading && !error && tournaments.length > 0" class="hidden md:block overflow-x-auto">
               <table class="w-full caption-bottom text-sm">
                 <thead class="[&_tr]:border-b">
                   <tr class="border-b transition-colors hover:bg-muted/50 data-[state=selected]:bg-muted">
@@ -165,7 +183,7 @@ interface Tournament {
             </div>
 
             <!-- Mobile card view -->
-            <div class="md:hidden space-y-3">
+            <div *ngIf="!loading && !error && tournaments.length > 0" class="md:hidden space-y-3">
               <div *ngFor="let tournament of tournaments"
                    class="border border-border rounded-lg p-4 space-y-3 cursor-pointer hover:bg-muted/50 transition-colors"
                    [routerLink]="['/tournaments', tournament.id]">
@@ -217,25 +235,6 @@ interface Tournament {
                     <path d="m12 17 .01 0"/>
                   </svg>
                   <span>{{ tournament.totalBlunders || 0 }} blunders</span>
-                </div>
-              </div>
-            </div>
-              
-              <!-- Loading state -->
-              <div *ngIf="loading" class="flex justify-center items-center py-8">
-                <div class="text-muted-foreground">Loading tournaments...</div>
-              </div>
-              
-              <!-- Error state -->
-              <div *ngIf="error" class="rounded-lg border border-red-200 bg-red-50 p-4 mt-4">
-                <div class="text-red-800">Error loading tournaments: {{ error }}</div>
-              </div>
-              
-              <!-- Empty state -->
-              <div *ngIf="!loading && !error && tournaments.length === 0" class="text-center py-12">
-                <div class="text-muted-foreground">
-                  <p class="text-lg font-medium">No tournaments found</p>
-                  <p class="text-sm mt-2">Upload some PGN files to create tournament records.</p>
                 </div>
               </div>
             </div>

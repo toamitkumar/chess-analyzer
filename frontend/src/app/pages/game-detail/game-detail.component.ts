@@ -128,6 +128,23 @@ interface GameAnalysisResponse {
             </div>
           </ng-template>
 
+          <!-- Analysis Overview Info -->
+          <div class="rounded-lg border bg-gradient-to-r from-blue-50 to-indigo-50 border-blue-200 p-4 mb-6">
+            <div class="flex gap-3">
+              <div class="flex-shrink-0">
+                <svg class="h-6 w-6 text-blue-600" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                  <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9.663 17h4.673M12 3v1m6.364 1.636l-.707.707M21 12h-1M4 12H3m3.343-5.657l-.707-.707m2.828 9.9a5 5 0 117.072 0l-.548.547A3.374 3.374 0 0014 18.469V19a2 2 0 11-4 0v-.531c0-.895-.356-1.754-.988-2.386l-.548-.547z" />
+                </svg>
+              </div>
+              <div class="flex-1">
+                <h4 class="text-base font-semibold text-blue-900 mb-1">About Engine Analysis</h4>
+                <p class="text-sm text-blue-800">
+                  This game has been analyzed by the Stockfish chess engine, the world's strongest chess program. Each move is evaluated and classified (best, excellent, good, inaccuracy, mistake, or blunder). When you click on a mistake or blunder, you'll see alternative moves the engine recommends with explanations. Use keyboard arrows to navigate moves, or click moves in the move list.
+                </p>
+              </div>
+            </div>
+          </div>
+
           <div class="flex flex-col lg:flex-row gap-6 max-w-[1800px] mx-auto">
             <!-- Left column: Board with vertical probability indicator -->
             <div class="flex-1 space-y-6 min-w-0">
@@ -165,6 +182,23 @@ interface GameAnalysisResponse {
                 </div>
               </div>
 
+              <!-- Engine Analysis Info -->
+              <div *ngIf="selectedMoveAlternatives.length > 0" class="rounded-lg border bg-blue-50 border-blue-200 p-4 mb-4">
+                <div class="flex gap-3">
+                  <div class="flex-shrink-0">
+                    <svg class="h-5 w-5 text-blue-600" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor">
+                      <path fill-rule="evenodd" d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zm-7-4a1 1 0 11-2 0 1 1 0 012 0zM9 9a1 1 0 000 2v3a1 1 0 001 1h1a1 1 0 100-2v-3a1 1 0 00-1-1H9z" clip-rule="evenodd" />
+                    </svg>
+                  </div>
+                  <div class="flex-1">
+                    <h4 class="text-sm font-semibold text-blue-900 mb-1">Engine Analysis</h4>
+                    <p class="text-sm text-blue-800">
+                      Stockfish engine has analyzed this position to depth {{ selectedMoveDepth }}. The alternatives below show stronger moves you could have played, with their evaluations in centipawns (100cp = 1 pawn advantage). Click any move to see its continuation.
+                    </p>
+                  </div>
+                </div>
+              </div>
+
               <!-- Alternative Moves Panel -->
               <app-alternative-moves-panel
                 [alternatives]="selectedMoveAlternatives"
@@ -184,6 +218,23 @@ interface GameAnalysisResponse {
 
               <!-- Multi-Variation Analysis -->
               <div *ngIf="currentMoveVariations.length > 0">
+                <!-- Multi-Variation Info -->
+                <div class="rounded-lg border bg-purple-50 border-purple-200 p-4 mb-4">
+                  <div class="flex gap-3">
+                    <div class="flex-shrink-0">
+                      <svg class="h-5 w-5 text-purple-600" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor">
+                        <path d="M11 3a1 1 0 10-2 0v1a1 1 0 102 0V3zM15.657 5.757a1 1 0 00-1.414-1.414l-.707.707a1 1 0 001.414 1.414l.707-.707zM18 10a1 1 0 01-1 1h-1a1 1 0 110-2h1a1 1 0 011 1zM5.05 6.464A1 1 0 106.464 5.05l-.707-.707a1 1 0 00-1.414 1.414l.707.707zM5 10a1 1 0 01-1 1H3a1 1 0 110-2h1a1 1 0 011 1zM8 16v-1h4v1a2 2 0 11-4 0zM12 14c.015-.34.208-.646.477-.859a4 4 0 10-4.954 0c.27.213.462.519.476.859h4.002z" />
+                      </svg>
+                    </div>
+                    <div class="flex-1">
+                      <h4 class="text-sm font-semibold text-purple-900 mb-1">Critical Position - Multiple Lines</h4>
+                      <p class="text-sm text-purple-800">
+                        This was a critical moment where you made a {{ getCurrentMoveQuality() }}. The engine has calculated multiple possible continuations ranked by strength. The best line (top variation) shows what you should have played. Positive evaluations favor White, negative favor Black.
+                      </p>
+                    </div>
+                  </div>
+                </div>
+
                 <app-multi-variation-analysis
                   [variations]="currentMoveVariations"
                   [currentPosition]="getCurrentPosition()"
@@ -721,5 +772,15 @@ export class GameDetailComponent implements OnInit {
 
   getGoodMoveCount(): number {
     return this.enhancedMoves.filter(m => m.moveQuality === 'good').length;
+  }
+
+  getCurrentMoveQuality(): string {
+    if (this.currentMove >= 0 && this.currentMove < this.moves.length) {
+      const move = this.moves[this.currentMove];
+      if (move.is_blunder) return 'blunder';
+      if (move.is_mistake) return 'mistake';
+      if (move.is_inaccuracy) return 'inaccuracy';
+    }
+    return 'suboptimal move';
   }
 }

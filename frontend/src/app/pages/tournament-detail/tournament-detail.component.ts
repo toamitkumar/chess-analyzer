@@ -99,56 +99,134 @@ interface Tournament {
             <h3 class="text-2xl font-semibold leading-none tracking-tight">Round-by-Round Results</h3>
           </div>
           <div class="p-6 pt-0">
-            <div class="space-y-3">
-              <div *ngFor="let game of tournament?.games || []"
-                   class="flex items-center justify-between rounded-lg border p-3 sm:p-4 transition-all hover:bg-muted/50 cursor-pointer"
-                   (click)="navigateToGame(game.id)">
-                <div class="flex items-center gap-3 sm:gap-4 flex-1 min-w-0">
-                  <div class="flex h-8 w-8 sm:h-10 sm:w-10 flex-shrink-0 items-center justify-center rounded-full bg-primary/10">
-                    <span class="text-xs sm:text-sm font-bold text-primary">R{{ game.round }}</span>
-                  </div>
-                  <div class="space-y-1 flex-1 min-w-0">
-                    <div class="flex flex-wrap items-center gap-2">
+            <!-- Desktop table view -->
+            <div class="hidden md:block overflow-x-auto">
+              <table class="w-full caption-bottom text-sm">
+                <thead class="border-b">
+                  <tr class="border-b transition-colors hover:bg-muted/50">
+                    <th class="h-12 px-4 text-left align-middle font-medium text-muted-foreground">Round</th>
+                    <th class="h-12 px-4 text-left align-middle font-medium text-muted-foreground">Opponent</th>
+                    <th class="h-12 px-4 text-left align-middle font-medium text-muted-foreground">Result</th>
+                    <th class="h-12 px-4 text-left align-middle font-medium text-muted-foreground">Color</th>
+                    <th class="h-12 px-4 text-left align-middle font-medium text-muted-foreground">Opening</th>
+                    <th class="h-12 px-4 text-left align-middle font-medium text-muted-foreground">Accuracy</th>
+                    <th class="h-12 px-4 text-left align-middle font-medium text-muted-foreground">Blunders</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  <tr *ngFor="let game of tournament?.games || []"
+                      class="border-b transition-colors hover:bg-muted/50 cursor-pointer"
+                      (click)="navigateToGame(game.id)">
+                    <td class="p-4 align-middle">
+                      <div class="flex h-10 w-10 items-center justify-center rounded-full bg-primary/10">
+                        <span class="text-sm font-bold text-primary">R{{ game.round }}</span>
+                      </div>
+                    </td>
+                    <td class="p-4 align-middle">
+                      <span class="font-medium">{{ game.opponent }}</span>
+                    </td>
+                    <td class="p-4 align-middle">
                       <span [class]="'inline-flex items-center rounded-full px-2.5 py-0.5 text-xs font-medium ' + getResultBadgeClass(game.result, game.playerColor)">
                         {{ getResultText(game.result, game.playerColor) }}
                       </span>
-                      <span class="text-xs sm:text-sm text-muted-foreground">vs</span>
-                      <span class="text-sm sm:text-base font-medium truncate">{{ game.opponent }}</span>
-                      <div class="flex items-center gap-1">
-                        <div [class]="'h-4 w-4 rounded-full flex items-center justify-center ' + (game.playerColor === 'white' ? 'bg-muted' : 'bg-secondary')">
-                          <svg class="h-3 w-3" xmlns="http://www.w3.org/2000/svg" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                    </td>
+                    <td class="p-4 align-middle">
+                      <div class="flex items-center gap-2">
+                        <div [class]="'h-6 w-6 rounded-full flex items-center justify-center ' + (game.playerColor === 'white' ? 'bg-muted' : 'bg-secondary')">
+                          <svg class="h-4 w-4" xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
                             <path d="M2 20h20l-2-6-4 2-4-4-4 4-4-2z"/>
                             <path d="M6 4l2 4 4-2 4 2 2-4"/>
                           </svg>
                         </div>
+                        <span class="text-sm text-muted-foreground capitalize">{{ game.playerColor }}</span>
                       </div>
-                    </div>
-                    <div class="flex flex-wrap items-center gap-2 sm:gap-3 text-xs text-muted-foreground">
-                      <span class="hidden sm:inline truncate">{{ game.opening || 'Unknown' }}</span>
+                    </td>
+                    <td class="p-4 align-middle">
+                      <span class="text-sm">{{ game.opening || 'Unknown' }}</span>
+                    </td>
+                    <td class="p-4 align-middle">
                       <div class="flex items-center gap-1">
                         <svg class="h-3 w-3 text-muted-foreground" xmlns="http://www.w3.org/2000/svg" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
                           <circle cx="12" cy="12" r="10"/>
                           <circle cx="12" cy="12" r="6"/>
                           <circle cx="12" cy="12" r="2"/>
                         </svg>
-                        {{ game.accuracy || 0 }}% accuracy
+                        <span>{{ game.accuracy || 0 }}%</span>
                       </div>
+                    </td>
+                    <td class="p-4 align-middle">
                       <div *ngIf="(game.blunders || 0) > 0" class="flex items-center gap-1 text-yellow-600">
                         <svg class="h-3 w-3" xmlns="http://www.w3.org/2000/svg" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
                           <path d="m21.73 18-8-14a2 2 0 0 0-3.48 0l-8 14A2 2 0 0 0 4 21h16a2 2 0 0 0 1.73-3Z"/>
                           <path d="M12 9v4"/>
                           <path d="m12 17 .01 0"/>
                         </svg>
-                        {{ game.blunders }} blunder{{ game.blunders > 1 ? 's' : '' }}
+                        <span>{{ game.blunders }}</span>
                       </div>
+                      <span *ngIf="(game.blunders || 0) === 0" class="text-muted-foreground">-</span>
+                    </td>
+                  </tr>
+                </tbody>
+              </table>
+            </div>
+
+            <!-- Mobile card view -->
+            <div class="md:hidden space-y-3">
+              <div *ngFor="let game of tournament?.games || []"
+                   class="border border-border rounded-lg p-4 space-y-3 cursor-pointer hover:bg-muted/50 transition-colors"
+                   (click)="navigateToGame(game.id)">
+                <div class="flex items-start gap-3">
+                  <div class="flex h-10 w-10 flex-shrink-0 items-center justify-center rounded-full bg-primary/10">
+                    <span class="text-sm font-bold text-primary">R{{ game.round }}</span>
+                  </div>
+                  <div class="flex-1">
+                    <div class="flex items-center gap-2 flex-wrap">
+                      <span [class]="'inline-flex items-center rounded-full px-2.5 py-0.5 text-xs font-medium ' + getResultBadgeClass(game.result, game.playerColor)">
+                        {{ getResultText(game.result, game.playerColor) }}
+                      </span>
+                      <span class="text-sm text-muted-foreground">vs</span>
+                      <span class="text-sm font-medium">{{ game.opponent }}</span>
+                    </div>
+                    <p class="text-xs text-muted-foreground mt-1">{{ game.opening || 'Unknown' }}</p>
+                  </div>
+                </div>
+
+                <div class="grid grid-cols-2 gap-3 text-sm">
+                  <div>
+                    <span class="text-muted-foreground">Color:</span>
+                    <div class="flex items-center gap-2 mt-1">
+                      <div [class]="'h-5 w-5 rounded-full flex items-center justify-center ' + (game.playerColor === 'white' ? 'bg-muted' : 'bg-secondary')">
+                        <svg class="h-3 w-3" xmlns="http://www.w3.org/2000/svg" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                          <path d="M2 20h20l-2-6-4 2-4-4-4 4-4-2z"/>
+                          <path d="M6 4l2 4 4-2 4 2 2-4"/>
+                        </svg>
+                      </div>
+                      <span class="font-medium capitalize">{{ game.playerColor }}</span>
+                    </div>
+                  </div>
+                  <div>
+                    <span class="text-muted-foreground">Accuracy:</span>
+                    <div class="flex items-center gap-1 mt-1">
+                      <svg class="h-3 w-3 text-muted-foreground" xmlns="http://www.w3.org/2000/svg" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                        <circle cx="12" cy="12" r="10"/>
+                        <circle cx="12" cy="12" r="6"/>
+                        <circle cx="12" cy="12" r="2"/>
+                      </svg>
+                      <span class="font-medium">{{ game.accuracy || 0 }}%</span>
+                    </div>
+                  </div>
+                  <div *ngIf="(game.blunders || 0) > 0" class="col-span-2">
+                    <span class="text-muted-foreground">Blunders:</span>
+                    <div class="flex items-center gap-1 text-yellow-600 mt-1">
+                      <svg class="h-4 w-4" xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                        <path d="m21.73 18-8-14a2 2 0 0 0-3.48 0l-8 14A2 2 0 0 0 4 21h16a2 2 0 0 0 1.73-3Z"/>
+                        <path d="M12 9v4"/>
+                        <path d="m12 17 .01 0"/>
+                      </svg>
+                      <span class="font-medium">{{ game.blunders }} blunder{{ game.blunders > 1 ? 's' : '' }}</span>
                     </div>
                   </div>
                 </div>
-                <button class="inline-flex flex-shrink-0 items-center justify-center rounded-md text-sm font-medium ring-offset-background transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:pointer-events-none disabled:opacity-50 hover:bg-accent hover:text-accent-foreground h-8 w-8 sm:h-10 sm:w-10">
-                  <svg class="h-4 w-4 sm:h-5 sm:w-5" xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-                    <path d="m9 18 6-6-6-6"/>
-                  </svg>
-                </button>
               </div>
             </div>
           </div>

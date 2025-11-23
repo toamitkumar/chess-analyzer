@@ -71,7 +71,7 @@ interface MovePair {
                 <svg viewBox="0 0 24 24" fill="currentColor"><path d="M9 16.17L4.83 12l-1.42 1.41L9 19 21 7l-1.41-1.41z"/></svg>
               </span>
               <span *ngIf="pair.white.moveQuality === 'excellent'" class="quality-badge excellent" title="Excellent move">!</span>
-              <span *ngIf="pair.white.moveQuality === 'good'" class="quality-badge good" title="Good move">○</span>
+              <span *ngIf="pair.white.moveQuality === 'good'" class="quality-badge good" title="Good move">👍</span>
               <span *ngIf="pair.white.moveQuality === 'inaccuracy'" class="quality-badge inaccuracy" title="Inaccuracy">?!</span>
               <span *ngIf="pair.white.moveQuality === 'mistake'" class="quality-badge mistake" title="Mistake">?</span>
               <span *ngIf="pair.white.moveQuality === 'blunder'" class="quality-badge blunder" title="Blunder">??</span>
@@ -89,7 +89,7 @@ interface MovePair {
                 <svg viewBox="0 0 24 24" fill="currentColor"><path d="M9 16.17L4.83 12l-1.42 1.41L9 19 21 7l-1.41-1.41z"/></svg>
               </span>
               <span *ngIf="pair.black.moveQuality === 'excellent'" class="quality-badge excellent" title="Excellent move">!</span>
-              <span *ngIf="pair.black.moveQuality === 'good'" class="quality-badge good" title="Good move">○</span>
+              <span *ngIf="pair.black.moveQuality === 'good'" class="quality-badge good" title="Good move">👍</span>
               <span *ngIf="pair.black.moveQuality === 'inaccuracy'" class="quality-badge inaccuracy" title="Inaccuracy">?!</span>
               <span *ngIf="pair.black.moveQuality === 'mistake'" class="quality-badge mistake" title="Mistake">?</span>
               <span *ngIf="pair.black.moveQuality === 'blunder'" class="quality-badge blunder" title="Blunder">??</span>

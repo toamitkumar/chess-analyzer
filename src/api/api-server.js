@@ -1760,6 +1760,273 @@ app.get('/api/games/:id/phases', async (req, res) => {
   }
 });
 
+// ========== Enhanced Blunder Tracking API Endpoints (Issue #76) ==========
+
+// GET /api/blunders - Get all blunder details with optional filtering
+app.get('/api/blunders', async (req, res) => {
+  try {
+    const { phase, theme, learned, severity, minDifficulty, maxDifficulty } = req.query;
+
+    let query = `
+      SELECT bd.*, g.white_player, g.black_player, g.date, g.event
+      FROM blunder_details bd
+      JOIN games g ON bd.game_id = g.id
+      WHERE 1=1
+    `;
+    const params = [];
+
+    if (phase) {
+      query += ' AND bd.phase = ?';
+      params.push(phase);
+    }
+
+    if (theme) {
+      query += ' AND bd.tactical_theme = ?';
+      params.push(theme);
+    }
+
+    if (learned !== undefined) {
+      query += ' AND bd.learned = ?';
+      params.push(learned === 'true' ? 1 : 0);
+    }
+
+    if (severity) {
+      query += ' AND bd.blunder_severity = ?';
+      params.push(severity);
+    }
+
+    if (minDifficulty) {
+      query += ' AND bd.difficulty_level >= ?';
+      params.push(parseInt(minDifficulty));
+    }
+
+    if (maxDifficulty) {
+      query += ' AND bd.difficulty_level <= ?';
+      params.push(parseInt(maxDifficulty));
+    }
+
+    query += ' ORDER BY bd.created_at DESC';
+
+    const blunders = await database.all(query, params);
+
+    res.json({
+      count: blunders.length,
+      blunders: blunders
+    });
+  } catch (error) {
+    console.error('Blunders API error:', error);
+    res.status(500).json({ error: error.message });
+  }
+});
+
+// GET /api/blunders/by-phase/:phase - Get blunders by game phase
+app.get('/api/blunders/by-phase/:phase', async (req, res) => {
+  try {
+    const { phase } = req.params;
+
+    if (!['opening', 'middlegame', 'endgame'].includes(phase)) {
+      return res.status(400).json({ error: 'Invalid phase. Must be opening, middlegame, or endgame' });
+    }
+
+    const blunders = await database.all(`
+      SELECT bd.*, g.white_player, g.black_player, g.date, g.event
+      FROM blunder_details bd
+      JOIN games g ON bd.game_id = g.id
+      WHERE bd.phase = ?
+      ORDER BY bd.centipawn_loss DESC
+    `, [phase]);
+
+    // Calculate statistics for this phase
+    const stats = {
+      totalBlunders: blunders.length,
+      averageCentipawnLoss: blunders.length > 0
+        ? Math.round(blunders.reduce((sum, b) => sum + b.centipawn_loss, 0) / blunders.length)
+        : 0,
+      severityBreakdown: {
+        minor: blunders.filter(b => b.blunder_severity === 'minor').length,
+        moderate: blunders.filter(b => b.blunder_severity === 'moderate').length,
+        major: blunders.filter(b => b.blunder_severity === 'major').length,
+        critical: blunders.filter(b => b.blunder_severity === 'critical').length
+      },
+      learned: blunders.filter(b => b.learned).length,
+      unlearned: blunders.filter(b => !b.learned).length
+    };
+
+    res.json({
+      phase: phase,
+      stats: stats,
+      blunders: blunders
+    });
+  } catch (error) {
+    console.error('Blunders by phase API error:', error);
+    res.status(500).json({ error: error.message });
+  }
+});
+
+// GET /api/blunders/by-theme/:theme - Get blunders by tactical theme
+app.get('/api/blunders/by-theme/:theme', async (req, res) => {
+  try {
+    const { theme } = req.params;
+
+    const blunders = await database.all(`
+      SELECT bd.*, g.white_player, g.black_player, g.date, g.event
+      FROM blunder_details bd
+      JOIN games g ON bd.game_id = g.id
+      WHERE bd.tactical_theme = ?
+      ORDER BY bd.centipawn_loss DESC
+    `, [theme]);
+
+    // Calculate statistics for this theme
+    const stats = {
+      totalBlunders: blunders.length,
+      averageCentipawnLoss: blunders.length > 0
+        ? Math.round(blunders.reduce((sum, b) => sum + b.centipawn_loss, 0) / blunders.length)
+        : 0,
+      phaseBreakdown: {
+        opening: blunders.filter(b => b.phase === 'opening').length,
+        middlegame: blunders.filter(b => b.phase === 'middlegame').length,
+        endgame: blunders.filter(b => b.phase === 'endgame').length
+      },
+      learned: blunders.filter(b => b.learned).length,
+      averageDifficulty: blunders.length > 0
+        ? (blunders.reduce((sum, b) => sum + b.difficulty_level, 0) / blunders.length).toFixed(1)
+        : 0
+    };
+
+    res.json({
+      theme: theme,
+      stats: stats,
+      blunders: blunders
+    });
+  } catch (error) {
+    console.error('Blunders by theme API error:', error);
+    res.status(500).json({ error: error.message });
+  }
+});
+
+// GET /api/blunders/unlearned - Get blunders not yet mastered
+app.get('/api/blunders/unlearned', async (req, res) => {
+  try {
+    const { minMastery = 70 } = req.query;
+
+    const blunders = await database.all(`
+      SELECT bd.*, g.white_player, g.black_player, g.date, g.event
+      FROM blunder_details bd
+      JOIN games g ON bd.game_id = g.id
+      WHERE bd.learned = 0 OR bd.mastery_score < ?
+      ORDER BY bd.difficulty_level DESC, bd.centipawn_loss DESC
+    `, [minMastery]);
+
+    // Group by tactical theme for learning prioritization
+    const byTheme = {};
+    blunders.forEach(blunder => {
+      const theme = blunder.tactical_theme || 'unknown';
+      if (!byTheme[theme]) {
+        byTheme[theme] = [];
+      }
+      byTheme[theme].push(blunder);
+    });
+
+    res.json({
+      totalUnlearned: blunders.length,
+      byTheme: byTheme,
+      blunders: blunders
+    });
+  } catch (error) {
+    console.error('Unlearned blunders API error:', error);
+    res.status(500).json({ error: error.message });
+  }
+});
+
+// PUT /api/blunders/:id/review - Mark blunder as reviewed
+app.put('/api/blunders/:id/review', async (req, res) => {
+  try {
+    const blunderId = parseInt(req.params.id);
+
+    // Check if blunder exists
+    const blunder = await database.get('SELECT * FROM blunder_details WHERE id = ?', [blunderId]);
+    if (!blunder) {
+      return res.status(404).json({ error: 'Blunder not found' });
+    }
+
+    // Increment review count and update last_reviewed
+    const newReviewCount = (blunder.review_count || 0) + 1;
+    const currentTimestamp = new Date().toISOString();
+
+    // Calculate mastery score based on review count
+    // Formula: mastery increases with reviews, caps at 100
+    const masteryIncrease = Math.min(15, 100 / (newReviewCount + 1));
+    const newMasteryScore = Math.min(100, (blunder.mastery_score || 0) + masteryIncrease);
+
+    await database.run(`
+      UPDATE blunder_details
+      SET review_count = ?,
+          last_reviewed = ?,
+          mastery_score = ?,
+          updated_at = ?
+      WHERE id = ?
+    `, [newReviewCount, currentTimestamp, newMasteryScore, currentTimestamp, blunderId]);
+
+    const updated = await database.get('SELECT * FROM blunder_details WHERE id = ?', [blunderId]);
+
+    res.json({
+      success: true,
+      blunder: updated
+    });
+  } catch (error) {
+    console.error('Review blunder API error:', error);
+    res.status(500).json({ error: error.message });
+  }
+});
+
+// PUT /api/blunders/:id/learned - Mark blunder as learned
+app.put('/api/blunders/:id/learned', async (req, res) => {
+  try {
+    const blunderId = parseInt(req.params.id);
+    const { learned, notes } = req.body;
+
+    // Check if blunder exists
+    const blunder = await database.get('SELECT * FROM blunder_details WHERE id = ?', [blunderId]);
+    if (!blunder) {
+      return res.status(404).json({ error: 'Blunder not found' });
+    }
+
+    const currentTimestamp = new Date().toISOString();
+    const learnedValue = learned ? 1 : 0;
+
+    // If marking as learned, set mastery to 100
+    const masteryScore = learned ? 100 : blunder.mastery_score;
+
+    let query = `
+      UPDATE blunder_details
+      SET learned = ?,
+          mastery_score = ?,
+          updated_at = ?
+    `;
+    const params = [learnedValue, masteryScore, currentTimestamp];
+
+    if (notes !== undefined) {
+      query += ', notes = ?';
+      params.push(notes);
+    }
+
+    query += ' WHERE id = ?';
+    params.push(blunderId);
+
+    await database.run(query, params);
+
+    const updated = await database.get('SELECT * FROM blunder_details WHERE id = ?', [blunderId]);
+
+    res.json({
+      success: true,
+      blunder: updated
+    });
+  } catch (error) {
+    console.error('Mark learned API error:', error);
+    res.status(500).json({ error: error.message });
+  }
+});
+
 // Serve Angular app for all non-API routes (MUST BE LAST)
 app.get('*', (req, res) => {
   // Only serve Angular for non-API routes

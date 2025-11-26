@@ -312,6 +312,58 @@ class Database {
       analysisData.is_good || false
     ];
 
+    const result = await this.run(sql, params);
+
+    // If this is a poor move with categorization data, save to blunder_details
+    if ((analysisData.is_blunder || analysisData.is_mistake || analysisData.is_inaccuracy) &&
+        analysisData.categorization &&
+        analysisData.fen_before) {
+      try {
+        await this.insertBlunderDetails(gameId, analysisData);
+      } catch (error) {
+        console.warn(`Failed to insert blunder details for game ${gameId}, move ${analysisData.move_number}:`, error.message);
+      }
+    }
+
+    return result;
+  }
+
+  async insertBlunderDetails(gameId, analysisData) {
+    const categorization = analysisData.categorization;
+
+    const sql = `
+      INSERT INTO blunder_details (
+        game_id, move_number, fen, phase,
+        player_move, best_move, alternative_moves,
+        evaluation_before, evaluation_after, centipawn_loss,
+        win_probability_before, win_probability_after,
+        tactical_theme, position_type, blunder_severity, difficulty_level,
+        learned, review_count, mastery_score
+      ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+    `;
+
+    const params = [
+      gameId,
+      Math.ceil(analysisData.move_number / 2), // Convert half-move to full move
+      analysisData.fen_before,
+      categorization.phase,
+      analysisData.move,
+      analysisData.best_move,
+      JSON.stringify(analysisData.alternatives || []),
+      analysisData.evaluation_before || analysisData.evaluation || 0,
+      analysisData.evaluation || 0,
+      analysisData.centipawn_loss || 0,
+      analysisData.win_probability_before || 50,
+      analysisData.win_probability_after || 50,
+      categorization.tactical_theme,
+      categorization.position_type,
+      categorization.blunder_severity,
+      categorization.difficulty_level,
+      false, // learned
+      0,     // review_count
+      0      // mastery_score
+    ];
+
     return await this.run(sql, params);
   }
 

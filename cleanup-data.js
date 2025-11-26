@@ -10,6 +10,7 @@ async function cleanupData() {
     await db.initialize();
     
     // Delete in correct order to respect foreign key constraints
+    await db.run('DELETE FROM blunder_details');
     await db.run('DELETE FROM analysis');
     await db.run('DELETE FROM phase_analysis');
     await db.run('DELETE FROM opening_analysis');
@@ -30,9 +31,10 @@ async function cleanupData() {
     // Verify cleanup
     const gameCount = await db.get('SELECT COUNT(*) as count FROM games');
     const analysisCount = await db.get('SELECT COUNT(*) as count FROM analysis');
+    const blunderCount = await db.get('SELECT COUNT(*) as count FROM blunder_details');
     const tournamentCount = await db.get('SELECT COUNT(*) as count FROM tournaments');
-    
-    console.log(`📊 Verification - Games: ${gameCount.count}, Analysis: ${analysisCount.count}, Tournaments: ${tournamentCount.count}`);
+
+    console.log(`📊 Verification - Games: ${gameCount.count}, Analysis: ${analysisCount.count}, Blunders: ${blunderCount.count}, Tournaments: ${tournamentCount.count}`);
     
   } catch (error) {
     console.error('❌ Cleanup failed:', error);

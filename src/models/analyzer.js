@@ -2,11 +2,13 @@ const fs = require('fs');
 const path = require('path');
 const { Chess } = require('chess.js');
 const { spawn } = require('child_process');
+const BlunderCategorizer = require('./blunder-categorizer');
 
 class ChessAnalyzer {
   constructor() {
     this.engine = null;
     this.isReady = false;
+    this.blunderCategorizer = new BlunderCategorizer();
     this.setupEngine();
   }
 
@@ -256,12 +258,32 @@ class ChessAnalyzer {
           const isExcellent = moveQuality === 'excellent';
           const isGood = moveQuality === 'good';
 
+          // Categorize blunders, mistakes, and inaccuracies with enhanced details
+          let categorization = null;
+          if (isBlunder || isMistake || isInaccuracy) {
+            try {
+              const tempChess = new Chess(beforeFen);
+              categorization = this.blunderCategorizer.categorizeBlunder({
+                fen: beforeFen,
+                moveNumber: Math.ceil((i + 1) / 2),
+                playerMove: playedMoveUci,
+                bestMove: beforeEval.bestMove,
+                evaluationBefore: beforeEval.evaluation,
+                evaluationAfter: -afterEval.evaluation, // From mover's perspective
+                centipawnLoss: centipawnLoss
+              }, tempChess);
+            } catch (error) {
+              console.warn(`Failed to categorize move ${i + 1}:`, error.message);
+            }
+          }
+
           if (isBlunder) {
             blunders.push({
               moveNumber: Math.ceil((i + 1) / 2),
               move: move,
               centipawnLoss: centipawnLoss,
-              winProbabilityLoss: Math.round((wpBefore - wpAfter) * 100)
+              winProbabilityLoss: Math.round((wpBefore - wpAfter) * 100),
+              categorization: categorization // Add categorization details
             });
           }
 
@@ -283,7 +305,8 @@ class ChessAnalyzer {
             is_inaccuracy: isInaccuracy,
             fen_before: beforeFen,
             fen_after: afterFen,
-            alternatives: alternatives // Up to 10 alternative moves with lines
+            alternatives: alternatives, // Up to 10 alternative moves with lines
+            categorization: categorization // Enhanced blunder/mistake/inaccuracy categorization
           };
 
           analysis.push(moveAnalysis);
@@ -476,14 +499,33 @@ class ChessAnalyzer {
         const centipawnLoss = this.calculateCentipawnLoss(beforeEval.evaluation, afterEval.evaluation, isWhiteMove);
         const cappedCentipawnLoss = Math.min(centipawnLoss, 500);
         const isBlunder = cappedCentipawnLoss > 200;
-        
+
+        // Categorize blunders with enhanced details
+        let categorization = null;
         if (isBlunder) {
+          try {
+            const tempChess = new Chess(beforeFen);
+            const playedMoveUci = moveResult.from + moveResult.to + (moveResult.promotion || '');
+            categorization = this.blunderCategorizer.categorizeBlunder({
+              fen: beforeFen,
+              moveNumber: Math.ceil((i + 1) / 2),
+              playerMove: playedMoveUci,
+              bestMove: beforeEval.bestMove,
+              evaluationBefore: beforeEval.evaluation,
+              evaluationAfter: -afterEval.evaluation,
+              centipawnLoss: cappedCentipawnLoss
+            }, tempChess);
+          } catch (error) {
+            console.warn(`Failed to categorize blunder at move ${i + 1}:`, error.message);
+          }
+
           blunders.push({
             moveNumber: i + 1,
             move: moveResult.san,
             centipawnLoss: cappedCentipawnLoss,
             bestMove: beforeEval.bestMove,
-            alternatives: alternatives
+            alternatives: alternatives,
+            categorization: categorization
           });
         }
         
@@ -496,7 +538,8 @@ class ChessAnalyzer {
           isBlunder: isBlunder,
           bestMove: beforeEval.bestMove,
           evaluation: afterEval.evaluation,
-          alternatives: alternatives
+          alternatives: alternatives,
+          categorization: categorization
         });
         
       } catch (error) {

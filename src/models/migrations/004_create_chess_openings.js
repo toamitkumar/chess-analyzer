@@ -7,11 +7,15 @@ class Migration004 {
 
   async up() {
     console.log('🔄 Running migration: Create chess_openings table');
-    
-    // Create table
+
+    // Get database-specific types
+    const { idType } = this.db.getSQLTypes();
+
+    // Create table with id column for consistency with other tables
     await this.db.run(`
       CREATE TABLE IF NOT EXISTS chess_openings (
-        eco_code VARCHAR(3) PRIMARY KEY,
+        id ${idType},
+        eco_code VARCHAR(3) NOT NULL UNIQUE,
         opening_name VARCHAR(255) NOT NULL
       )
     `);
@@ -164,19 +168,24 @@ class Migration004 {
       ['E98', 'King\'s Indian Defense'], ['E99', 'King\'s Indian Defense']
     ];
 
+    // Create index on eco_code for fast lookups
+    await this.db.run(`
+      CREATE INDEX IF NOT EXISTS idx_chess_openings_eco_code ON chess_openings(eco_code)
+    `);
+
     // Insert all openings using individual run statements
     // Use database-agnostic upsert syntax
     const usePostgres = !!process.env.DATABASE_URL;
 
     for (const [eco, name] of openings) {
       if (usePostgres) {
-        // PostgreSQL: INSERT ... ON CONFLICT
+        // PostgreSQL: INSERT ... ON CONFLICT on the unique constraint
         await this.db.run(
           'INSERT INTO chess_openings (eco_code, opening_name) VALUES ($1, $2) ON CONFLICT (eco_code) DO UPDATE SET opening_name = $2',
           [eco, name]
         );
       } else {
-        // SQLite: INSERT OR REPLACE
+        // SQLite: INSERT OR REPLACE (use ROWID as implicit id)
         await this.db.run('INSERT OR REPLACE INTO chess_openings (eco_code, opening_name) VALUES (?, ?)', [eco, name]);
       }
     }

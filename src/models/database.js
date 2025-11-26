@@ -347,7 +347,7 @@ class Database {
 
     const params = [
       gameId,
-      Math.ceil(analysisData.move_number / 2), // Convert half-move to full move
+      analysisData.move_number, // Store original half-move number for correct ordering
       analysisData.fen_before,
       categorization.phase,
       analysisData.move,

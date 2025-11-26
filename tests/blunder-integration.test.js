@@ -69,8 +69,11 @@ describe('Blunder Integration Tests', () => {
   });
 
   beforeEach(async () => {
-    // Clean up test data
+    // Clean up test data - delete in correct order for foreign key constraints
+    // Child tables first, then parent tables
     await database.run('DELETE FROM blunder_details');
+    await database.run('DELETE FROM alternative_moves');
+    await database.run('DELETE FROM position_evaluations');
     await database.run('DELETE FROM analysis');
     await database.run('DELETE FROM games');
     await database.run('DELETE FROM tournaments');

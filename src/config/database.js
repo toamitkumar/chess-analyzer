@@ -15,6 +15,8 @@ const sqliteDb = !usePostgres ? new sqlite3.Database('./data/chess-analysis.db',
     console.error('Error opening SQLite database:', err);
   } else {
     console.log('✅ Connected to SQLite database (development mode)');
+    // Enable foreign key constraints (required for CASCADE DELETE to work)
+    sqliteDb.run('PRAGMA foreign_keys = ON');
   }
 }) : null;
 

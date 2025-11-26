@@ -10,7 +10,11 @@ describe('PGN Upload Tests', () => {
   });
 
   beforeEach(async () => {
-    // Clean database before each test
+    // Clean database before each test - delete in correct order for foreign key constraints
+    // Child tables first, then parent tables
+    await db.run('DELETE FROM blunder_details');
+    await db.run('DELETE FROM alternative_moves');
+    await db.run('DELETE FROM position_evaluations');
     await db.run('DELETE FROM analysis');
     await db.run('DELETE FROM games');
     await db.run('DELETE FROM tournaments');

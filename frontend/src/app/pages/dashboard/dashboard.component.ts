@@ -2,13 +2,14 @@ import { Component, OnInit } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 import { HttpClientModule } from '@angular/common/http';
+import { RouterModule } from '@angular/router';
 import { LayoutComponent } from '../../components/layout/layout.component';
 import { ChessApiService, PerformanceData } from '../../services/chess-api.service';
 
 @Component({
   selector: 'app-dashboard',
   standalone: true,
-  imports: [CommonModule, FormsModule, HttpClientModule, LayoutComponent],
+  imports: [CommonModule, FormsModule, HttpClientModule, RouterModule, LayoutComponent],
   template: `
     <app-layout>
       <div class="space-y-6">
@@ -74,7 +75,7 @@ import { ChessApiService, PerformanceData } from '../../services/chess-api.servi
             </div>
           </div>
 
-          <div class="rounded-lg border bg-card text-card-foreground shadow-sm p-6">
+          <a routerLink="/blunders" class="rounded-lg border bg-card text-card-foreground shadow-sm p-6 cursor-pointer hover:bg-muted/50 transition-colors block">
             <div class="flex flex-row items-center justify-between space-y-0 pb-2">
               <h3 class="tracking-tight text-sm font-medium">Blunders</h3>
               <svg class="h-4 w-4 text-muted-foreground" xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
@@ -85,9 +86,15 @@ import { ChessApiService, PerformanceData } from '../../services/chess-api.servi
             </div>
             <div>
               <div class="text-2xl font-bold">{{ getBlunders() }}</div>
-              <p class="text-xs text-muted-foreground">This month</p>
+              <p class="text-xs text-muted-foreground flex items-center gap-1">
+                This month
+                <svg class="h-3 w-3" xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                  <line x1="7" y1="17" x2="17" y2="7"/>
+                  <polyline points="7 7 17 7 17 17"/>
+                </svg>
+              </p>
             </div>
-          </div>
+          </a>
         </div>
 
         <div class="grid gap-4 md:grid-cols-2">

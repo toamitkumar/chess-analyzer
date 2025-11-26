@@ -80,6 +80,57 @@ interface DashboardData {
   selector: 'app-blunders',
   standalone: true,
   imports: [CommonModule, RouterModule, HttpClientModule, LayoutComponent],
+  styles: [`
+    .tooltip-wrapper {
+      position: relative;
+      display: inline-flex;
+    }
+
+    .tooltip-content {
+      visibility: hidden;
+      opacity: 0;
+      position: absolute;
+      z-index: 50;
+      bottom: 125%;
+      left: 50%;
+      transform: translateX(-50%);
+      background-color: rgb(15, 23, 42);
+      color: white;
+      padding: 0.5rem 0.75rem;
+      border-radius: 0.375rem;
+      font-size: 0.75rem;
+      line-height: 1.25rem;
+      width: max-content;
+      max-width: 250px;
+      text-align: center;
+      transition: opacity 0.2s, visibility 0.2s;
+      pointer-events: none;
+    }
+
+    .tooltip-content::after {
+      content: '';
+      position: absolute;
+      top: 100%;
+      left: 50%;
+      margin-left: -5px;
+      border-width: 5px;
+      border-style: solid;
+      border-color: rgb(15, 23, 42) transparent transparent transparent;
+    }
+
+    .tooltip-wrapper:hover .tooltip-content,
+    .tooltip-wrapper.active .tooltip-content {
+      visibility: visible;
+      opacity: 1;
+    }
+
+    @media (max-width: 768px) {
+      .tooltip-content {
+        max-width: 200px;
+        font-size: 0.7rem;
+      }
+    }
+  `],
   template: `
     <app-layout>
       <div class="space-y-6">
@@ -119,7 +170,17 @@ interface DashboardData {
             <div class="rounded-lg border bg-card text-card-foreground shadow-sm">
               <div class="p-6">
                 <div class="flex flex-row items-center justify-between space-y-0 pb-2">
-                  <h3 class="text-sm font-medium text-muted-foreground">Total Blunders</h3>
+                  <div class="flex items-center gap-2">
+                    <h3 class="text-sm font-medium text-muted-foreground">Total Blunders</h3>
+                    <div class="tooltip-wrapper" (click)="toggleTooltip($event)">
+                      <svg xmlns="http://www.w3.org/2000/svg" class="h-3.5 w-3.5 text-muted-foreground cursor-help" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                        <circle cx="12" cy="12" r="10"/>
+                        <line x1="12" y1="16" x2="12" y2="12"/>
+                        <line x1="12" y1="8" x2="12.01" y2="8"/>
+                      </svg>
+                      <div class="tooltip-content">Critical moves with 300+ centipawn loss. Trend compares last 30 days vs previous 30 days.</div>
+                    </div>
+                  </div>
                   <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4 text-muted-foreground" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
                     <path d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"/>
                     <line x1="12" y1="9" x2="12" y2="13"/>
@@ -142,7 +203,17 @@ interface DashboardData {
             <div class="rounded-lg border bg-card text-card-foreground shadow-sm">
               <div class="p-6">
                 <div class="flex flex-row items-center justify-between space-y-0 pb-2">
-                  <h3 class="text-sm font-medium text-muted-foreground">Avg CP Loss</h3>
+                  <div class="flex items-center gap-2">
+                    <h3 class="text-sm font-medium text-muted-foreground">Avg CP Loss</h3>
+                    <div class="tooltip-wrapper" (click)="toggleTooltip($event)">
+                      <svg xmlns="http://www.w3.org/2000/svg" class="h-3.5 w-3.5 text-muted-foreground cursor-help" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                        <circle cx="12" cy="12" r="10"/>
+                        <line x1="12" y1="16" x2="12" y2="12"/>
+                        <line x1="12" y1="8" x2="12.01" y2="8"/>
+                      </svg>
+                      <div class="tooltip-content">Average centipawn loss per blunder. Lower is better. (100 centipawns = 1 pawn of material value)</div>
+                    </div>
+                  </div>
                   <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4 text-muted-foreground" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
                     <line x1="12" y1="20" x2="12" y2="10"/>
                     <line x1="18" y1="20" x2="18" y2="4"/>
@@ -160,7 +231,17 @@ interface DashboardData {
             <div class="rounded-lg border bg-card text-card-foreground shadow-sm">
               <div class="p-6">
                 <div class="flex flex-row items-center justify-between space-y-0 pb-2">
-                  <h3 class="text-sm font-medium text-muted-foreground">Worst Blunder</h3>
+                  <div class="flex items-center gap-2">
+                    <h3 class="text-sm font-medium text-muted-foreground">Worst Blunder</h3>
+                    <div class="tooltip-wrapper" (click)="toggleTooltip($event)">
+                      <svg xmlns="http://www.w3.org/2000/svg" class="h-3.5 w-3.5 text-muted-foreground cursor-help" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                        <circle cx="12" cy="12" r="10"/>
+                        <line x1="12" y1="16" x2="12" y2="12"/>
+                        <line x1="12" y1="8" x2="12.01" y2="8"/>
+                      </svg>
+                      <div class="tooltip-content">Your most costly blunder by centipawn loss. This represents how much evaluation dropped (e.g., 402 = lost 4 pawns of advantage in one move).</div>
+                    </div>
+                  </div>
                   <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4 text-muted-foreground" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
                     <path d="m21.73 18-8-14a2 2 0 0 0-3.48 0l-8 14A2 2 0 0 0 4 21h16a2 2 0 0 0 1.73-3Z"/>
                     <path d="M12 9v4"/>
@@ -182,7 +263,17 @@ interface DashboardData {
             <div class="rounded-lg border bg-card text-card-foreground shadow-sm">
               <div class="p-6">
                 <div class="flex flex-row items-center justify-between space-y-0 pb-2">
-                  <h3 class="text-sm font-medium text-muted-foreground">Learned</h3>
+                  <div class="flex items-center gap-2">
+                    <h3 class="text-sm font-medium text-muted-foreground">Learned</h3>
+                    <div class="tooltip-wrapper" (click)="toggleTooltip($event)">
+                      <svg xmlns="http://www.w3.org/2000/svg" class="h-3.5 w-3.5 text-muted-foreground cursor-help" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                        <circle cx="12" cy="12" r="10"/>
+                        <line x1="12" y1="16" x2="12" y2="12"/>
+                        <line x1="12" y1="8" x2="12.01" y2="8"/>
+                      </svg>
+                      <div class="tooltip-content">Percentage of blunder patterns you've mastered. Patterns are marked as learned when you avoid similar mistakes consistently.</div>
+                    </div>
+                  </div>
                   <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4 text-muted-foreground" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
                     <polyline points="20 6 9 17 4 12"/>
                   </svg>
@@ -202,7 +293,17 @@ interface DashboardData {
             <!-- Phase Distribution -->
             <div class="rounded-lg border bg-card text-card-foreground shadow-sm">
               <div class="p-6">
-                <h3 class="text-lg font-semibold mb-4">Blunders by Game Phase</h3>
+                <div class="flex items-center gap-2 mb-4">
+                  <h3 class="text-lg font-semibold">Blunders by Game Phase</h3>
+                  <div class="tooltip-wrapper" (click)="toggleTooltip($event)">
+                    <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4 text-muted-foreground cursor-help" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                      <circle cx="12" cy="12" r="10"/>
+                      <line x1="12" y1="16" x2="12" y2="12"/>
+                      <line x1="12" y1="8" x2="12.01" y2="8"/>
+                    </svg>
+                    <div class="tooltip-content">Distribution of blunders across game phases. Opening (first 10-15 moves), Middlegame (complex positions), Endgame (fewer pieces).</div>
+                  </div>
+                </div>
                 <div class="space-y-3">
                   <div>
                     <div class="flex items-center justify-between text-sm mb-1">
@@ -241,7 +342,17 @@ interface DashboardData {
             <!-- Theme Distribution -->
             <div class="rounded-lg border bg-card text-card-foreground shadow-sm">
               <div class="p-6">
-                <h3 class="text-lg font-semibold mb-4">Top Tactical Themes</h3>
+                <div class="flex items-center gap-2 mb-4">
+                  <h3 class="text-lg font-semibold">Top Tactical Themes</h3>
+                  <div class="tooltip-wrapper" (click)="toggleTooltip($event)">
+                    <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4 text-muted-foreground cursor-help" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                      <circle cx="12" cy="12" r="10"/>
+                      <line x1="12" y1="16" x2="12" y2="12"/>
+                      <line x1="12" y1="8" x2="12.01" y2="8"/>
+                    </svg>
+                    <div class="tooltip-content">Most common tactical patterns in your blunders. Examples: hanging pieces, missed forks, pins, skewers. Focus on the top themes for improvement.</div>
+                  </div>
+                </div>
                 <div class="space-y-3">
                   <div *ngFor="let theme of dashboardData.byTheme.slice(0, 5)">
                     <div class="flex items-center justify-between text-sm mb-1">
@@ -397,5 +508,25 @@ export class BlundersComponent implements OnInit {
       'endgame': 'bg-green-100 text-green-800'
     };
     return classes[phase as keyof typeof classes] || 'bg-gray-100 text-gray-800';
+  }
+
+  toggleTooltip(event: Event): void {
+    const wrapper = (event.currentTarget as HTMLElement);
+    const isActive = wrapper.classList.contains('active');
+
+    // Remove active class from all tooltips
+    document.querySelectorAll('.tooltip-wrapper.active').forEach(el => {
+      el.classList.remove('active');
+    });
+
+    // Toggle active class on clicked tooltip
+    if (!isActive) {
+      wrapper.classList.add('active');
+
+      // Auto-hide after 3 seconds
+      setTimeout(() => {
+        wrapper.classList.remove('active');
+      }, 3000);
+    }
   }
 }

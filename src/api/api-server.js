@@ -2093,13 +2093,14 @@ app.put('/api/blunders/:id/learned', async (req, res) => {
 // GET /api/blunders/dashboard - Get aggregated dashboard statistics
 app.get('/api/blunders/dashboard', async (req, res) => {
   try {
-    // Get all blunders with game info (only actual blunders, not mistakes or inaccuracies)
+    // Get all blunders with game info (only actual blunders by the target player, not mistakes or inaccuracies)
     const allBlunders = await database.all(`
       SELECT bd.*, g.white_player, g.black_player, g.date, g.event
       FROM blunder_details bd
       JOIN games g ON bd.game_id = g.id
-      WHERE (g.white_player = ? OR g.black_player = ?)
-        AND bd.is_blunder = TRUE
+      WHERE bd.is_blunder = TRUE
+        AND ((g.white_player = ? AND bd.player_color = 'white')
+          OR (g.black_player = ? AND bd.player_color = 'black'))
       ORDER BY bd.created_at DESC
     `, [TARGET_PLAYER, TARGET_PLAYER]);
 
@@ -2310,8 +2311,9 @@ app.get('/api/blunders/timeline', async (req, res) => {
         AVG(bd.centipawn_loss) as avgLoss
       FROM blunder_details bd
       JOIN games g ON bd.game_id = g.id
-      WHERE (g.white_player = ? OR g.black_player = ?)
-        AND bd.is_blunder = TRUE
+      WHERE bd.is_blunder = TRUE
+        AND ((g.white_player = ? AND bd.player_color = 'white')
+          OR (g.black_player = ? AND bd.player_color = 'black'))
     `;
     const params = [TARGET_PLAYER, TARGET_PLAYER];
 

@@ -281,11 +281,11 @@ class Database {
     const sql = `
       INSERT INTO analysis (
         game_id, move_number, move, evaluation, centipawn_loss, best_move, alternatives,
-        is_blunder, is_mistake, is_inaccuracy, fen_after, time_spent, time_remaining,
+        is_blunder, is_mistake, is_inaccuracy, fen_before, fen_after, time_spent, time_remaining,
         move_quality, move_accuracy, win_probability_before, win_probability_after,
         is_best, is_excellent, is_good
       )
-      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
     `;
 
     const params = [
@@ -299,6 +299,7 @@ class Database {
       analysisData.is_blunder || false,
       analysisData.is_mistake || false,
       analysisData.is_inaccuracy || false,
+      analysisData.fen_before || null,
       analysisData.fen_after || null,
       analysisData.timeSpent || 0,
       analysisData.timeRemaining || 0,

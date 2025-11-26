@@ -907,21 +907,28 @@ app.get('/api/tournaments/:id/player-performance', async (req, res) => {
         losses++;
       }
       
-      // Get analysis data for this game
+      // Get analysis data for this game (for centipawn loss and move count)
       const analysis = await database.all(`
-        SELECT centipawn_loss, is_blunder, move_number
-        FROM analysis 
+        SELECT centipawn_loss, move_number
+        FROM analysis
         WHERE game_id = ?
         ORDER BY move_number
       `, [game.id]);
-      
+
       // Filter moves for the target player (odd move numbers for white, even for black)
-      const playerMoves = analysis.filter(move => 
+      const playerMoves = analysis.filter(move =>
         (isPlayerWhite && move.move_number % 2 === 1) ||
         (isPlayerBlack && move.move_number % 2 === 0)
       );
-      
-      totalBlunders += playerMoves.filter(move => move.is_blunder === true).length;
+
+      // Count blunders from blunder_details table (single source of truth)
+      const blunderCount = await database.get(`
+        SELECT COUNT(*) as count
+        FROM blunder_details
+        WHERE game_id = ?
+      `, [game.id]);
+
+      totalBlunders += blunderCount?.count || 0;
       totalCentipawnLoss += playerMoves.reduce((sum, move) => sum + (move.centipawn_loss || 0), 0);
       totalMoves += playerMoves.length;
     }
@@ -1028,21 +1035,28 @@ app.get('/api/player-performance', async (req, res) => {
         if (isPlayerBlack) blackLosses++;
       }
       
-      // Get analysis data for this game
+      // Get analysis data for this game (for centipawn loss and move count)
       const analysis = await database.all(`
-        SELECT centipawn_loss, is_blunder, move_number
-        FROM analysis 
+        SELECT centipawn_loss, move_number
+        FROM analysis
         WHERE game_id = ?
         ORDER BY move_number
       `, [game.id]);
-      
+
       // Filter moves for the target player
-      const playerMoves = analysis.filter(move => 
+      const playerMoves = analysis.filter(move =>
         (isPlayerWhite && move.move_number % 2 === 1) ||
         (isPlayerBlack && move.move_number % 2 === 0)
       );
-      
-      totalBlunders += playerMoves.filter(move => move.is_blunder === true).length;
+
+      // Count blunders from blunder_details table (single source of truth)
+      const blunderCount = await database.get(`
+        SELECT COUNT(*) as count
+        FROM blunder_details
+        WHERE game_id = ?
+      `, [game.id]);
+
+      totalBlunders += blunderCount?.count || 0;
       totalCentipawnLoss += playerMoves.reduce((sum, move) => sum + (move.centipawn_loss || 0), 0);
       totalMoves += playerMoves.length;
     }
@@ -1234,42 +1248,39 @@ app.get('/api/tournaments/:id/games', async (req, res) => {
       
       // Get analysis data for accuracy calculation
       const analysis = await database.all(`
-        SELECT move_number, centipawn_loss, is_blunder
-        FROM analysis 
+        SELECT move_number, centipawn_loss
+        FROM analysis
         WHERE game_id = ?
         ORDER BY move_number
       `, [game.id]);
-      
+
       // Calculate player-specific accuracy and blunders using centralized calculator
       let playerAccuracy = 0;
       let playerBlunders = 0;
-      
+
       if (analysis.length > 0) {
         const gameWithAnalysis = {
           ...game,
           analysis
         };
-        
+
         // Calculate accuracy for AdvaitKumar1213 using centralized calculator
         playerAccuracy = AccuracyCalculator.calculatePlayerAccuracy(
-          analysis, 
-          TARGET_PLAYER, 
-          game.white_player, 
+          analysis,
+          TARGET_PLAYER,
+          game.white_player,
           game.black_player
         );
-        
-        // Calculate blunders for AdvaitKumar1213
-        const isPlayerWhite = game.white_player === TARGET_PLAYER;
-        const isPlayerBlack = game.black_player === TARGET_PLAYER;
-        
-        if (isPlayerWhite || isPlayerBlack) {
-          const playerMoves = analysis.filter(move => 
-            (isPlayerWhite && move.move_number % 2 === 1) ||
-            (isPlayerBlack && move.move_number % 2 === 0)
-          );
-          playerBlunders = playerMoves.filter(move => move.is_blunder === true).length;
-        }
       }
+
+      // Count blunders from blunder_details table (single source of truth)
+      const blunderCount = await database.get(`
+        SELECT COUNT(*) as count
+        FROM blunder_details
+        WHERE game_id = ?
+      `, [game.id]);
+
+      playerBlunders = blunderCount?.count || 0;
       
       return {
         ...game,
@@ -1547,15 +1558,15 @@ app.get('/api/games/:id/alternatives/:moveNumber', async (req, res) => {
 app.get('/api/games/:id/blunders', async (req, res) => {
   try {
     const gameId = parseInt(req.params.id);
-    
+
+    // Query blunder_details table (single source of truth for blunders)
     const blunders = await database.all(`
-      SELECT a.*, alt.alternative_move, alt.evaluation as alt_evaluation
-      FROM analysis a
-      LEFT JOIN alternative_moves alt ON a.game_id = alt.game_id AND a.move_number = alt.move_number
-      WHERE a.game_id = ? AND a.is_blunder = TRUE
-      ORDER BY a.move_number
+      SELECT bd.*
+      FROM blunder_details bd
+      WHERE bd.game_id = ?
+      ORDER BY bd.move_number
     `, [gameId]);
-    
+
     res.json(blunders);
   } catch (error) {
     console.error('Blunders API error:', error);
@@ -1633,32 +1644,38 @@ app.get('/api/games/:id/performance', async (req, res) => {
     
     // Get analysis data
     const analysis = await database.all(`
-      SELECT move_number, centipawn_loss, is_blunder
-      FROM analysis 
+      SELECT move_number, centipawn_loss
+      FROM analysis
       WHERE game_id = ?
       ORDER BY move_number
     `, [gameId]);
-    
+
     // Calculate player-specific metrics using AccuracyCalculator
     const TARGET_PLAYER = 'AdvaitKumar1213';
     const isPlayerWhite = game.white_player === TARGET_PLAYER;
-    
+
     // Filter player moves
-    const playerMoves = analysis.filter(move => 
+    const playerMoves = analysis.filter(move =>
       (isPlayerWhite && move.move_number % 2 === 1) ||
       (!isPlayerWhite && move.move_number % 2 === 0)
     );
-    
+
     // Calculate accuracy using AccuracyCalculator
     const playerAccuracy = AccuracyCalculator.calculatePlayerAccuracy(
-      analysis, 
-      TARGET_PLAYER, 
-      game.white_player, 
+      analysis,
+      TARGET_PLAYER,
+      game.white_player,
       game.black_player
     );
-    
-    // Count blunders
-    const playerBlunders = playerMoves.filter(move => move.is_blunder === true).length;
+
+    // Count blunders from blunder_details table (single source of truth)
+    const blunderCount = await database.get(`
+      SELECT COUNT(*) as count
+      FROM blunder_details
+      WHERE game_id = ?
+    `, [gameId]);
+
+    const playerBlunders = blunderCount?.count || 0;
     
     res.json({
       gameId: gameId,
@@ -1736,9 +1753,28 @@ app.get('/api/games/:id/phases', async (req, res) => {
       return `Room for improvement in this phase`;
     };
     
-    const openingBlunders = playerOpeningMoves.filter(m => m.is_blunder).length;
-    const middlegameBlunders = playerMiddlegameMoves.filter(m => m.is_blunder).length;
-    const endgameBlunders = playerEndgameMoves.filter(m => m.is_blunder).length;
+    // Count blunders by phase from blunder_details table (single source of truth)
+    const openingBlunderCount = await database.get(`
+      SELECT COUNT(*) as count
+      FROM blunder_details
+      WHERE game_id = ? AND phase = 'opening'
+    `, [gameId]);
+
+    const middlegameBlunderCount = await database.get(`
+      SELECT COUNT(*) as count
+      FROM blunder_details
+      WHERE game_id = ? AND phase = 'middlegame'
+    `, [gameId]);
+
+    const endgameBlunderCount = await database.get(`
+      SELECT COUNT(*) as count
+      FROM blunder_details
+      WHERE game_id = ? AND phase = 'endgame'
+    `, [gameId]);
+
+    const openingBlunders = openingBlunderCount?.count || 0;
+    const middlegameBlunders = middlegameBlunderCount?.count || 0;
+    const endgameBlunders = endgameBlunderCount?.count || 0;
     
     res.json({
       opening: {

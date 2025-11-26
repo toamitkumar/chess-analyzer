@@ -925,8 +925,8 @@ app.get('/api/tournaments/:id/player-performance', async (req, res) => {
       const blunderCount = await database.get(`
         SELECT COUNT(*) as count
         FROM blunder_details
-        WHERE game_id = ?
-      `, [game.id]);
+        WHERE game_id = ? AND is_blunder = ?
+      `, [game.id, true]);
 
       totalBlunders += blunderCount?.count || 0;
       totalCentipawnLoss += playerMoves.reduce((sum, move) => sum + (move.centipawn_loss || 0), 0);
@@ -1053,8 +1053,8 @@ app.get('/api/player-performance', async (req, res) => {
       const blunderCount = await database.get(`
         SELECT COUNT(*) as count
         FROM blunder_details
-        WHERE game_id = ?
-      `, [game.id]);
+        WHERE game_id = ? AND is_blunder = ?
+      `, [game.id, true]);
 
       totalBlunders += blunderCount?.count || 0;
       totalCentipawnLoss += playerMoves.reduce((sum, move) => sum + (move.centipawn_loss || 0), 0);
@@ -1277,8 +1277,8 @@ app.get('/api/tournaments/:id/games', async (req, res) => {
       const blunderCount = await database.get(`
         SELECT COUNT(*) as count
         FROM blunder_details
-        WHERE game_id = ?
-      `, [game.id]);
+        WHERE game_id = ? AND is_blunder = ?
+      `, [game.id, true]);
 
       playerBlunders = blunderCount?.count || 0;
       
@@ -1563,9 +1563,9 @@ app.get('/api/games/:id/blunders', async (req, res) => {
     const blunders = await database.all(`
       SELECT bd.*
       FROM blunder_details bd
-      WHERE bd.game_id = ?
+      WHERE bd.game_id = ? AND bd.is_blunder = ?
       ORDER BY bd.move_number
-    `, [gameId]);
+    `, [gameId, true]);
 
     res.json(blunders);
   } catch (error) {
@@ -1672,8 +1672,8 @@ app.get('/api/games/:id/performance', async (req, res) => {
     const blunderCount = await database.get(`
       SELECT COUNT(*) as count
       FROM blunder_details
-      WHERE game_id = ?
-    `, [gameId]);
+      WHERE game_id = ? AND is_blunder = ?
+    `, [gameId, true]);
 
     const playerBlunders = blunderCount?.count || 0;
     
@@ -1757,20 +1757,20 @@ app.get('/api/games/:id/phases', async (req, res) => {
     const openingBlunderCount = await database.get(`
       SELECT COUNT(*) as count
       FROM blunder_details
-      WHERE game_id = ? AND phase = 'opening'
-    `, [gameId]);
+      WHERE game_id = ? AND phase = 'opening' AND is_blunder = ?
+    `, [gameId, true]);
 
     const middlegameBlunderCount = await database.get(`
       SELECT COUNT(*) as count
       FROM blunder_details
-      WHERE game_id = ? AND phase = 'middlegame'
-    `, [gameId]);
+      WHERE game_id = ? AND phase = 'middlegame' AND is_blunder = ?
+    `, [gameId, true]);
 
     const endgameBlunderCount = await database.get(`
       SELECT COUNT(*) as count
       FROM blunder_details
-      WHERE game_id = ? AND phase = 'endgame'
-    `, [gameId]);
+      WHERE game_id = ? AND phase = 'endgame' AND is_blunder = ?
+    `, [gameId, true]);
 
     const openingBlunders = openingBlunderCount?.count || 0;
     const middlegameBlunders = middlegameBlunderCount?.count || 0;

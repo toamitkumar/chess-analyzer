@@ -339,8 +339,9 @@ class Database {
         evaluation_before, evaluation_after, centipawn_loss,
         win_probability_before, win_probability_after,
         tactical_theme, position_type, blunder_severity, difficulty_level,
-        learned, review_count, mastery_score
-      ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+        learned, review_count, mastery_score,
+        is_blunder, is_mistake, is_inaccuracy
+      ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
     `;
 
     const params = [
@@ -362,7 +363,10 @@ class Database {
       categorization.difficulty_level,
       false, // learned
       0,     // review_count
-      0      // mastery_score
+      0,     // mastery_score
+      analysisData.is_blunder || false,
+      analysisData.is_mistake || false,
+      analysisData.is_inaccuracy || false
     ];
 
     return await this.run(sql, params);

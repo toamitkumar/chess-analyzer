@@ -12,12 +12,10 @@ const { getFileStorage } = require('../models/file-storage');
 const { getTournamentManager } = require('../models/tournament-manager');
 const AccuracyCalculator = require('../models/accuracy-calculator');
 const { getTournamentAnalyzer } = require('../models/tournament-analyzer');
+const { TARGET_PLAYER, API_CONFIG } = require('../config/app-config');
 
 const app = express();
-const port = process.env.PORT || 3000;
-
-// Target player for performance metrics
-const TARGET_PLAYER = 'AdvaitKumar1213';
+const port = API_CONFIG.port;
 
 // Initialize database, file storage, tournament manager, and analyzer
 let database = null;
@@ -1612,7 +1610,7 @@ app.get('/api/games/:id/accuracy', async (req, res) => {
     const whiteAccuracy = AccuracyCalculator.calculatePlayerAccuracy(analysis, game.white_player, game.white_player, game.black_player);
     const blackAccuracy = AccuracyCalculator.calculatePlayerAccuracy(analysis, game.black_player, game.white_player, game.black_player);
     
-    const isPlayerWhite = game.white_player === 'AdvaitKumar1213';
+    const isPlayerWhite = game.white_player === TARGET_PLAYER;
     
     res.json({
       playerAccuracy: isPlayerWhite ? whiteAccuracy : blackAccuracy,
@@ -1663,7 +1661,6 @@ app.get('/api/games/:id/performance', async (req, res) => {
     `, [gameId]);
 
     // Calculate player-specific metrics using AccuracyCalculator
-    const TARGET_PLAYER = 'AdvaitKumar1213';
     const isPlayerWhite = game.white_player === TARGET_PLAYER;
 
     // Filter player moves
@@ -1739,7 +1736,6 @@ app.get('/api/games/:id/phases', async (req, res) => {
     const middlegameMoves = analysis.slice(openingEnd, middlegameEnd);
     const endgameMoves = analysis.slice(middlegameEnd);
     
-    const TARGET_PLAYER = 'AdvaitKumar1213';
     const isPlayerWhite = game.white_player === TARGET_PLAYER;
     
     const getPlayerMoves = (moves) => moves.filter(move => 

@@ -1,9 +1,7 @@
 const path = require('path');
 const fs = require('fs');
 const db = require('../config/database');
-
-// Configuration - TODO: Replace with logged-in user when auth is implemented
-const TARGET_PLAYER = 'AdvaitKumar1213';
+const { TARGET_PLAYER } = require('../config/app-config');
 
 class Database {
   constructor() {

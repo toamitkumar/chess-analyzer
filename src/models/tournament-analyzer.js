@@ -1,8 +1,6 @@
 const AccuracyCalculator = require('./accuracy-calculator');
 const { getDatabase } = require('./database');
-
-// Get target player from database configuration
-const TARGET_PLAYER = 'AdvaitKumar1213'; // TODO: Replace with logged-in user when auth is implemented
+const { TARGET_PLAYER } = require('../config/app-config');
 
 class TournamentAnalyzer {
   constructor() {

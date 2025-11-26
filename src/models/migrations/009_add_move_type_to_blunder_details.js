@@ -16,19 +16,20 @@ class Migration009 {
     console.log('🔄 Running migration: Add move type columns to blunder_details table');
 
     // Add columns to distinguish blunders, mistakes, and inaccuracies
+    // Use FALSE instead of 0 for PostgreSQL compatibility
     await this.db.run(`
       ALTER TABLE blunder_details
-      ADD COLUMN is_blunder BOOLEAN DEFAULT 0
+      ADD COLUMN is_blunder BOOLEAN DEFAULT FALSE
     `);
 
     await this.db.run(`
       ALTER TABLE blunder_details
-      ADD COLUMN is_mistake BOOLEAN DEFAULT 0
+      ADD COLUMN is_mistake BOOLEAN DEFAULT FALSE
     `);
 
     await this.db.run(`
       ALTER TABLE blunder_details
-      ADD COLUMN is_inaccuracy BOOLEAN DEFAULT 0
+      ADD COLUMN is_inaccuracy BOOLEAN DEFAULT FALSE
     `);
 
     console.log('  ✓ Added is_blunder, is_mistake, is_inaccuracy columns to blunder_details table');

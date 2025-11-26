@@ -127,4 +127,16 @@ export class ChessApiService {
   getTournamentGames(id: number): Observable<any[]> {
     return this.http.get<any[]>(`${this.baseUrl}/tournaments/${id}/games`);
   }
+
+  // Blunders API methods
+  getBlundersDashboard(): Observable<any> {
+    return this.http.get(`${this.baseUrl}/blunders/dashboard`);
+  }
+
+  getBlundersTimeline(startDate?: string, endDate?: string): Observable<any> {
+    const params: any = {};
+    if (startDate) params.startDate = startDate;
+    if (endDate) params.endDate = endDate;
+    return this.http.get(`${this.baseUrl}/blunders/timeline`, { params });
+  }
 }

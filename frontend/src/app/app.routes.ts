@@ -7,5 +7,6 @@ export const routes: Routes = [
   { path: 'games/:id', loadComponent: () => import('./pages/game-detail/game-detail.component').then(m => m.GameDetailComponent) },
   { path: 'tournaments', loadComponent: () => import('./pages/tournaments/tournaments.component').then(m => m.TournamentsComponent) },
   { path: 'tournaments/:id', loadComponent: () => import('./pages/tournament-detail/tournament-detail.component').then(m => m.TournamentDetailComponent) },
+  { path: 'blunders', loadComponent: () => import('./pages/blunders/blunders.component').then(m => m.BlundersComponent) },
   { path: '**', loadComponent: () => import('./pages/not-found/not-found.component').then(m => m.NotFoundComponent) }
 ];

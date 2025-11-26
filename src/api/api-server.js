@@ -2090,6 +2090,261 @@ app.put('/api/blunders/:id/learned', async (req, res) => {
   }
 });
 
+// GET /api/blunders/dashboard - Get aggregated dashboard statistics
+app.get('/api/blunders/dashboard', async (req, res) => {
+  try {
+    // Get all blunders with game info (only actual blunders, not mistakes or inaccuracies)
+    const allBlunders = await database.all(`
+      SELECT bd.*, g.white_player, g.black_player, g.date, g.event
+      FROM blunder_details bd
+      JOIN games g ON bd.game_id = g.id
+      WHERE (g.white_player = ? OR g.black_player = ?)
+        AND bd.is_blunder = TRUE
+      ORDER BY bd.created_at DESC
+    `, [TARGET_PLAYER, TARGET_PLAYER]);
+
+    // Calculate overview statistics
+    const totalBlunders = allBlunders.length;
+    const avgCentipawnLoss = totalBlunders > 0
+      ? Math.round(allBlunders.reduce((sum, b) => sum + b.centipawn_loss, 0) / totalBlunders)
+      : 0;
+
+    const mostCostly = allBlunders.length > 0
+      ? allBlunders.reduce((max, b) => b.centipawn_loss > max.centipawn_loss ? b : max)
+      : null;
+
+    // Calculate trend (last 30 days vs previous 30 days)
+    const now = new Date();
+    const last30Days = new Date(now.getTime() - 30 * 24 * 60 * 60 * 1000);
+    const last60Days = new Date(now.getTime() - 60 * 24 * 60 * 60 * 1000);
+
+    const recentBlunders = allBlunders.filter(b => new Date(b.created_at) >= last30Days);
+    const previousBlunders = allBlunders.filter(b => {
+      const date = new Date(b.created_at);
+      return date >= last60Days && date < last30Days;
+    });
+
+    const trend = {
+      lastMonth: recentBlunders.length,
+      previousMonth: previousBlunders.length,
+      change: previousBlunders.length > 0
+        ? ((recentBlunders.length - previousBlunders.length) / previousBlunders.length * 100).toFixed(1)
+        : 0,
+      improving: recentBlunders.length < previousBlunders.length
+    };
+
+    // Aggregate by phase
+    const byPhase = {
+      opening: allBlunders.filter(b => b.phase === 'opening'),
+      middlegame: allBlunders.filter(b => b.phase === 'middlegame'),
+      endgame: allBlunders.filter(b => b.phase === 'endgame')
+    };
+
+    const phaseStats = {
+      opening: {
+        count: byPhase.opening.length,
+        percentage: totalBlunders > 0 ? ((byPhase.opening.length / totalBlunders) * 100).toFixed(1) : 0,
+        avgLoss: byPhase.opening.length > 0
+          ? Math.round(byPhase.opening.reduce((sum, b) => sum + b.centipawn_loss, 0) / byPhase.opening.length)
+          : 0
+      },
+      middlegame: {
+        count: byPhase.middlegame.length,
+        percentage: totalBlunders > 0 ? ((byPhase.middlegame.length / totalBlunders) * 100).toFixed(1) : 0,
+        avgLoss: byPhase.middlegame.length > 0
+          ? Math.round(byPhase.middlegame.reduce((sum, b) => sum + b.centipawn_loss, 0) / byPhase.middlegame.length)
+          : 0
+      },
+      endgame: {
+        count: byPhase.endgame.length,
+        percentage: totalBlunders > 0 ? ((byPhase.endgame.length / totalBlunders) * 100).toFixed(1) : 0,
+        avgLoss: byPhase.endgame.length > 0
+          ? Math.round(byPhase.endgame.reduce((sum, b) => sum + b.centipawn_loss, 0) / byPhase.endgame.length)
+          : 0
+      }
+    };
+
+    // Aggregate by tactical theme
+    const themeMap = {};
+    allBlunders.forEach(b => {
+      const theme = b.tactical_theme || 'unknown';
+      if (!themeMap[theme]) {
+        themeMap[theme] = { count: 0, totalLoss: 0, blunders: [] };
+      }
+      themeMap[theme].count++;
+      themeMap[theme].totalLoss += b.centipawn_loss;
+      themeMap[theme].blunders.push(b);
+    });
+
+    const byTheme = Object.entries(themeMap)
+      .map(([theme, data]) => ({
+        theme,
+        count: data.count,
+        percentage: totalBlunders > 0 ? ((data.count / totalBlunders) * 100).toFixed(1) : 0,
+        avgLoss: Math.round(data.totalLoss / data.count)
+      }))
+      .sort((a, b) => b.count - a.count)
+      .slice(0, 10); // Top 10 themes
+
+    // Aggregate by severity
+    const bySeverity = {
+      critical: allBlunders.filter(b => b.blunder_severity === 'critical').length,
+      major: allBlunders.filter(b => b.blunder_severity === 'major').length,
+      moderate: allBlunders.filter(b => b.blunder_severity === 'moderate').length,
+      minor: allBlunders.filter(b => b.blunder_severity === 'minor').length
+    };
+
+    // Top patterns (theme + phase combinations)
+    const patternMap = {};
+    allBlunders.forEach(b => {
+      const key = `${b.tactical_theme || 'unknown'}_${b.phase}`;
+      const description = `${b.tactical_theme || 'Unknown'} in ${b.phase}`;
+      if (!patternMap[key]) {
+        patternMap[key] = {
+          description,
+          phase: b.phase,
+          theme: b.tactical_theme || 'unknown',
+          occurrences: 0,
+          totalLoss: 0,
+          learned: 0,
+          blunders: []
+        };
+      }
+      patternMap[key].occurrences++;
+      patternMap[key].totalLoss += b.centipawn_loss;
+      if (b.learned) patternMap[key].learned++;
+      patternMap[key].blunders.push(b);
+    });
+
+    const topPatterns = Object.values(patternMap)
+      .map(p => ({
+        description: p.description,
+        occurrences: p.occurrences,
+        avgLoss: Math.round(p.totalLoss / p.occurrences),
+        phase: p.phase,
+        theme: p.theme,
+        learned: p.learned === p.occurrences,
+        learnedCount: p.learned,
+        lastOccurrence: p.blunders[p.blunders.length - 1].created_at
+      }))
+      .sort((a, b) => b.occurrences - a.occurrences)
+      .slice(0, 10);
+
+    // Learning progress
+    const learnedBlunders = allBlunders.filter(b => b.learned).length;
+    const unlearnedBlunders = totalBlunders - learnedBlunders;
+    const masteredThemes = [...new Set(
+      allBlunders.filter(b => b.learned && b.mastery_score >= 80).map(b => b.tactical_theme)
+    )].filter(t => t);
+
+    // Study recommendations
+    const unlearnedThemes = Object.entries(themeMap)
+      .filter(([theme, data]) => {
+        const learned = data.blunders.filter(b => b.learned).length;
+        return learned / data.count < 0.5; // Less than 50% learned
+      })
+      .map(([theme, data]) => ({
+        theme,
+        priority: data.count,
+        reason: `${data.count} occurrences, ${data.blunders.filter(b => b.learned).length} learned`
+      }))
+      .sort((a, b) => b.priority - a.priority)
+      .slice(0, 3);
+
+    // Recent blunders (last 20)
+    const recentBlundersList = allBlunders.slice(0, 20).map(b => ({
+      id: b.id,
+      gameId: b.game_id,
+      moveNumber: b.move_number,
+      phase: b.phase,
+      theme: b.tactical_theme,
+      playerMove: b.player_move,
+      bestMove: b.best_move,
+      centipawnLoss: b.centipawn_loss,
+      date: b.date,
+      opponent: b.white_player === TARGET_PLAYER ? b.black_player : b.white_player,
+      event: b.event,
+      learned: b.learned
+    }));
+
+    res.json({
+      overview: {
+        totalBlunders,
+        avgCentipawnLoss,
+        mostCostlyBlunder: mostCostly ? {
+          gameId: mostCostly.game_id,
+          moveNumber: mostCostly.move_number,
+          loss: mostCostly.centipawn_loss
+        } : null,
+        trend
+      },
+      byPhase: phaseStats,
+      byTheme,
+      bySeverity,
+      topPatterns,
+      learningProgress: {
+        learnedCount: learnedBlunders,
+        unlearnedCount: unlearnedBlunders,
+        totalCount: totalBlunders,
+        percentage: totalBlunders > 0 ? ((learnedBlunders / totalBlunders) * 100).toFixed(1) : 0,
+        masteredThemes,
+        recommendations: unlearnedThemes
+      },
+      recentBlunders: recentBlundersList
+    });
+  } catch (error) {
+    console.error('Dashboard API error:', error);
+    res.status(500).json({ error: error.message });
+  }
+});
+
+// GET /api/blunders/timeline - Get blunders by date for heatmap
+app.get('/api/blunders/timeline', async (req, res) => {
+  try {
+    const { startDate, endDate } = req.query;
+
+    let query = `
+      SELECT
+        DATE(bd.created_at) as date,
+        COUNT(*) as count,
+        AVG(bd.centipawn_loss) as avgLoss
+      FROM blunder_details bd
+      JOIN games g ON bd.game_id = g.id
+      WHERE (g.white_player = ? OR g.black_player = ?)
+        AND bd.is_blunder = TRUE
+    `;
+    const params = [TARGET_PLAYER, TARGET_PLAYER];
+
+    if (startDate) {
+      query += ' AND DATE(bd.created_at) >= ?';
+      params.push(startDate);
+    }
+
+    if (endDate) {
+      query += ' AND DATE(bd.created_at) <= ?';
+      params.push(endDate);
+    }
+
+    query += ' GROUP BY DATE(bd.created_at) ORDER BY date DESC';
+
+    const timeline = await database.all(query, params);
+
+    const formattedData = timeline.map(row => ({
+      date: row.date,
+      count: row.count,
+      avgLoss: Math.round(row.avgLoss)
+    }));
+
+    res.json({
+      data: formattedData,
+      totalDays: formattedData.length
+    });
+  } catch (error) {
+    console.error('Timeline API error:', error);
+    res.status(500).json({ error: error.message });
+  }
+});
+
 // Serve Angular app for all non-API routes (MUST BE LAST)
 app.get('*', (req, res) => {
   // Only serve Angular for non-API routes

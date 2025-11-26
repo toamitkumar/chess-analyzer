@@ -921,12 +921,16 @@ app.get('/api/tournaments/:id/player-performance', async (req, res) => {
         (isPlayerBlack && move.move_number % 2 === 0)
       );
 
-      // Count blunders from blunder_details table (single source of truth)
+      // Count blunders from blunder_details table (only target player's blunders)
       const blunderCount = await database.get(`
         SELECT COUNT(*) as count
-        FROM blunder_details
-        WHERE game_id = ? AND is_blunder = ?
-      `, [game.id, true]);
+        FROM blunder_details bd
+        JOIN games g ON bd.game_id = g.id
+        WHERE bd.game_id = ?
+          AND bd.is_blunder = ?
+          AND ((g.white_player = ? AND bd.player_color = 'white')
+            OR (g.black_player = ? AND bd.player_color = 'black'))
+      `, [game.id, true, TARGET_PLAYER, TARGET_PLAYER]);
 
       totalBlunders += blunderCount?.count || 0;
       totalCentipawnLoss += playerMoves.reduce((sum, move) => sum + (move.centipawn_loss || 0), 0);
@@ -1049,12 +1053,16 @@ app.get('/api/player-performance', async (req, res) => {
         (isPlayerBlack && move.move_number % 2 === 0)
       );
 
-      // Count blunders from blunder_details table (single source of truth)
+      // Count blunders from blunder_details table (only target player's blunders)
       const blunderCount = await database.get(`
         SELECT COUNT(*) as count
-        FROM blunder_details
-        WHERE game_id = ? AND is_blunder = ?
-      `, [game.id, true]);
+        FROM blunder_details bd
+        JOIN games g ON bd.game_id = g.id
+        WHERE bd.game_id = ?
+          AND bd.is_blunder = ?
+          AND ((g.white_player = ? AND bd.player_color = 'white')
+            OR (g.black_player = ? AND bd.player_color = 'black'))
+      `, [game.id, true, TARGET_PLAYER, TARGET_PLAYER]);
 
       totalBlunders += blunderCount?.count || 0;
       totalCentipawnLoss += playerMoves.reduce((sum, move) => sum + (move.centipawn_loss || 0), 0);
@@ -1273,12 +1281,16 @@ app.get('/api/tournaments/:id/games', async (req, res) => {
         );
       }
 
-      // Count blunders from blunder_details table (single source of truth)
+      // Count blunders from blunder_details table (only target player's blunders)
       const blunderCount = await database.get(`
         SELECT COUNT(*) as count
-        FROM blunder_details
-        WHERE game_id = ? AND is_blunder = ?
-      `, [game.id, true]);
+        FROM blunder_details bd
+        JOIN games g ON bd.game_id = g.id
+        WHERE bd.game_id = ?
+          AND bd.is_blunder = ?
+          AND ((g.white_player = ? AND bd.player_color = 'white')
+            OR (g.black_player = ? AND bd.player_color = 'black'))
+      `, [game.id, true, TARGET_PLAYER, TARGET_PLAYER]);
 
       playerBlunders = blunderCount?.count || 0;
       
@@ -1668,12 +1680,16 @@ app.get('/api/games/:id/performance', async (req, res) => {
       game.black_player
     );
 
-    // Count blunders from blunder_details table (single source of truth)
+    // Count blunders from blunder_details table (only target player's blunders)
     const blunderCount = await database.get(`
       SELECT COUNT(*) as count
-      FROM blunder_details
-      WHERE game_id = ? AND is_blunder = ?
-    `, [gameId, true]);
+      FROM blunder_details bd
+      JOIN games g ON bd.game_id = g.id
+      WHERE bd.game_id = ?
+        AND bd.is_blunder = ?
+        AND ((g.white_player = ? AND bd.player_color = 'white')
+          OR (g.black_player = ? AND bd.player_color = 'black'))
+    `, [gameId, true, TARGET_PLAYER, TARGET_PLAYER]);
 
     const playerBlunders = blunderCount?.count || 0;
     
@@ -1753,24 +1769,39 @@ app.get('/api/games/:id/phases', async (req, res) => {
       return `Room for improvement in this phase`;
     };
     
-    // Count blunders by phase from blunder_details table (single source of truth)
+    // Count blunders by phase from blunder_details table (only target player's blunders)
     const openingBlunderCount = await database.get(`
       SELECT COUNT(*) as count
-      FROM blunder_details
-      WHERE game_id = ? AND phase = 'opening' AND is_blunder = ?
-    `, [gameId, true]);
+      FROM blunder_details bd
+      JOIN games g ON bd.game_id = g.id
+      WHERE bd.game_id = ?
+        AND bd.phase = 'opening'
+        AND bd.is_blunder = ?
+        AND ((g.white_player = ? AND bd.player_color = 'white')
+          OR (g.black_player = ? AND bd.player_color = 'black'))
+    `, [gameId, true, TARGET_PLAYER, TARGET_PLAYER]);
 
     const middlegameBlunderCount = await database.get(`
       SELECT COUNT(*) as count
-      FROM blunder_details
-      WHERE game_id = ? AND phase = 'middlegame' AND is_blunder = ?
-    `, [gameId, true]);
+      FROM blunder_details bd
+      JOIN games g ON bd.game_id = g.id
+      WHERE bd.game_id = ?
+        AND bd.phase = 'middlegame'
+        AND bd.is_blunder = ?
+        AND ((g.white_player = ? AND bd.player_color = 'white')
+          OR (g.black_player = ? AND bd.player_color = 'black'))
+    `, [gameId, true, TARGET_PLAYER, TARGET_PLAYER]);
 
     const endgameBlunderCount = await database.get(`
       SELECT COUNT(*) as count
-      FROM blunder_details
-      WHERE game_id = ? AND phase = 'endgame' AND is_blunder = ?
-    `, [gameId, true]);
+      FROM blunder_details bd
+      JOIN games g ON bd.game_id = g.id
+      WHERE bd.game_id = ?
+        AND bd.phase = 'endgame'
+        AND bd.is_blunder = ?
+        AND ((g.white_player = ? AND bd.player_color = 'white')
+          OR (g.black_player = ? AND bd.player_color = 'black'))
+    `, [gameId, true, TARGET_PLAYER, TARGET_PLAYER]);
 
     const openingBlunders = openingBlunderCount?.count || 0;
     const middlegameBlunders = middlegameBlunderCount?.count || 0;

@@ -332,6 +332,9 @@ class Database {
   async insertBlunderDetails(gameId, analysisData) {
     const categorization = analysisData.categorization;
 
+    // Determine which player made this move (odd move_number = white, even = black)
+    const playerColor = analysisData.move_number % 2 === 1 ? 'white' : 'black';
+
     const sql = `
       INSERT INTO blunder_details (
         game_id, move_number, fen, phase,
@@ -340,8 +343,8 @@ class Database {
         win_probability_before, win_probability_after,
         tactical_theme, position_type, blunder_severity, difficulty_level,
         learned, review_count, mastery_score,
-        is_blunder, is_mistake, is_inaccuracy
-      ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+        is_blunder, is_mistake, is_inaccuracy, player_color
+      ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
     `;
 
     const params = [
@@ -366,7 +369,8 @@ class Database {
       0,     // mastery_score
       analysisData.is_blunder || false,
       analysisData.is_mistake || false,
-      analysisData.is_inaccuracy || false
+      analysisData.is_inaccuracy || false,
+      playerColor
     ];
 
     return await this.run(sql, params);

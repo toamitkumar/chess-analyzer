@@ -268,24 +268,21 @@ export class GamesComponent implements OnInit {
             };
             
             try {
-              const analysis = await this.chessApi.getGameAnalysis(game.id).toPromise();
-              
-              // Calculate player-specific blunders (only target player's moves)
-              const isPlayerWhite = gameWithColor.playerColor === 'white';
-              const playerMoves = analysis.analysis?.filter((move: any) => 
-                (isPlayerWhite && move.move_number % 2 === 1) ||
-                (!isPlayerWhite && move.move_number % 2 === 0)
-              ) || [];
-              // Handle both SQLite (returns 1) and PostgreSQL (returns true)
-              const blunderCount = playerMoves.filter((move: any) => move.is_blunder === 1 || move.is_blunder === true).length;
-              
+              const [analysis, gameBlunders] = await Promise.all([
+                this.chessApi.getGameAnalysis(game.id).toPromise(),
+                this.chessApi.getGameBlunders(game.id).toPromise()
+              ]);
+
+              // Count blunders from blunder_details table (single source of truth)
+              const blunderCount = gameBlunders?.length || 0;
+
               // Extract ECO and opening from PGN content
               const ecoMatch = analysis.game?.pgn_content?.match(/\[ECO "([^"]+)"\]/);
               const eco = ecoMatch ? ecoMatch[1] : undefined;
-              
+
               // Calculate accuracy based on centipawn loss
               const accuracy = this.calculateAccuracyFromAnalysis(analysis.analysis, gameWithColor.playerColor);
-              
+
               return {
                 ...gameWithColor,
                 blunders: blunderCount,

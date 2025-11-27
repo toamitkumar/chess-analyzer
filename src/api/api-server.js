@@ -930,7 +930,7 @@ app.get('/api/tournaments/:id/player-performance', async (req, res) => {
             OR (g.black_player = ? AND bd.player_color = 'black'))
       `, [game.id, true, TARGET_PLAYER, TARGET_PLAYER]);
 
-      totalBlunders += blunderCount?.count || 0;
+      totalBlunders += parseInt(blunderCount?.count) || 0;
       totalCentipawnLoss += playerMoves.reduce((sum, move) => sum + (move.centipawn_loss || 0), 0);
       totalMoves += playerMoves.length;
     }
@@ -1062,7 +1062,7 @@ app.get('/api/player-performance', async (req, res) => {
             OR (g.black_player = ? AND bd.player_color = 'black'))
       `, [game.id, true, TARGET_PLAYER, TARGET_PLAYER]);
 
-      totalBlunders += blunderCount?.count || 0;
+      totalBlunders += parseInt(blunderCount?.count) || 0;
       totalCentipawnLoss += playerMoves.reduce((sum, move) => sum + (move.centipawn_loss || 0), 0);
       totalMoves += playerMoves.length;
     }
@@ -1290,7 +1290,7 @@ app.get('/api/tournaments/:id/games', async (req, res) => {
             OR (g.black_player = ? AND bd.player_color = 'black'))
       `, [game.id, true, TARGET_PLAYER, TARGET_PLAYER]);
 
-      playerBlunders = blunderCount?.count || 0;
+      playerBlunders = parseInt(blunderCount?.count) || 0;
       
       return {
         ...game,
@@ -1688,7 +1688,7 @@ app.get('/api/games/:id/performance', async (req, res) => {
           OR (g.black_player = ? AND bd.player_color = 'black'))
     `, [gameId, true, TARGET_PLAYER, TARGET_PLAYER]);
 
-    const playerBlunders = blunderCount?.count || 0;
+    const playerBlunders = parseInt(blunderCount?.count) || 0;
     
     res.json({
       gameId: gameId,
@@ -1799,9 +1799,9 @@ app.get('/api/games/:id/phases', async (req, res) => {
           OR (g.black_player = ? AND bd.player_color = 'black'))
     `, [gameId, true, TARGET_PLAYER, TARGET_PLAYER]);
 
-    const openingBlunders = openingBlunderCount?.count || 0;
-    const middlegameBlunders = middlegameBlunderCount?.count || 0;
-    const endgameBlunders = endgameBlunderCount?.count || 0;
+    const openingBlunders = parseInt(openingBlunderCount?.count) || 0;
+    const middlegameBlunders = parseInt(middlegameBlunderCount?.count) || 0;
+    const endgameBlunders = parseInt(endgameBlunderCount?.count) || 0;
     
     res.json({
       opening: {

@@ -276,7 +276,8 @@ export class GamesComponent implements OnInit {
                 (isPlayerWhite && move.move_number % 2 === 1) ||
                 (!isPlayerWhite && move.move_number % 2 === 0)
               ) || [];
-              const blunderCount = playerMoves.filter((move: any) => move.is_blunder === 1).length;
+              // Handle both SQLite (returns 1) and PostgreSQL (returns true)
+              const blunderCount = playerMoves.filter((move: any) => move.is_blunder === 1 || move.is_blunder === true).length;
               
               // Extract ECO and opening from PGN content
               const ecoMatch = analysis.game?.pgn_content?.match(/\[ECO "([^"]+)"\]/);

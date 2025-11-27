@@ -12,24 +12,27 @@ class Migration001 {
     console.log('🔄 Running migration: Add PGN content and tournaments');
 
     const { idType, timestampType } = this.db.getSQLTypes();
+    const usePostgres = this.db.usePostgres;
 
     // Add new columns to games table
-    // Note: SQLite doesn't support IF NOT EXISTS in ALTER TABLE, so we use try-catch
+    // PostgreSQL 9.6+ supports IF NOT EXISTS, SQLite doesn't
+    const ifNotExists = usePostgres ? 'IF NOT EXISTS' : '';
+
     try {
-      await this.db.run(`ALTER TABLE games ADD COLUMN pgn_content TEXT`);
+      await this.db.run(`ALTER TABLE games ADD COLUMN ${ifNotExists} pgn_content TEXT`);
     } catch (e) {
       // Ignore if column exists (SQLite: "duplicate column", PostgreSQL: "already exists")
       if (!e.message.includes('duplicate column') && !e.message.includes('already exists')) throw e;
     }
 
     try {
-      await this.db.run(`ALTER TABLE games ADD COLUMN content_hash TEXT`);
+      await this.db.run(`ALTER TABLE games ADD COLUMN ${ifNotExists} content_hash TEXT`);
     } catch (e) {
       if (!e.message.includes('duplicate column') && !e.message.includes('already exists')) throw e;
     }
 
     try {
-      await this.db.run(`ALTER TABLE games ADD COLUMN tournament_id INTEGER`);
+      await this.db.run(`ALTER TABLE games ADD COLUMN ${ifNotExists} tournament_id INTEGER`);
     } catch (e) {
       if (!e.message.includes('duplicate column') && !e.message.includes('already exists')) throw e;
     }

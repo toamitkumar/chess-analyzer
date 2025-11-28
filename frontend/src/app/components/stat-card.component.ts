@@ -1,6 +1,6 @@
 import { Component, Input } from '@angular/core';
 import { CommonModule } from '@angular/common';
-import { LucideAngularModule, LucideIcon } from 'lucide-angular';
+import { LucideAngularModule } from 'lucide-angular';
 
 export interface Trend {
   value: number;
@@ -22,9 +22,10 @@ export interface Trend {
         </div>
       </div>
       <div class="flex items-baseline justify-between">
-        <div class="text-4xl font-bold text-foreground tracking-tight">{{ value }}</div>
+        <div class="text-4xl font-bold tracking-tight text-gradient">{{ value }}</div>
         <div *ngIf="trend" [class]="getTrendClasses()">
-          {{ trend.isPositive ? '↑' : '↓' }} {{ Math.abs(trend.value) }}%
+          <span class="text-xs font-bold">{{ trend.isPositive ? '↑' : '↓' }}</span>
+          <span class="ml-1">{{ Math.abs(trend.value) }}%</span>
         </div>
       </div>
       <p *ngIf="subtitle" class="mt-2 text-sm text-muted-foreground font-medium">{{ subtitle }}</p>
@@ -34,7 +35,7 @@ export interface Trend {
 export class StatCardComponent {
   @Input() title!: string;
   @Input() value!: string | number;
-  @Input() icon!: LucideIcon;
+  @Input() icon!: any;
   @Input() subtitle?: string;
   @Input() trend?: Trend;
   @Input() variant: 'default' | 'success' | 'warning' | 'destructive' = 'default';
@@ -42,13 +43,13 @@ export class StatCardComponent {
   Math = Math;
 
   getCardClasses(): string {
-    const baseClasses = 'rounded-xl border border-border/50 bg-gradient-to-br from-card to-card/50 text-card-foreground shadow-lg backdrop-blur-sm transition-all duration-300 p-6 card-shine group hover:shadow-2xl hover:-translate-y-1 hover:border-primary/50';
-    
+    const baseClasses = 'rounded-xl border gradient-card text-card-foreground shadow-xl transition-all duration-300 p-6 card-shine group hover:shadow-2xl hover:-translate-y-1';
+
     const variantClasses = {
-      default: 'border-border/50',
-      success: 'border-success/30 shadow-success/10',
-      warning: 'border-warning/30 shadow-warning/10',
-      destructive: 'border-destructive/30 shadow-destructive/10'
+      default: 'border-border hover:border-primary/50 hover:shadow-glow-primary',
+      success: 'border-border hover:border-success/50 hover:shadow-glow-success',
+      warning: 'border-border hover:border-warning/50 hover:shadow-glow-accent',
+      destructive: 'border-border hover:border-destructive/50 hover:shadow-glow'
     };
 
     return `${baseClasses} ${variantClasses[this.variant]}`;
@@ -56,12 +57,12 @@ export class StatCardComponent {
 
   getIconBgClasses(): string {
     const baseClasses = 'p-2.5 rounded-xl transition-all duration-300 group-hover:scale-110 group-hover:rotate-3';
-    
+
     const variantClasses = {
-      default: 'bg-primary/10',
-      success: 'bg-success/10',
-      warning: 'bg-warning/10',
-      destructive: 'bg-destructive/10'
+      default: 'bg-primary/10 group-hover:bg-primary/20',
+      success: 'bg-success/10 group-hover:bg-success/20',
+      warning: 'bg-warning/10 group-hover:bg-warning/20',
+      destructive: 'bg-destructive/10 group-hover:bg-destructive/20'
     };
 
     return `${baseClasses} ${variantClasses[this.variant]}`;

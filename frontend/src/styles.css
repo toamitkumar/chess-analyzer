@@ -42,57 +42,73 @@
   }
 
   .dark {
-    --background: 224 71% 4%;
-    --foreground: 213 31% 91%;
+    /* Cool dark gray foundation - modern tech base */
+    --background: 220 18% 11%;
+    --foreground: 0 0% 98%;
 
-    --card: 224 63% 8%;
-    --card-foreground: 213 31% 91%;
+    /* Light components on dark background for rich contrast */
+    --card: 220 15% 96%;
+    --card-foreground: 222 47% 11%;
 
-    --popover: 224 63% 8%;
-    --popover-foreground: 213 31% 91%;
+    --popover: 220 15% 96%;
+    --popover-foreground: 222 47% 11%;
 
-    --primary: 210 100% 56%;
-    --primary-foreground: 222 47% 11%;
+    /* Primary - Warm Amber/Orange accent */
+    --primary: 25 92% 58%;
+    --primary-foreground: 0 0% 100%;
 
-    --secondary: 217 33% 17%;
-    --secondary-foreground: 213 31% 91%;
+    /* Secondary - Cool Blue-Gray for contrast */
+    --secondary: 215 28% 48%;
+    --secondary-foreground: 0 0% 100%;
 
-    --muted: 223 47% 11%;
-    --muted-foreground: 215 20% 65%;
+    /* Muted - Light gray for subtle backgrounds */
+    --muted: 220 13% 91%;
+    --muted-foreground: 215 16% 47%;
 
-    --accent: 38 92% 50%;
-    --accent-foreground: 222 47% 11%;
+    /* Accent - Bright Coral/Orange */
+    --accent: 15 88% 62%;
+    --accent-foreground: 0 0% 100%;
 
-    --success: 142 71% 45%;
+    /* Success - Green */
+    --success: 142 72% 48%;
     --success-foreground: 0 0% 100%;
 
-    --warning: 38 92% 50%;
-    --warning-foreground: 222 47% 11%;
+    /* Warning - Gold/Amber */
+    --warning: 45 92% 58%;
+    --warning-foreground: 0 0% 100%;
 
-    --destructive: 0 63% 50%;
-    --destructive-foreground: 213 31% 91%;
+    /* Destructive - Red */
+    --destructive: 0 75% 58%;
+    --destructive-foreground: 0 0% 100%;
 
-    --border: 217 33% 17%;
-    --input: 217 33% 17%;
-    --ring: 210 100% 56%;
+    /* Borders with subtle cool tone */
+    --border: 220 13% 85%;
+    --input: 220 13% 91%;
+    --ring: 25 92% 58%;
 
-    --chart-1: 210 100% 56%;
-    --chart-2: 38 92% 50%;
-    --chart-3: 142 71% 45%;
-    --chart-4: 280 87% 65%;
-    --chart-5: 340 82% 52%;
+    /* Chart colors - Warm and cool harmony */
+    --chart-1: 25 92% 58%;
+    --chart-2: 215 28% 48%;
+    --chart-3: 15 88% 62%;
+    --chart-4: 142 72% 48%;
+    --chart-5: 45 92% 58%;
 
-    /* Modern gradients */
-    --gradient-primary: linear-gradient(135deg, hsl(210 100% 56%) 0%, hsl(217 91% 60%) 100%);
-    --gradient-card: linear-gradient(145deg, hsl(224 63% 8%) 0%, hsl(224 71% 6%) 100%);
-    --gradient-accent: linear-gradient(135deg, hsl(38 92% 50%) 0%, hsl(30 100% 50%) 100%);
-    
-    /* Shadows for depth */
-    --shadow-sm: 0 1px 2px 0 rgb(0 0 0 / 0.3);
-    --shadow-md: 0 4px 6px -1px rgb(0 0 0 / 0.4), 0 2px 4px -2px rgb(0 0 0 / 0.4);
-    --shadow-lg: 0 10px 15px -3px rgb(0 0 0 / 0.5), 0 4px 6px -4px rgb(0 0 0 / 0.5);
-    --shadow-xl: 0 20px 25px -5px rgb(0 0 0 / 0.5), 0 8px 10px -6px rgb(0 0 0 / 0.5);
-    --shadow-glow: 0 0 20px hsl(210 100% 56% / 0.3);
+    /* Modern gradients - Warm tech aesthetic */
+    --gradient-primary: linear-gradient(135deg, hsl(25 92% 58%) 0%, hsl(35 88% 62%) 100%);
+    --gradient-secondary: linear-gradient(135deg, hsl(215 28% 48%) 0%, hsl(220 32% 52%) 100%);
+    --gradient-accent: linear-gradient(135deg, hsl(15 88% 62%) 0%, hsl(25 92% 66%) 100%);
+    --gradient-success: linear-gradient(135deg, hsl(142 72% 48%) 0%, hsl(150 68% 52%) 100%);
+    --gradient-card: linear-gradient(145deg, hsl(220 15% 97%) 0%, hsl(220 15% 94%) 100%);
+
+    /* Refined shadows with warm glow - much stronger for richness */
+    --shadow-sm: 0 1px 2px 0 rgb(0 0 0 / 0.4);
+    --shadow-md: 0 4px 6px -1px rgb(0 0 0 / 0.6), 0 2px 4px -2px rgb(0 0 0 / 0.5);
+    --shadow-lg: 0 10px 15px -3px rgb(0 0 0 / 0.7), 0 4px 6px -4px rgb(0 0 0 / 0.6);
+    --shadow-xl: 0 20px 25px -5px rgb(0 0 0 / 0.8), 0 8px 10px -6px rgb(0 0 0 / 0.7);
+    --shadow-glow: 0 0 30px hsl(25 92% 58% / 0.35), 0 0 60px hsl(25 92% 58% / 0.18);
+    --shadow-glow-primary: 0 0 30px hsl(25 92% 58% / 0.35), 0 0 60px hsl(25 92% 58% / 0.18);
+    --shadow-glow-secondary: 0 0 30px hsl(215 28% 48% / 0.25), 0 0 60px hsl(215 28% 48% / 0.12);
+    --shadow-glow-accent: 0 0 30px hsl(15 88% 62% / 0.35), 0 0 60px hsl(15 88% 62% / 0.18);
   }
 
   * {
@@ -101,10 +117,11 @@
 
   body {
     @apply bg-background text-foreground antialiased font-sans;
-    background-image: 
-      radial-gradient(at 0% 0%, hsl(217 91% 60% / 0.05) 0px, transparent 50%),
-      radial-gradient(at 100% 0%, hsl(38 92% 50% / 0.05) 0px, transparent 50%),
-      radial-gradient(at 100% 100%, hsl(142 71% 45% / 0.05) 0px, transparent 50%);
+    background-image:
+      radial-gradient(at 0% 0%, hsl(220 18% 11%) 0px, transparent 50%),
+      radial-gradient(at 100% 0%, hsl(25 92% 20% / 0.25) 0px, transparent 50%),
+      radial-gradient(at 100% 100%, hsl(215 28% 22% / 0.2) 0px, transparent 50%),
+      radial-gradient(at 0% 100%, hsl(15 88% 20% / 0.25) 0px, transparent 50%);
   }
 
   html {
@@ -131,6 +148,22 @@
   
   .shadow-glow {
     box-shadow: var(--shadow-glow);
+  }
+
+  .shadow-glow-primary {
+    box-shadow: var(--shadow-glow-primary);
+  }
+
+  .shadow-glow-secondary {
+    box-shadow: var(--shadow-glow-secondary);
+  }
+
+  .shadow-glow-accent {
+    box-shadow: var(--shadow-glow-accent);
+  }
+
+  .shadow-glow-success {
+    box-shadow: 0 0 30px hsl(var(--success) / 0.35), 0 0 60px hsl(var(--success) / 0.18);
   }
   
   .glass-effect {

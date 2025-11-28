@@ -49,8 +49,8 @@ interface ManualPGNForm {
     <app-layout>
       <div class="mx-auto max-w-3xl space-y-6">
         <div>
-          <h1 class="text-3xl font-bold text-foreground">Upload Games</h1>
-          <p class="text-muted-foreground">Import PGN files or enter games manually</p>
+          <h1 class="text-2xl sm:text-3xl font-bold text-foreground">Upload Games</h1>
+          <p class="text-sm sm:text-base text-muted-foreground">Import PGN files or enter games manually</p>
         </div>
 
         <!-- Tab Navigation -->

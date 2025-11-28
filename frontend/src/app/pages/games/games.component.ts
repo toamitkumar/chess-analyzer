@@ -31,10 +31,10 @@ interface Game {
   template: `
     <app-layout>
       <div class="space-y-6">
-        <div class="flex items-center justify-between">
+        <div class="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
           <div>
-            <h1 class="text-3xl font-bold text-foreground">Game Analysis</h1>
-            <p class="text-muted-foreground">Review and analyze your chess games</p>
+            <h1 class="text-2xl sm:text-3xl font-bold text-foreground">Game Analysis</h1>
+            <p class="text-sm sm:text-base text-muted-foreground">Review and analyze your chess games</p>
           </div>
           <div class="flex items-center gap-4">
             <div class="flex items-center gap-2">

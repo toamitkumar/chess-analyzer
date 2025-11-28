@@ -136,8 +136,8 @@ interface DashboardData {
       <div class="space-y-6">
         <!-- Header -->
         <div>
-          <h1 class="text-3xl font-bold text-foreground">Blunder Analysis Dashboard</h1>
-          <p class="text-muted-foreground">Identify patterns and improve your chess</p>
+          <h1 class="text-2xl sm:text-3xl font-bold text-foreground">Blunder Analysis Dashboard</h1>
+          <p class="text-sm sm:text-base text-muted-foreground">Identify patterns and improve your chess</p>
         </div>
 
         <!-- Loading State -->

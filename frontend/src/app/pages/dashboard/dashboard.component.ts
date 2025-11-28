@@ -5,22 +5,24 @@ import { HttpClientModule } from '@angular/common/http';
 import { RouterModule } from '@angular/router';
 import { LayoutComponent } from '../../components/layout/layout.component';
 import { ChessApiService, PerformanceData } from '../../services/chess-api.service';
+import { StatCardComponent } from '../../components/stat-card.component';
+import { Trophy, Target, Activity, AlertTriangle } from 'lucide-angular';
 
 @Component({
   selector: 'app-dashboard',
   standalone: true,
-  imports: [CommonModule, FormsModule, HttpClientModule, RouterModule, LayoutComponent],
+  imports: [CommonModule, FormsModule, HttpClientModule, RouterModule, LayoutComponent, StatCardComponent],
   template: `
     <app-layout>
       <div class="space-y-6">
-        <div class="flex items-center justify-between">
+        <div class="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 animate-fade-in">
           <div>
-            <h1 class="text-3xl font-bold text-foreground">Performance Dashboard</h1>
-            <p class="text-muted-foreground">Analyze your chess performance and track improvement</p>
+            <h1 class="text-2xl sm:text-3xl lg:text-4xl font-bold text-gradient tracking-tight">Performance Dashboard</h1>
+            <p class="text-sm sm:text-base text-muted-foreground mt-1 sm:mt-2">Analyze your chess performance and track improvement</p>
           </div>
-          <select 
-            [(ngModel)]="timeRange" 
-            class="flex h-10 w-[180px] items-center justify-between rounded-md border border-input bg-background px-3 py-2 text-sm">
+          <select
+            [(ngModel)]="timeRange"
+            class="flex h-10 w-full sm:w-[180px] items-center justify-between rounded-md border border-input bg-background px-3 py-2 text-sm">
             <option value="7">Last 7 days</option>
             <option value="30">Last 30 days</option>
             <option value="90">Last 90 days</option>
@@ -28,79 +30,46 @@ import { ChessApiService, PerformanceData } from '../../services/chess-api.servi
           </select>
         </div>
 
-        <div class="grid gap-4 md:grid-cols-2 lg:grid-cols-4" *ngIf="performanceData">
-          <div class="rounded-lg border bg-card text-card-foreground shadow-sm p-6">
-            <div class="flex flex-row items-center justify-between space-y-0 pb-2">
-              <h3 class="tracking-tight text-sm font-medium">Total Games</h3>
-              <svg class="h-4 w-4 text-muted-foreground" xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-                <path d="M6 9H4.5a2.5 2.5 0 0 1 0-5H6"/>
-                <path d="M18 9h1.5a2.5 2.5 0 0 0 0-5H18"/>
-                <path d="M4 22h16"/>
-                <path d="M10 14.66V17c0 .55-.47.98-.97 1.21C7.85 18.75 7 20.24 7 22"/>
-                <path d="M14 14.66V17c0 .55.47.98.97 1.21C16.15 18.75 17 20.24 17 22"/>
-                <path d="M18 2H6v7a6 6 0 0 0 12 0V2Z"/>
-              </svg>
-            </div>
-            <div>
-              <div class="text-2xl font-bold">{{ getTotalGames() }}</div>
-              <p class="text-xs text-muted-foreground">All time</p>
-            </div>
-          </div>
+        <div class="grid gap-4 md:grid-cols-2 lg:grid-cols-4 animate-slide-up" *ngIf="performanceData">
+          <app-stat-card
+            title="Total Games"
+            [value]="getTotalGames()"
+            [icon]="Trophy"
+            subtitle="All time"
+            variant="default">
+          </app-stat-card>
 
-          <div class="rounded-lg border bg-card text-card-foreground shadow-sm p-6">
-            <div class="flex flex-row items-center justify-between space-y-0 pb-2">
-              <h3 class="tracking-tight text-sm font-medium">Win Rate</h3>
-              <svg class="h-4 w-4 text-muted-foreground" xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-                <circle cx="12" cy="12" r="10"/>
-                <circle cx="12" cy="12" r="6"/>
-                <circle cx="12" cy="12" r="2"/>
-              </svg>
-            </div>
-            <div>
-              <div class="text-2xl font-bold">{{ getOverallWinRate() }}</div>
-              <p class="text-xs text-muted-foreground">{{ getWinRateSubtitle() }}</p>
-            </div>
-          </div>
+          <app-stat-card
+            title="Win Rate"
+            [value]="getOverallWinRate()"
+            [icon]="Target"
+            [subtitle]="getWinRateSubtitle()"
+            variant="success">
+          </app-stat-card>
 
-          <div class="rounded-lg border bg-card text-card-foreground shadow-sm p-6">
-            <div class="flex flex-row items-center justify-between space-y-0 pb-2">
-              <h3 class="tracking-tight text-sm font-medium">Avg Accuracy</h3>
-              <svg class="h-4 w-4 text-muted-foreground" xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-                <polyline points="22,12 18,12 15,21 9,3 6,12 2,12"/>
-              </svg>
-            </div>
-            <div>
-              <div class="text-2xl font-bold">{{ getAvgAccuracy() }}</div>
-              <p class="text-xs text-muted-foreground">Across all games</p>
-            </div>
-          </div>
+          <app-stat-card
+            title="Avg Accuracy"
+            [value]="getAvgAccuracy()"
+            [icon]="Activity"
+            subtitle="Across all games"
+            variant="default">
+          </app-stat-card>
 
-          <a routerLink="/blunders" class="rounded-lg border bg-card text-card-foreground shadow-sm p-6 cursor-pointer hover:bg-muted/50 transition-colors block">
-            <div class="flex flex-row items-center justify-between space-y-0 pb-2">
-              <h3 class="tracking-tight text-sm font-medium">Blunders</h3>
-              <svg class="h-4 w-4 text-muted-foreground" xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-                <path d="m21.73 18-8-14a2 2 0 0 0-3.48 0l-8 14A2 2 0 0 0 4 21h16a2 2 0 0 0 1.73-3Z"/>
-                <path d="M12 9v4"/>
-                <path d="m12 17 .01 0"/>
-              </svg>
-            </div>
-            <div>
-              <div class="text-2xl font-bold">{{ getBlunders() }}</div>
-              <p class="text-xs text-muted-foreground flex items-center gap-1">
-                This month
-                <svg class="h-3 w-3" xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-                  <line x1="7" y1="17" x2="17" y2="7"/>
-                  <polyline points="7 7 17 7 17 17"/>
-                </svg>
-              </p>
-            </div>
+          <a routerLink="/blunders" class="block">
+            <app-stat-card
+              title="Blunders"
+              [value]="getBlunders()"
+              [icon]="AlertTriangle"
+              subtitle="This month →"
+              variant="warning">
+            </app-stat-card>
           </a>
         </div>
 
-        <div class="grid gap-4 md:grid-cols-2">
-          <div class="rounded-lg border bg-card text-card-foreground shadow-sm">
+        <div class="grid gap-4 md:grid-cols-2 animate-slide-up" style="animation-delay: 0.1s;">
+          <div class="rounded-xl border border-border gradient-card text-card-foreground shadow-xl hover:shadow-glow-primary hover:border-primary/50 transition-all duration-300">
             <div class="flex flex-col space-y-1.5 p-6">
-              <h3 class="text-2xl font-semibold leading-none tracking-tight">Rating Progression</h3>
+              <h3 class="text-2xl font-semibold leading-none tracking-tight text-gradient">Rating Progression</h3>
               <p class="text-sm text-muted-foreground">Your rating trend over time</p>
             </div>
             <div class="p-6 pt-0">
@@ -139,9 +108,9 @@ import { ChessApiService, PerformanceData } from '../../services/chess-api.servi
             </div>
           </div>
           
-          <div class="rounded-lg border bg-card text-card-foreground shadow-sm">
+          <div class="rounded-xl border border-border gradient-card text-card-foreground shadow-xl hover:shadow-glow-accent hover:border-accent/50 transition-all duration-300">
             <div class="flex flex-col space-y-1.5 p-6">
-              <h3 class="text-2xl font-semibold leading-none tracking-tight">Average Centipawn Loss</h3>
+              <h3 class="text-2xl font-semibold leading-none tracking-tight text-gradient">Average Centipawn Loss</h3>
               <p class="text-sm text-muted-foreground">Lower is better - tracking accuracy</p>
             </div>
             <div class="p-6 pt-0">
@@ -181,9 +150,9 @@ import { ChessApiService, PerformanceData } from '../../services/chess-api.servi
           </div>
         </div>
 
-        <div class="rounded-lg border bg-card text-card-foreground shadow-sm" *ngIf="performanceData">
+        <div class="rounded-xl border border-border gradient-card text-card-foreground shadow-xl hover:shadow-glow-success hover:border-success/50 transition-all duration-300 animate-slide-up" style="animation-delay: 0.2s;" *ngIf="performanceData">
           <div class="flex flex-col space-y-1.5 p-6">
-            <h3 class="text-2xl font-semibold leading-none tracking-tight">Performance by Color</h3>
+            <h3 class="text-2xl font-semibold leading-none tracking-tight text-gradient">Performance by Color</h3>
             <p class="text-sm text-muted-foreground">Win rates when playing White vs Black</p>
           </div>
           <div class="p-6 pt-0">
@@ -217,13 +186,13 @@ import { ChessApiService, PerformanceData } from '../../services/chess-api.servi
           </div>
         </div>
 
-        <div class="rounded-lg border border-accent/20 bg-accent/5 text-card-foreground shadow-sm">
+        <div class="rounded-xl border border-accent/30 bg-gradient-to-br from-accent/10 to-accent/5 text-card-foreground shadow-lg backdrop-blur-sm hover:shadow-glow-accent hover:border-accent/50 transition-all duration-300 animate-slide-up" style="animation-delay: 0.3s;">
           <div class="flex flex-col space-y-1.5 p-6">
             <h3 class="text-2xl font-semibold leading-none tracking-tight flex items-center gap-2">
-              <svg class="h-5 w-5 text-accent" xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+              <svg class="h-5 w-5 text-accent animate-glow-pulse" xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
                 <polyline points="22,12 18,12 15,21 9,3 6,12 2,12"/>
               </svg>
-              Key Insights
+              <span class="text-gradient">Key Insights</span>
             </h3>
           </div>
           <div class="p-6 pt-0">
@@ -261,6 +230,12 @@ export class DashboardComponent implements OnInit {
   trendsData: any = null;
   loading = true;
   error: string | null = null;
+
+  // Lucide icons for stat cards
+  Trophy = Trophy;
+  Target = Target;
+  Activity = Activity;
+  AlertTriangle = AlertTriangle;
 
   constructor(private chessApi: ChessApiService) {}
 

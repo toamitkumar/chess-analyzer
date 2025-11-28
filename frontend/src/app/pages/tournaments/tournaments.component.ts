@@ -3,6 +3,8 @@ import { CommonModule } from '@angular/common';
 import { RouterModule } from '@angular/router';
 import { LayoutComponent } from '../../components/layout/layout.component';
 import { ChessApiService } from '../../services/chess-api.service';
+import { StatCardComponent } from '../../components/stat-card.component';
+import { Trophy, TrendingUp, Target } from 'lucide-angular';
 
 interface Tournament {
   id: number;
@@ -24,65 +26,42 @@ interface Tournament {
 @Component({
   selector: 'app-tournaments',
   standalone: true,
-  imports: [CommonModule, RouterModule, LayoutComponent],
+  imports: [CommonModule, RouterModule, LayoutComponent, StatCardComponent],
   template: `
     <app-layout>
       <div class="space-y-6">
         <div>
-          <h1 class="text-3xl font-bold text-foreground">Tournament Performance</h1>
-          <p class="text-muted-foreground">Analyze your performance across tournaments</p>
+          <h1 class="text-2xl sm:text-3xl font-bold text-foreground">Tournament Performance</h1>
+          <p class="text-sm sm:text-base text-muted-foreground">Analyze your performance across tournaments</p>
         </div>
 
         <div class="grid gap-4 md:grid-cols-3">
-          <div class="rounded-lg border bg-card text-card-foreground shadow-sm">
-            <div class="p-6 flex flex-row items-center justify-between space-y-0 pb-2">
-              <h3 class="tracking-tight text-sm font-medium">Total Tournaments</h3>
-              <svg class="h-4 w-4 text-muted-foreground" xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-                <path d="M6 9H4.5a2.5 2.5 0 0 1 0-5H6"/>
-                <path d="M18 9h1.5a2.5 2.5 0 0 0 0-5H18"/>
-                <path d="M4 22h16"/>
-                <path d="M10 14.66V17c0 .55-.47.98-.97 1.21C7.85 18.75 7 20.24 7 22"/>
-                <path d="M14 14.66V17c0 .55.47.98.97 1.21C16.15 18.75 17 20.24 17 22"/>
-                <path d="M18 2H6v7a6 6 0 0 0 12 0V2Z"/>
-              </svg>
-            </div>
-            <div class="p-6 pt-0">
-              <div class="text-2xl font-bold">{{ tournaments.length }}</div>
-              <p class="text-xs text-muted-foreground">{{ getTotalGames() }} total games</p>
-            </div>
-          </div>
+          <app-stat-card
+            title="Total Tournaments"
+            [value]="tournaments.length"
+            [icon]="Trophy"
+            [subtitle]="getTotalGames() + ' total games'"
+            variant="default">
+          </app-stat-card>
 
-          <div class="rounded-lg border bg-card text-card-foreground shadow-sm">
-            <div class="p-6 flex flex-row items-center justify-between space-y-0 pb-2">
-              <h3 class="tracking-tight text-sm font-medium">Avg Win Rate</h3>
-              <svg class="h-4 w-4 text-green-600" xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-                <polyline points="22 7 13.5 15.5 8.5 10.5 2 18"/>
-                <polyline points="16 7 22 7 22 13"/>
-              </svg>
-            </div>
-            <div class="p-6 pt-0">
-              <div class="text-2xl font-bold">{{ getAvgWinRate() }}%</div>
-              <p class="text-xs text-muted-foreground">Across all tournaments</p>
-            </div>
-          </div>
+          <app-stat-card
+            title="Avg Win Rate"
+            [value]="getAvgWinRate() + '%'"
+            [icon]="TrendingUp"
+            subtitle="Across all tournaments"
+            variant="success">
+          </app-stat-card>
 
-          <div class="rounded-lg border bg-card text-card-foreground shadow-sm">
-            <div class="p-6 flex flex-row items-center justify-between space-y-0 pb-2">
-              <h3 class="tracking-tight text-sm font-medium">Avg Accuracy</h3>
-              <svg class="h-4 w-4 text-muted-foreground" xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-                <circle cx="12" cy="12" r="10"/>
-                <circle cx="12" cy="12" r="6"/>
-                <circle cx="12" cy="12" r="2"/>
-              </svg>
-            </div>
-            <div class="p-6 pt-0">
-              <div class="text-2xl font-bold">{{ getAvgAccuracy() }}%</div>
-              <p class="text-xs text-muted-foreground">Average performance</p>
-            </div>
-          </div>
+          <app-stat-card
+            title="Avg Accuracy"
+            [value]="getAvgAccuracy() + '%'"
+            [icon]="Target"
+            subtitle="Average performance"
+            variant="default">
+          </app-stat-card>
         </div>
 
-        <div class="rounded-lg border bg-card text-card-foreground shadow-sm">
+        <div class="rounded-xl border border-border gradient-card text-card-foreground shadow-xl">
           <div class="flex flex-col space-y-1.5 p-6">
             <h3 class="text-2xl font-semibold leading-none tracking-tight">Tournament History</h3>
           </div>
@@ -93,8 +72,8 @@ interface Tournament {
             </div>
 
             <!-- Error state -->
-            <div *ngIf="error && !loading" class="rounded-lg border border-red-200 bg-red-50 p-4">
-              <div class="text-red-800">Error loading tournaments: {{ error }}</div>
+            <div *ngIf="error && !loading" class="rounded-xl border border-destructive/50 bg-destructive/10 p-4 shadow-lg">
+              <div class="text-destructive font-medium">Error loading tournaments: {{ error }}</div>
             </div>
 
             <!-- Empty state -->
@@ -151,8 +130,8 @@ interface Tournament {
                     <td class="p-4 align-middle [&:has([role=checkbox])]:pr-0">
                       <span [class]="'inline-flex items-center rounded-full px-2.5 py-0.5 text-xs font-medium ' +
                         (calculateWinRate(tournament.wins || 0, tournament.total_games) > 50 ?
-                         'bg-primary text-primary-foreground' :
-                         'bg-secondary text-secondary-foreground')">
+                         'bg-success/20 text-success border border-success/30' :
+                         'bg-muted text-muted-foreground border border-border')">
                         {{ calculateWinRate(tournament.wins || 0, tournament.total_games) }}%
                       </span>
                     </td>
@@ -167,7 +146,7 @@ interface Tournament {
                       </div>
                     </td>
                     <td class="p-4 align-middle [&:has([role=checkbox])]:pr-0">
-                      <div *ngIf="(tournament.totalBlunders || 0) > 0" class="flex items-center gap-1 text-yellow-600">
+                      <div *ngIf="(tournament.totalBlunders || 0) > 0" class="flex items-center gap-1 text-warning">
                         <svg class="h-3 w-3" xmlns="http://www.w3.org/2000/svg" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
                           <path d="m21.73 18-8-14a2 2 0 0 0-3.48 0l-8 14A2 2 0 0 0 4 21h16a2 2 0 0 0 1.73-3Z"/>
                           <path d="M12 9v4"/>
@@ -185,7 +164,7 @@ interface Tournament {
             <!-- Mobile card view -->
             <div *ngIf="!loading && !error && tournaments.length > 0" class="md:hidden space-y-3">
               <div *ngFor="let tournament of tournaments"
-                   class="border border-border rounded-lg p-4 space-y-3 cursor-pointer hover:bg-muted/50 transition-colors"
+                   class="rounded-xl border border-border gradient-card text-card-foreground shadow-xl p-4 space-y-3 cursor-pointer hover:shadow-glow-primary hover:-translate-y-1 transition-all duration-300"
                    [routerLink]="['/tournaments', tournament.id]">
                 <div class="flex items-start gap-2">
                   <svg class="h-5 w-5 text-primary mt-0.5" xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
@@ -217,8 +196,8 @@ interface Tournament {
                     <span class="text-muted-foreground">Win Rate:</span>
                     <span [class]="'ml-2 inline-flex items-center rounded-full px-2.5 py-0.5 text-xs font-medium ' +
                       (calculateWinRate(tournament.wins || 0, tournament.total_games) > 50 ?
-                       'bg-primary text-primary-foreground' :
-                       'bg-secondary text-secondary-foreground')">
+                       'bg-success/20 text-success border border-success/30' :
+                       'bg-muted text-muted-foreground border border-border')">
                       {{ calculateWinRate(tournament.wins || 0, tournament.total_games) }}%
                     </span>
                   </div>
@@ -228,7 +207,7 @@ interface Tournament {
                   </div>
                 </div>
 
-                <div *ngIf="(tournament.totalBlunders || 0) > 0" class="flex items-center gap-1 text-yellow-600 text-sm">
+                <div *ngIf="(tournament.totalBlunders || 0) > 0" class="flex items-center gap-1 text-warning text-sm">
                   <svg class="h-4 w-4" xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
                     <path d="m21.73 18-8-14a2 2 0 0 0-3.48 0l-8 14A2 2 0 0 0 4 21h16a2 2 0 0 0 1.73-3Z"/>
                     <path d="M12 9v4"/>
@@ -249,6 +228,11 @@ export class TournamentsComponent implements OnInit {
   overallPerformance: any = null;
   loading = true;
   error: string | null = null;
+
+  // Lucide icons for stat cards
+  Trophy = Trophy;
+  TrendingUp = TrendingUp;
+  Target = Target;
 
   constructor(private chessApi: ChessApiService) {}
 

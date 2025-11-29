@@ -4,6 +4,8 @@ import { RouterModule } from '@angular/router';
 import { HttpClientModule } from '@angular/common/http';
 import { LayoutComponent } from '../../components/layout/layout.component';
 import { ChessApiService } from '../../services/chess-api.service';
+import { StatCardComponent } from '../../components/stat-card.component';
+import { AlertTriangle, BarChart, TrendingDown, CheckCircle } from 'lucide-angular';
 
 interface DashboardData {
   overview: {
@@ -79,7 +81,7 @@ interface DashboardData {
 @Component({
   selector: 'app-blunders',
   standalone: true,
-  imports: [CommonModule, RouterModule, HttpClientModule, LayoutComponent],
+  imports: [CommonModule, RouterModule, HttpClientModule, LayoutComponent, StatCardComponent],
   styles: [`
     .tooltip-wrapper {
       position: relative;
@@ -166,126 +168,50 @@ interface DashboardData {
 
           <!-- Overview Statistics Cards -->
           <div class="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
-            <!-- Total Blunders Card -->
-            <div class="rounded-lg border bg-card text-card-foreground shadow-sm">
-              <div class="p-6">
-                <div class="flex flex-row items-center justify-between space-y-0 pb-2">
-                  <div class="flex items-center gap-2">
-                    <h3 class="text-sm font-medium text-muted-foreground">Total Blunders</h3>
-                    <div class="tooltip-wrapper" (click)="toggleTooltip($event)">
-                      <svg xmlns="http://www.w3.org/2000/svg" class="h-3.5 w-3.5 text-muted-foreground cursor-help" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-                        <circle cx="12" cy="12" r="10"/>
-                        <line x1="12" y1="16" x2="12" y2="12"/>
-                        <line x1="12" y1="8" x2="12.01" y2="8"/>
-                      </svg>
-                      <div class="tooltip-content">Critical moves with 300+ centipawn loss. Trend compares last 30 days vs previous 30 days.</div>
-                    </div>
-                  </div>
-                  <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4 text-muted-foreground" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-                    <path d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"/>
-                    <line x1="12" y1="9" x2="12" y2="13"/>
-                    <line x1="12" y1="17" x2="12.01" y2="17"/>
-                  </svg>
-                </div>
-                <div class="pt-2">
-                  <div class="text-2xl font-bold">{{ dashboardData.overview.totalBlunders }}</div>
-                  <p class="text-xs text-muted-foreground mt-1">
-                    <span [class]="dashboardData.overview.trend.improving ? 'text-green-600' : 'text-red-600'">
-                      {{ dashboardData.overview.trend.improving ? '↓' : '↑' }} {{ Math.abs(parseFloat(dashboardData.overview.trend.change)) }}%
-                    </span>
-                    vs last month
-                  </p>
-                </div>
-              </div>
-            </div>
+            <app-stat-card
+              title="Total Blunders"
+              [value]="dashboardData.overview.totalBlunders"
+              [icon]="AlertTriangle"
+              [subtitle]="getTrendText()"
+              [trend]="getTrend()"
+              variant="warning">
+            </app-stat-card>
 
-            <!-- Avg Centipawn Loss Card -->
-            <div class="rounded-lg border bg-card text-card-foreground shadow-sm">
-              <div class="p-6">
-                <div class="flex flex-row items-center justify-between space-y-0 pb-2">
-                  <div class="flex items-center gap-2">
-                    <h3 class="text-sm font-medium text-muted-foreground">Avg CP Loss</h3>
-                    <div class="tooltip-wrapper" (click)="toggleTooltip($event)">
-                      <svg xmlns="http://www.w3.org/2000/svg" class="h-3.5 w-3.5 text-muted-foreground cursor-help" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-                        <circle cx="12" cy="12" r="10"/>
-                        <line x1="12" y1="16" x2="12" y2="12"/>
-                        <line x1="12" y1="8" x2="12.01" y2="8"/>
-                      </svg>
-                      <div class="tooltip-content">Average centipawn loss per blunder. Lower is better. (100 centipawns = 1 pawn of material value)</div>
-                    </div>
-                  </div>
-                  <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4 text-muted-foreground" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-                    <line x1="12" y1="20" x2="12" y2="10"/>
-                    <line x1="18" y1="20" x2="18" y2="4"/>
-                    <line x1="6" y1="20" x2="6" y2="16"/>
-                  </svg>
-                </div>
-                <div class="pt-2">
-                  <div class="text-2xl font-bold">{{ dashboardData.overview.avgCentipawnLoss }}</div>
-                  <p class="text-xs text-muted-foreground mt-1">Per blunder</p>
-                </div>
-              </div>
-            </div>
+            <app-stat-card
+              title="Avg CP Loss"
+              [value]="dashboardData.overview.avgCentipawnLoss"
+              [icon]="BarChart"
+              subtitle="Per blunder"
+              variant="default">
+            </app-stat-card>
 
-            <!-- Most Costly Blunder Card -->
-            <div class="rounded-lg border bg-card text-card-foreground shadow-sm">
-              <div class="p-6">
-                <div class="flex flex-row items-center justify-between space-y-0 pb-2">
-                  <div class="flex items-center gap-2">
-                    <h3 class="text-sm font-medium text-muted-foreground">Worst Blunder</h3>
-                    <div class="tooltip-wrapper" (click)="toggleTooltip($event)">
-                      <svg xmlns="http://www.w3.org/2000/svg" class="h-3.5 w-3.5 text-muted-foreground cursor-help" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-                        <circle cx="12" cy="12" r="10"/>
-                        <line x1="12" y1="16" x2="12" y2="12"/>
-                        <line x1="12" y1="8" x2="12.01" y2="8"/>
-                      </svg>
-                      <div class="tooltip-content">Your most costly blunder by centipawn loss. This represents how much evaluation dropped (e.g., 402 = lost 4 pawns of advantage in one move).</div>
-                    </div>
-                  </div>
-                  <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4 text-muted-foreground" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-                    <path d="m21.73 18-8-14a2 2 0 0 0-3.48 0l-8 14A2 2 0 0 0 4 21h16a2 2 0 0 0 1.73-3Z"/>
-                    <path d="M12 9v4"/>
-                    <path d="M12 17h.01"/>
-                  </svg>
-                </div>
-                <div class="pt-2">
-                  <div class="text-2xl font-bold text-red-600">{{ dashboardData.overview.mostCostlyBlunder?.loss || 0 }}</div>
-                  <p class="text-xs text-muted-foreground mt-1" *ngIf="dashboardData.overview.mostCostlyBlunder">
-                    <a [routerLink]="['/games', dashboardData.overview.mostCostlyBlunder.gameId]" class="hover:underline">
-                      Move {{ dashboardData.overview.mostCostlyBlunder.moveNumber }}
-                    </a>
-                  </p>
-                </div>
-              </div>
-            </div>
+            <a *ngIf="dashboardData.overview.mostCostlyBlunder"
+               [routerLink]="['/games', dashboardData.overview.mostCostlyBlunder.gameId]"
+               [queryParams]="{move: dashboardData.overview.mostCostlyBlunder.moveNumber}"
+               class="block">
+              <app-stat-card
+                title="Worst Blunder"
+                [value]="dashboardData.overview.mostCostlyBlunder.loss"
+                [icon]="TrendingDown"
+                [subtitle]="getWorstBlunderSubtitle()"
+                variant="destructive">
+              </app-stat-card>
+            </a>
+            <app-stat-card *ngIf="!dashboardData.overview.mostCostlyBlunder"
+              title="Worst Blunder"
+              [value]="0"
+              [icon]="TrendingDown"
+              subtitle="No data"
+              variant="destructive">
+            </app-stat-card>
 
-            <!-- Learning Progress Card -->
-            <div class="rounded-lg border bg-card text-card-foreground shadow-sm">
-              <div class="p-6">
-                <div class="flex flex-row items-center justify-between space-y-0 pb-2">
-                  <div class="flex items-center gap-2">
-                    <h3 class="text-sm font-medium text-muted-foreground">Learned</h3>
-                    <div class="tooltip-wrapper" (click)="toggleTooltip($event)">
-                      <svg xmlns="http://www.w3.org/2000/svg" class="h-3.5 w-3.5 text-muted-foreground cursor-help" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-                        <circle cx="12" cy="12" r="10"/>
-                        <line x1="12" y1="16" x2="12" y2="12"/>
-                        <line x1="12" y1="8" x2="12.01" y2="8"/>
-                      </svg>
-                      <div class="tooltip-content">Percentage of blunder patterns you've mastered. Patterns are marked as learned when you avoid similar mistakes consistently.</div>
-                    </div>
-                  </div>
-                  <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4 text-muted-foreground" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-                    <polyline points="20 6 9 17 4 12"/>
-                  </svg>
-                </div>
-                <div class="pt-2">
-                  <div class="text-2xl font-bold">{{ dashboardData.learningProgress.percentage }}%</div>
-                  <p class="text-xs text-muted-foreground mt-1">
-                    {{ dashboardData.learningProgress.learnedCount }} / {{ dashboardData.learningProgress.totalCount }} mastered
-                  </p>
-                </div>
-              </div>
-            </div>
+            <app-stat-card
+              title="Learned"
+              [value]="dashboardData.learningProgress.percentage + '%'"
+              [icon]="CheckCircle"
+              [subtitle]="getLearningProgressSubtitle()"
+              variant="success">
+            </app-stat-card>
           </div>
 
           <!-- Charts Row -->
@@ -454,6 +380,12 @@ export class BlundersComponent implements OnInit {
   Math = Math;
   parseFloat = parseFloat;
 
+  // Lucide icons for stat cards
+  AlertTriangle = AlertTriangle;
+  BarChart = BarChart;
+  TrendingDown = TrendingDown;
+  CheckCircle = CheckCircle;
+
   constructor(private apiService: ChessApiService) {}
 
   ngOnInit(): void {
@@ -475,6 +407,33 @@ export class BlundersComponent implements OnInit {
         console.error('Error loading blunders dashboard:', err);
       }
     });
+  }
+
+  getTrendText(): string {
+    if (!this.dashboardData) return '';
+    const improving = this.dashboardData.overview.trend.improving;
+    const change = Math.abs(parseFloat(this.dashboardData.overview.trend.change));
+    return `${improving ? '↓' : '↑'} ${change}% vs last month`;
+  }
+
+  getTrend(): { value: number; isPositive: boolean } | undefined {
+    if (!this.dashboardData) return undefined;
+    return {
+      value: Math.abs(parseFloat(this.dashboardData.overview.trend.change)),
+      isPositive: this.dashboardData.overview.trend.improving
+    };
+  }
+
+  getWorstBlunderSubtitle(): string {
+    if (!this.dashboardData || !this.dashboardData.overview.mostCostlyBlunder) {
+      return 'No data';
+    }
+    return `Move ${this.dashboardData.overview.mostCostlyBlunder.moveNumber} →`;
+  }
+
+  getLearningProgressSubtitle(): string {
+    if (!this.dashboardData) return '';
+    return `${this.dashboardData.learningProgress.learnedCount} / ${this.dashboardData.learningProgress.totalCount} mastered`;
   }
 
   formatTheme(theme: string): string {

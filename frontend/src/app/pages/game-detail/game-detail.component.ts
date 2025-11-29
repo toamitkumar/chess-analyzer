@@ -1,4 +1,4 @@
-import { Component, OnInit } from '@angular/core';
+import { Component, OnInit, AfterViewInit, ChangeDetectorRef } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { ActivatedRoute, Router } from '@angular/router';
 import { HttpClientModule } from '@angular/common/http';
@@ -84,16 +84,19 @@ interface GameAnalysisResponse {
         <!-- Game Content -->
         <div *ngIf="!loading && !error && gameData">
           <!-- Header -->
-          <div class="flex flex-col sm:flex-row items-start sm:items-center gap-4">
-            <button
-              (click)="goBack()"
-              class="inline-flex items-center justify-center rounded-md text-sm font-medium ring-offset-background transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:pointer-events-none disabled:opacity-50 hover:bg-accent hover:text-accent-foreground h-9 px-3">
-              <svg class="mr-2 h-4 w-4" xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-                <path d="m15 18-6-6 6-6"/>
-              </svg>
-              <span class="hidden sm:inline">Back to Games</span>
-              <span class="sm:hidden">Back</span>
-            </button>
+          <div class="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
+            <div class="flex flex-col sm:flex-row items-start sm:items-center gap-4">
+              <button
+                (click)="goBack()"
+                class="inline-flex items-center justify-center rounded-md text-sm font-medium ring-offset-background transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:pointer-events-none disabled:opacity-50 hover:bg-accent hover:text-accent-foreground h-9 px-3">
+                <svg class="mr-2 h-4 w-4" xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                  <path d="m15 18-6-6 6-6"/>
+                </svg>
+                <span class="hidden sm:inline">Back to Games</span>
+                <span class="sm:hidden">Back</span>
+              </button>
+              <h1 class="text-xl sm:text-2xl lg:text-3xl font-bold text-gradient">Game Analysis</h1>
+            </div>
             <div class="flex flex-wrap items-center gap-2">
               <span [class]="'inline-flex items-center rounded-full px-2.5 py-0.5 text-xs font-medium ' + getResultBadgeClass()">
                 {{ getResultText() }}
@@ -114,11 +117,11 @@ interface GameAnalysisResponse {
 
           <!-- Move List Template (reused for mobile and desktop) -->
           <ng-template #moveListTemplate>
-            <div class="rounded-lg border bg-card text-card-foreground shadow-sm h-[calc(100vh-12rem)]">
+            <div class="rounded-xl border border-border gradient-card text-card-foreground shadow-xl sticky top-20">
               <div class="flex flex-col space-y-1.5 p-4 sm:p-6 pb-3">
                 <h3 class="text-xl sm:text-2xl font-semibold leading-none tracking-tight">Moves</h3>
               </div>
-              <div class="h-[calc(100vh-17rem)]">
+              <div class="overflow-y-auto h-[calc(100vh-12rem)] px-2">
                 <app-move-list
                   [moves]="enhancedMoves"
                   [currentMoveIndex]="currentMove"
@@ -129,52 +132,23 @@ interface GameAnalysisResponse {
             </div>
           </ng-template>
 
-          <!-- Analysis Overview Info -->
-          <div class="rounded-lg border bg-gradient-to-r from-blue-50 to-indigo-50 border-blue-200 mb-6 overflow-hidden">
-            <div class="flex items-start justify-between p-4 cursor-pointer" (click)="toggleOverview()">
-              <div class="flex gap-3 flex-1">
-                <div class="flex-shrink-0">
-                  <svg class="h-6 w-6 text-blue-600" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9.663 17h4.673M12 3v1m6.364 1.636l-.707.707M21 12h-1M4 12H3m3.343-5.657l-.707-.707m2.828 9.9a5 5 0 117.072 0l-.548.547A3.374 3.374 0 0014 18.469V19a2 2 0 11-4 0v-.531c0-.895-.356-1.754-.988-2.386l-.548-.547z" />
-                  </svg>
-                </div>
-                <div class="flex-1">
-                  <h4 class="text-base font-semibold text-blue-900">About Engine Analysis</h4>
-                </div>
-              </div>
-              <svg
-                class="h-5 w-5 text-blue-600 transition-transform duration-200 flex-shrink-0 ml-2"
-                [class.rotate-180]="overviewExpanded"
-                xmlns="http://www.w3.org/2000/svg"
-                viewBox="0 0 20 20"
-                fill="currentColor">
-                <path fill-rule="evenodd" d="M5.293 7.293a1 1 0 011.414 0L10 10.586l3.293-3.293a1 1 0 111.414 1.414l-4 4a1 1 0 01-1.414 0l-4-4a1 1 0 010-1.414z" clip-rule="evenodd" />
-              </svg>
-            </div>
-            <div *ngIf="overviewExpanded" class="px-4 pb-4 pt-0">
-              <p class="text-sm text-blue-800 ml-9">
-                This game has been analyzed by the Stockfish chess engine, the world's strongest chess program. Each move is evaluated and classified (best, excellent, good, inaccuracy, mistake, or blunder). When you click on a mistake or blunder, you'll see alternative moves the engine recommends with explanations. Use keyboard arrows to navigate moves, or click moves in the move list.
-              </p>
-            </div>
-          </div>
-
           <div class="flex flex-col lg:flex-row gap-6 max-w-[1800px] mx-auto">
             <!-- Left column: Board with vertical probability indicator -->
             <div class="flex-1 space-y-6 min-w-0">
               <!-- Board Card -->
-              <div class="rounded-lg border bg-card text-card-foreground shadow-sm">
-                <div class="flex flex-col space-y-1.5 p-6">
-                  <div class="flex items-center justify-between">
+              <div class="rounded-xl border border-border gradient-card text-card-foreground shadow-xl">
+                <div class="flex flex-col space-y-1.5 p-4 sm:p-6">
+                  <div class="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3">
                     <div>
-                      <h3 class="text-2xl font-semibold leading-none tracking-tight">
+                      <h3 class="text-lg sm:text-xl lg:text-2xl font-semibold leading-none tracking-tight">
                         {{ gameData.white_player }} vs {{ gameData.black_player }}
                       </h3>
-                      <p class="text-sm text-muted-foreground">
+                      <p class="text-xs sm:text-sm text-muted-foreground mt-1">
                         {{ gameData.opening || 'Unknown Opening' }} • {{ formatDate(gameData.date) }}
                       </p>
                     </div>
-                    <div class="text-right">
-                      <div class="text-2xl font-bold text-foreground">{{ gameData.result }}</div>
+                    <div class="text-left sm:text-right">
+                      <div class="text-xl sm:text-2xl font-bold text-foreground">{{ gameData.result }}</div>
                       <div class="text-xs text-muted-foreground">{{ getResultDescription() }}</div>
                     </div>
                   </div>
@@ -204,20 +178,20 @@ interface GameAnalysisResponse {
               <!-- Multi-Variation Analysis -->
               <div *ngIf="currentMoveVariations.length > 0">
                 <!-- Multi-Variation Info -->
-                <div class="rounded-lg border bg-purple-50 border-purple-200 mb-4 overflow-hidden">
-                  <div class="flex items-start justify-between p-4 cursor-pointer" (click)="toggleMultiVariation()">
+                <div class="rounded-xl border border-accent/30 bg-gradient-to-r from-accent/10 to-primary/10 text-card-foreground shadow-lg mb-4 overflow-hidden">
+                  <div class="flex items-start justify-between p-4 sm:p-6 cursor-pointer" (click)="toggleMultiVariation()">
                     <div class="flex gap-3 flex-1">
                       <div class="flex-shrink-0">
-                        <svg class="h-5 w-5 text-purple-600" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor">
+                        <svg class="h-5 w-5 text-accent" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor">
                           <path d="M11 3a1 1 0 10-2 0v1a1 1 0 102 0V3zM15.657 5.757a1 1 0 00-1.414-1.414l-.707.707a1 1 0 001.414 1.414l.707-.707zM18 10a1 1 0 01-1 1h-1a1 1 0 110-2h1a1 1 0 011 1zM5.05 6.464A1 1 0 106.464 5.05l-.707-.707a1 1 0 00-1.414 1.414l.707.707zM5 10a1 1 0 01-1 1H3a1 1 0 110-2h1a1 1 0 011 1zM8 16v-1h4v1a2 2 0 11-4 0zM12 14c.015-.34.208-.646.477-.859a4 4 0 10-4.954 0c.27.213.462.519.476.859h4.002z" />
                         </svg>
                       </div>
                       <div class="flex-1">
-                        <h4 class="text-sm font-semibold text-purple-900">Critical Position - Multiple Lines</h4>
+                        <h4 class="text-sm sm:text-base font-semibold text-card-foreground">Critical Position - Multiple Lines</h4>
                       </div>
                     </div>
                     <svg
-                      class="h-5 w-5 text-purple-600 transition-transform duration-200 flex-shrink-0 ml-2"
+                      class="h-5 w-5 text-accent transition-transform duration-200 flex-shrink-0 ml-2"
                       [class.rotate-180]="multiVariationExpanded"
                       xmlns="http://www.w3.org/2000/svg"
                       viewBox="0 0 20 20"
@@ -225,8 +199,8 @@ interface GameAnalysisResponse {
                       <path fill-rule="evenodd" d="M5.293 7.293a1 1 0 011.414 0L10 10.586l3.293-3.293a1 1 0 111.414 1.414l-4 4a1 1 0 01-1.414 0l-4-4a1 1 0 010-1.414z" clip-rule="evenodd" />
                     </svg>
                   </div>
-                  <div *ngIf="multiVariationExpanded" class="px-4 pb-4 pt-0">
-                    <p class="text-sm text-purple-800 ml-8">
+                  <div *ngIf="multiVariationExpanded" class="px-4 sm:px-6 pb-4 sm:pb-6 pt-0">
+                    <p class="text-xs sm:text-sm text-muted-foreground ml-0 sm:ml-8">
                       This was a critical moment where you made a {{ getCurrentMoveQuality() }}. The engine has calculated multiple possible continuations ranked by strength. The best line (top variation) shows what you should have played. Positive evaluations favor White, negative favor Black.
                     </p>
                   </div>
@@ -242,9 +216,9 @@ interface GameAnalysisResponse {
 
               <!-- Statistics and Phase Analysis -->
               <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
-                <div class="rounded-lg border bg-card text-card-foreground shadow-sm">
-                  <div class="flex flex-col space-y-1.5 p-6">
-                    <h3 class="text-2xl font-semibold leading-none tracking-tight">Game Statistics</h3>
+                <div class="rounded-xl border border-border gradient-card text-card-foreground shadow-xl">
+                  <div class="flex flex-col space-y-1.5 p-4 sm:p-6">
+                    <h3 class="text-lg sm:text-xl lg:text-2xl font-semibold leading-none tracking-tight">Game Statistics</h3>
                   </div>
                   <div class="p-6 pt-0 space-y-4">
                     <div class="space-y-2" *ngIf="accuracyData">
@@ -323,9 +297,9 @@ interface GameAnalysisResponse {
                   </div>
                 </div>
 
-                <div class="rounded-lg border bg-card text-card-foreground shadow-sm">
-                  <div class="flex flex-col space-y-1.5 p-6">
-                    <h3 class="text-2xl font-semibold leading-none tracking-tight">Phase Analysis</h3>
+                <div class="rounded-xl border border-border gradient-card text-card-foreground shadow-xl">
+                  <div class="flex flex-col space-y-1.5 p-4 sm:p-6">
+                    <h3 class="text-lg sm:text-xl lg:text-2xl font-semibold leading-none tracking-tight">Phase Analysis</h3>
                   </div>
                   <div class="p-6 pt-0">
                     <div class="space-y-4" *ngIf="phasesData; else loadingPhases">
@@ -375,15 +349,47 @@ interface GameAnalysisResponse {
               <ng-container *ngTemplateOutlet="moveListTemplate"></ng-container>
             </div>
           </div>
+
+          <!-- Analysis Overview Info (at bottom) -->
+          <div class="rounded-xl border border-primary/30 bg-gradient-to-r from-primary/10 to-accent/10 text-card-foreground shadow-lg mt-8 overflow-hidden">
+            <div class="flex items-start justify-between p-4 sm:p-6 cursor-pointer" (click)="toggleOverview()">
+              <div class="flex gap-3 flex-1">
+                <div class="flex-shrink-0">
+                  <svg class="h-5 w-5 sm:h-6 sm:w-6 text-primary" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9.663 17h4.673M12 3v1m6.364 1.636l-.707.707M21 12h-1M4 12H3m3.343-5.657l-.707-.707m2.828 9.9a5 5 0 117.072 0l-.548.547A3.374 3.374 0 0014 18.469V19a2 2 0 11-4 0v-.531c0-.895-.356-1.754-.988-2.386l-.548-.547z" />
+                  </svg>
+                </div>
+                <div class="flex-1">
+                  <h4 class="text-sm sm:text-base font-semibold text-card-foreground">About Engine Analysis</h4>
+                </div>
+              </div>
+              <svg
+                class="h-5 w-5 text-primary transition-transform duration-200 flex-shrink-0 ml-2"
+                [class.rotate-180]="overviewExpanded"
+                xmlns="http://www.w3.org/2000/svg"
+                viewBox="0 0 20 20"
+                fill="currentColor">
+                <path fill-rule="evenodd" d="M5.293 7.293a1 1 0 011.414 0L10 10.586l3.293-3.293a1 1 0 111.414 1.414l-4 4a1 1 0 01-1.414 0l-4-4a1 1 0 010-1.414z" clip-rule="evenodd" />
+              </svg>
+            </div>
+            <div *ngIf="overviewExpanded" class="px-4 sm:px-6 pb-4 sm:pb-6 pt-0">
+              <p class="text-xs sm:text-sm text-muted-foreground ml-0 sm:ml-8">
+                This game has been analyzed by the Stockfish chess engine, the world's strongest chess program. Each move is evaluated and classified (best, excellent, good, inaccuracy, mistake, or blunder). When you click on a mistake or blunder, you'll see alternative moves the engine recommends with explanations. Use keyboard arrows to navigate moves, or click moves in the move list.
+              </p>
+            </div>
+          </div>
         </div>
       </div>
     </app-layout>
   `
 })
-export class GameDetailComponent implements OnInit {
+export class GameDetailComponent implements OnInit, AfterViewInit {
   gameId: number | null = null;
   currentMove = 0;
   selectedPhase: 'opening' | 'middlegame' | 'endgame' = 'opening';
+  initialMoveNumber: number | null = null;
+  dataLoaded = false;
+  viewInitialized = false;
 
   // API data
   gameData: GameData | null = null;
@@ -412,7 +418,8 @@ export class GameDetailComponent implements OnInit {
   constructor(
     private route: ActivatedRoute,
     private router: Router,
-    private apiService: ChessApiService
+    private apiService: ChessApiService,
+    private cdr: ChangeDetectorRef
   ) {
     const id = this.route.snapshot.paramMap.get('id');
     this.gameId = id ? parseInt(id, 10) : null;
@@ -420,10 +427,42 @@ export class GameDetailComponent implements OnInit {
 
   ngOnInit() {
     if (this.gameId) {
+      // Check for move query parameter
+      this.route.queryParams.subscribe(params => {
+        const moveNumber = params['move'];
+        if (moveNumber && !isNaN(moveNumber)) {
+          this.initialMoveNumber = parseInt(moveNumber);
+        }
+      });
+
       this.loadGameData();
     } else {
       this.error = 'Invalid game ID';
       this.loading = false;
+    }
+  }
+
+  ngAfterViewInit() {
+    this.viewInitialized = true;
+    this.navigateToInitialMoveIfReady();
+  }
+
+  private navigateToInitialMoveIfReady() {
+    // Only navigate if:
+    // 1. There's a move number to navigate to
+    // 2. The view is initialized
+    // 3. The data is loaded
+    // 4. We have moves to navigate through
+    if (this.initialMoveNumber !== null && this.viewInitialized && this.dataLoaded && this.moves.length > 0) {
+      const moveIndex = this.initialMoveNumber - 1;
+      if (moveIndex >= 0 && moveIndex < this.moves.length) {
+        // Use setTimeout to ensure all child components are fully rendered
+        setTimeout(() => {
+          this.currentMove = moveIndex;
+          this.onMoveChanged(moveIndex);
+          this.cdr.detectChanges();
+        }, 300);
+      }
     }
   }
 
@@ -466,7 +505,15 @@ export class GameDetailComponent implements OnInit {
 
       this.updateCurrentMoveVariations();
       this.loadAlternativesForCurrentMove();
+
       this.loading = false;
+      this.dataLoaded = true;
+
+      // Trigger change detection
+      this.cdr.detectChanges();
+
+      // Try to navigate to initial move if view is ready
+      this.navigateToInitialMoveIfReady();
 
     } catch (err: any) {
       console.error('Error loading game data:', err);

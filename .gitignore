@@ -16,3 +16,4 @@ test_output.txt
 newfrontend/.angular/cache/
 frontend/.angular/cache/
 blunder.json
+test-migrations.js

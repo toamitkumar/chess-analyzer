@@ -2347,6 +2347,138 @@ app.get('/api/blunders/timeline', async (req, res) => {
   }
 });
 
+//===========================================
+// Puzzle API Endpoints (Phase 2: Issue #78)
+//===========================================
+
+// GET /api/puzzles/blunder/:blunderId - Get recommended puzzles for a blunder
+app.get('/api/puzzles/blunder/:blunderId', async (req, res) => {
+  try {
+    const blunderId = parseInt(req.params.blunderId);
+
+    // Get blunder from database
+    const blunder = await database.get(`
+      SELECT id, fen, tactical_theme, position_type
+      FROM blunder_details
+      WHERE id = ?
+    `, [blunderId]);
+
+    if (!blunder) {
+      return res.status(404).json({ error: 'Blunder not found' });
+    }
+
+    // Parse themes from tactical_theme and position_type
+    const themes = [];
+    if (blunder.tactical_theme) {
+      themes.push(...blunder.tactical_theme.split(',').map(t => t.trim()));
+    }
+    if (blunder.position_type) {
+      themes.push(blunder.position_type);
+    }
+
+    // Find matching puzzles
+    const PuzzleMatcher = require('../models/puzzle-matcher');
+    const puzzleMatcher = new PuzzleMatcher(database);
+    const matches = await puzzleMatcher.findMatchingPuzzles({
+      fen_before: blunder.fen,
+      themes
+    });
+
+    res.json({
+      blunderId,
+      puzzles: matches
+    });
+  } catch (error) {
+    console.error('[API] Error finding puzzles for blunder:', error);
+    res.status(500).json({ error: 'Failed to find matching puzzles' });
+  }
+});
+
+// GET /api/puzzles/:puzzleId - Get full puzzle details (with caching)
+app.get('/api/puzzles/:puzzleId', async (req, res) => {
+  try {
+    const puzzleId = req.params.puzzleId;
+
+    // Check cache first
+    const PuzzleCacheManager = require('../models/puzzle-cache-manager');
+    const puzzleCache = new PuzzleCacheManager(database);
+    let puzzle = await puzzleCache.get(puzzleId);
+
+    if (!puzzle) {
+      // Cache miss - fetch from Lichess API
+      const LichessAPIClient = require('../models/lichess-api-client');
+      const lichessClient = new LichessAPIClient();
+      puzzle = await lichessClient.fetchPuzzle(puzzleId);
+
+      if (puzzle.error) {
+        return res.status(404).json({
+          error: 'Puzzle not found',
+          lichessUrl: puzzle.lichessUrl
+        });
+      }
+
+      // Cache the puzzle
+      await puzzleCache.set(puzzle);
+    }
+
+    res.json(puzzle);
+  } catch (error) {
+    console.error('[API] Error fetching puzzle:', error);
+    res.status(500).json({ error: 'Failed to fetch puzzle' });
+  }
+});
+
+// POST /api/puzzles/link - Link a blunder to recommended puzzles
+app.post('/api/puzzles/link', async (req, res) => {
+  try {
+    const { blunderId, puzzleIds } = req.body;
+
+    if (!blunderId || !Array.isArray(puzzleIds)) {
+      return res.status(400).json({ error: 'Invalid request body' });
+    }
+
+    // Get blunder and find matching puzzles
+    const blunder = await database.get('SELECT * FROM blunder_details WHERE id = ?', [blunderId]);
+    if (!blunder) {
+      return res.status(404).json({ error: 'Blunder not found' });
+    }
+
+    // Parse themes from tactical_theme and position_type
+    const themes = [];
+    if (blunder.tactical_theme) {
+      themes.push(...blunder.tactical_theme.split(',').map(t => t.trim()));
+    }
+    if (blunder.position_type) {
+      themes.push(blunder.position_type);
+    }
+
+    // Find matching puzzles
+    const PuzzleMatcher = require('../models/puzzle-matcher');
+    const puzzleMatcher = new PuzzleMatcher(database);
+    const matches = await puzzleMatcher.findMatchingPuzzles({
+      fen_before: blunder.fen,
+      themes
+    });
+
+    // Save links
+    const links = [];
+    for (const match of matches.slice(0, puzzleIds.length || 5)) {
+      await database.run(`
+        INSERT INTO blunder_puzzle_links (blunder_id, puzzle_id, match_score)
+        VALUES (?, ?, ?)
+        ON CONFLICT (blunder_id, puzzle_id) DO UPDATE SET match_score = excluded.match_score
+      `, [blunderId, match.id, match.score]);
+
+      links.push({ puzzleId: match.id, score: match.score });
+    }
+
+    res.json({ blunderId, links });
+  } catch (error) {
+    console.error('[API] Error linking puzzles:', error);
+    res.status(500).json({ error: 'Failed to link puzzles' });
+  }
+});
+
 // Serve Angular app for all non-API routes (MUST BE LAST)
 app.get('*', (req, res) => {
   // Only serve Angular for non-API routes

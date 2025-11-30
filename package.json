@@ -12,20 +12,26 @@
     "test:coverage": "jest --coverage",
     "test:clean": "rm -f data/chess_analysis_test.db data/test_*.db tests/data/*.db",
     "build": "cd frontend && npm install && npm run build --configuration production",
-    "heroku-postbuild": "cd frontend && npm install && npm run build --configuration production"
+    "heroku-postbuild": "cd frontend && npm install && npm run build --configuration production",
+    "download-puzzles": "node scripts/download-lichess-puzzles.js",
+    "import-puzzle-index": "node scripts/import-puzzle-index.js"
   },
   "engines": {
     "node": "20.x",
     "npm": "10.x"
   },
   "dependencies": {
+    "axios": "^1.13.2",
     "chess.js": "^1.0.0-beta.6",
+    "cli-progress": "^3.12.0",
+    "csv-parser": "^3.2.0",
     "express": "^4.18.2",
     "multer": "^2.0.2",
     "pg": "^8.16.3",
     "pg-hstore": "^2.3.4",
     "sqlite3": "^5.1.7",
-    "stockfish": "^17.1.0"
+    "stockfish": "^17.1.0",
+    "unbzip2-stream": "^1.4.3"
   },
   "devDependencies": {
     "@jest/globals": "^29.7.0",

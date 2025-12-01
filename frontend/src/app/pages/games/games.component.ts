@@ -31,8 +31,8 @@ interface Game {
   template: `
     <app-layout>
       <div class="space-y-8 pb-8">
-        <!-- Header Section with Glass Effect -->
-        <div class="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 animate-fade-in sticky top-0 z-10 -mx-6 px-6 py-4 glass-effect">
+        <!-- Header Section -->
+        <div class="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 animate-fade-in">
           <div>
             <h1 class="text-3xl sm:text-4xl lg:text-5xl font-bold text-gradient tracking-tight mb-2">Game Analysis</h1>
             <p class="text-sm sm:text-base text-muted-foreground">Review and analyze your chess games</p>
@@ -90,87 +90,63 @@ interface Game {
                     <span class="text-xs sm:text-sm text-muted-foreground font-medium">{{ formatDate(game.date) }}</span>
                   </div>
                   
-                  <div class="flex flex-col sm:flex-row items-start sm:items-center gap-3 sm:gap-4">
-                    <div class="flex items-center gap-2.5">
-                      <div class="flex h-10 w-10 items-center justify-center rounded-xl bg-gradient-to-br from-gray-100 to-gray-300 shadow-md border-2 border-white/50">
-                        <svg class="h-5 w-5 text-gray-700" xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-                          <path d="M2 20h20l-2-6-4 2-4-4-4 4-4-2z"/>
-                          <path d="M6 4l2 4 4-2 4 2 2-4"/>
-                        </svg>
-                      </div>
-                      <div>
-                        <p class="text-sm font-bold text-foreground">{{ game.white_player }}</p>
-                        <div class="flex items-center gap-1 text-xs text-muted-foreground font-medium">
-                          <span *ngIf="game.white_elo">{{ game.white_elo }} ELO</span>
-                          <span *ngIf="!game.white_elo">Unrated</span>
-                        </div>
-                      </div>
+                  <div class="flex items-center gap-2 text-sm">
+                    <div class="flex items-center gap-1.5">
+                      <!-- White King Icon -->
+                      <svg class="h-4 w-4 flex-shrink-0" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+                        <path d="M12 2v2m0 0h2m-2 0h-2m2 2v2m0 0c-3 0-5 2-5 5v2h10v-2c0-3-2-5-5-5zm-6 9v2h12v-2H6zm1 4l-1 5h12l-1-5H7z" 
+                              fill="currentColor" class="text-gray-300" stroke="currentColor" stroke-width="0.5"/>
+                      </svg>
+                      <span class="font-bold text-foreground">{{ game.white_player }}</span>
+                      <span class="text-xs text-muted-foreground" *ngIf="game.white_elo">({{ game.white_elo }})</span>
                     </div>
                     
-                    <span class="hidden sm:inline text-muted-foreground font-medium">vs</span>
+                    <span class="text-muted-foreground font-medium px-1">vs</span>
                     
-                    <div class="flex items-center gap-2.5">
-                      <div class="flex h-10 w-10 items-center justify-center rounded-xl bg-gradient-to-br from-gray-700 to-gray-900 shadow-md border-2 border-gray-600/50">
-                        <svg class="h-5 w-5 text-gray-100" xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-                          <path d="M2 20h20l-2-6-4 2-4-4-4 4-4-2z"/>
-                          <path d="M6 4l2 4 4-2 4 2 2-4"/>
-                        </svg>
-                      </div>
-                      <div>
-                        <p class="text-sm font-bold text-foreground">{{ game.black_player }}</p>
-                        <div class="flex items-center gap-1 text-xs text-muted-foreground font-medium">
-                          <span *ngIf="game.black_elo">{{ game.black_elo }} ELO</span>
-                          <span *ngIf="!game.black_elo">Unrated</span>
-                        </div>
-                      </div>
+                    <div class="flex items-center gap-1.5">
+                      <!-- Black King Icon -->
+                      <svg class="h-4 w-4 flex-shrink-0" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+                        <path d="M12 2v2m0 0h2m-2 0h-2m2 2v2m0 0c-3 0-5 2-5 5v2h10v-2c0-3-2-5-5-5zm-6 9v2h12v-2H6zm1 4l-1 5h12l-1-5H7z" 
+                              fill="currentColor" class="text-gray-700" stroke="currentColor" stroke-width="0.5"/>
+                      </svg>
+                      <span class="font-bold text-foreground">{{ game.black_player }}</span>
+                      <span class="text-xs text-muted-foreground" *ngIf="game.black_elo">({{ game.black_elo }})</span>
                     </div>
                   </div>
 
-                  <!-- Analysis Data -->
-                  <div class="grid grid-cols-2 sm:grid-cols-2 md:grid-cols-4 gap-3 sm:gap-4 text-xs sm:text-sm">
-                    <div class="flex items-center gap-2 p-2 sm:p-3 rounded-lg bg-card/50 border border-border/30">
-                      <svg class="h-4 w-4 text-primary flex-shrink-0" xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                  <!-- Analysis Data - Compact Design -->
+                  <div class="flex flex-wrap items-center gap-2 text-xs">
+                    <div class="flex items-center gap-1.5 px-2 py-1 rounded-md bg-muted/30">
+                      <svg class="h-3.5 w-3.5 text-muted-foreground" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
                         <path d="M9 11H5a2 2 0 0 0-2 2v3c0 5.5 4.5 10 10 10s10-4.5 10-10v-3a2 2 0 0 0-2-2h-4"/>
                         <path d="M9 7V4a2 2 0 0 1 4 0v3"/>
                       </svg>
-                      <div class="flex flex-col">
-                        <span class="text-muted-foreground text-xs">Moves</span>
-                        <span class="text-foreground font-bold">{{ game.moves_count }}</span>
-                      </div>
+                      <span class="font-semibold text-foreground">{{ game.moves_count }} moves</span>
                     </div>
                     
-                    <div *ngIf="game.accuracy" class="flex items-center gap-2 p-2 sm:p-3 rounded-lg bg-success/10 border border-success/30">
-                      <svg class="h-4 w-4 text-success flex-shrink-0" xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                    <div *ngIf="game.accuracy" class="flex items-center gap-1.5 px-2 py-1 rounded-md bg-success/10">
+                      <svg class="h-3.5 w-3.5 text-success" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
                         <path d="M9 12l2 2 4-4"/>
                         <circle cx="12" cy="12" r="10"/>
                       </svg>
-                      <div class="flex flex-col">
-                        <span class="text-success/80 text-xs">Accuracy</span>
-                        <span class="text-success font-bold">{{ getPlayerAccuracy(game) }}%</span>
-                      </div>
+                      <span class="font-semibold text-success">{{ getPlayerAccuracy(game) }}%</span>
                     </div>
                     
-                    <div *ngIf="game.blunders !== undefined" class="flex items-center gap-2 p-2 sm:p-3 rounded-lg bg-destructive/10 border border-destructive/30">
-                      <svg class="h-4 w-4 text-destructive flex-shrink-0" xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                    <div *ngIf="game.blunders !== undefined && game.blunders > 0" class="flex items-center gap-1.5 px-2 py-1 rounded-md bg-destructive/10">
+                      <svg class="h-3.5 w-3.5 text-destructive" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
                         <circle cx="12" cy="12" r="10"/>
                         <line x1="12" y1="8" x2="12" y2="12"/>
                         <line x1="12" y1="16" x2="12.01" y2="16"/>
                       </svg>
-                      <div class="flex flex-col">
-                        <span class="text-destructive/80 text-xs">Blunders</span>
-                        <span class="text-destructive font-bold">{{ game.blunders }}</span>
-                      </div>
+                      <span class="font-semibold text-destructive">{{ game.blunders }} blunders</span>
                     </div>
                     
-                    <div *ngIf="game.opening" class="flex items-center gap-2 p-2 sm:p-3 rounded-lg bg-chart-1/10 border border-chart-1/30 col-span-2 sm:col-span-1">
-                      <svg class="h-4 w-4 text-chart-1 flex-shrink-0" xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                    <div *ngIf="game.opening" class="flex items-center gap-1.5 px-2 py-1 rounded-md bg-primary/10 max-w-full">
+                      <svg class="h-3.5 w-3.5 text-primary flex-shrink-0" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
                         <path d="M14.5 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V7.5L14.5 2z"/>
                         <polyline points="14,2 14,8 20,8"/>
                       </svg>
-                      <div class="flex flex-col min-w-0">
-                        <span class="text-chart-1/80 text-xs">Opening</span>
-                        <span class="text-chart-1 font-bold text-xs truncate">{{ game.opening }}</span>
-                      </div>
+                      <span class="font-semibold text-primary truncate">{{ game.opening }}</span>
                     </div>
                   </div>
                 </div>

@@ -40,15 +40,6 @@ import { RouterModule } from '@angular/router';
                 </svg>
                 Upload
               </a>
-              <a routerLink="/games"
-                 routerLinkActive="bg-primary/10 text-primary border-primary/50 shadow-glow-primary"
-                 class="flex items-center gap-2 rounded-lg px-4 py-2 text-sm font-medium transition-all duration-300 text-muted-foreground hover:bg-primary/5 hover:text-primary hover:border-primary/30 border border-transparent">
-                <svg class="h-4 w-4" xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-                  <path d="M3 3v18h18"/>
-                  <path d="m19 9-5 5-4-4-3 3"/>
-                </svg>
-                Games
-              </a>
               <a routerLink="/tournaments"
                  routerLinkActive="bg-primary/10 text-primary border-primary/50 shadow-glow-primary"
                  class="flex items-center gap-2 rounded-lg px-4 py-2 text-sm font-medium transition-all duration-300 text-muted-foreground hover:bg-primary/5 hover:text-primary hover:border-primary/30 border border-transparent">

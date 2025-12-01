@@ -1,0 +1,36 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 100">
+  <defs>
+    <linearGradient id="kingGradient" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" style="stop-color:hsl(25, 70%, 55%);stop-opacity:1" />
+      <stop offset="100%" style="stop-color:hsl(20, 75%, 58%);stop-opacity:1" />
+    </linearGradient>
+  </defs>
+  
+  <!-- Background circle -->
+  <circle cx="50" cy="50" r="48" fill="hsl(220, 18%, 11%)" stroke="url(#kingGradient)" stroke-width="3"/>
+  
+  <!-- Chess King -->
+  <g transform="translate(50, 50)">
+    <!-- Cross on top -->
+    <rect x="-2" y="-35" width="4" height="12" fill="url(#kingGradient)" rx="1"/>
+    <rect x="-6" y="-31" width="12" height="4" fill="url(#kingGradient)" rx="1"/>
+    
+    <!-- Crown top -->
+    <path d="M -12,-20 L -8,-12 L -4,-16 L 0,-10 L 4,-16 L 8,-12 L 12,-20 L 10,-8 L -10,-8 Z" 
+          fill="url(#kingGradient)" stroke="hsl(220, 18%, 11%)" stroke-width="1"/>
+    
+    <!-- Crown body -->
+    <path d="M -10,-8 L -12,5 L 12,5 L 10,-8 Z" 
+          fill="url(#kingGradient)" stroke="hsl(220, 18%, 11%)" stroke-width="1"/>
+    
+    <!-- Middle section -->
+    <path d="M -12,5 L -10,15 L 10,15 L 12,5 Z" 
+          fill="url(#kingGradient)" opacity="0.9"/>
+    
+    <!-- Base -->
+    <ellipse cx="0" cy="20" rx="16" ry="5" 
+             fill="url(#kingGradient)" opacity="0.8"/>
+    <path d="M -16,20 L -18,28 L 18,28 L 16,20 Z" 
+          fill="url(#kingGradient)"/>
+  </g>
+</svg>

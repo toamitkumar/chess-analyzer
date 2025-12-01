@@ -135,31 +135,45 @@ interface DashboardData {
   `],
   template: `
     <app-layout>
-      <div class="space-y-6">
+      <div class="space-y-6 sm:space-y-8 pb-8">
         <!-- Header -->
-        <div>
-          <h1 class="text-2xl sm:text-3xl font-bold text-foreground">Blunder Analysis Dashboard</h1>
+        <div class="animate-fade-in">
+          <h1 class="text-3xl sm:text-4xl lg:text-5xl font-bold text-gradient tracking-tight mb-2">Blunder Analysis Dashboard</h1>
           <p class="text-sm sm:text-base text-muted-foreground">Identify patterns and improve your chess</p>
         </div>
 
         <!-- Loading State -->
-        <div *ngIf="loading" class="flex items-center justify-center py-12">
-          <div class="text-center">
-            <div class="inline-block h-8 w-8 animate-spin rounded-full border-4 border-solid border-current border-r-transparent align-[-0.125em] motion-reduce:animate-[spin_1.5s_linear_infinite]"></div>
-            <p class="mt-2 text-sm text-muted-foreground">Loading dashboard data...</p>
+        <div *ngIf="loading" class="flex flex-col justify-center items-center py-12 sm:py-16 animate-fade-in">
+          <div class="relative">
+            <div class="w-12 h-12 sm:w-16 sm:h-16 border-4 border-primary/20 border-t-primary rounded-full animate-spin"></div>
+            <div class="absolute inset-0 w-12 h-12 sm:w-16 sm:h-16 border-4 border-transparent border-t-accent rounded-full animate-spin" style="animation-duration: 1.5s;"></div>
           </div>
+          <p class="mt-6 text-sm font-medium text-muted-foreground">Loading dashboard data...</p>
         </div>
 
         <!-- Error State -->
-        <div *ngIf="error && !loading" class="rounded-lg border border-red-200 bg-red-50 p-4">
-          <div class="text-red-800">Error loading dashboard: {{ error }}</div>
+        <div *ngIf="error && !loading" class="rounded-xl sm:rounded-2xl border-2 border-destructive/30 bg-gradient-to-br from-destructive/10 to-destructive/5 p-4 sm:p-6 shadow-xl animate-slide-up">
+          <div class="flex items-start gap-3 sm:gap-4">
+            <div class="flex-shrink-0 p-2 rounded-lg bg-destructive/20">
+              <svg class="w-5 h-5 sm:w-6 sm:h-6 text-destructive" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8v4m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"/>
+              </svg>
+            </div>
+            <div>
+              <h3 class="text-base sm:text-lg font-bold text-destructive mb-1">Error Loading Dashboard</h3>
+              <p class="text-sm text-foreground/80">{{ error }}</p>
+            </div>
+          </div>
         </div>
 
         <!-- Empty State -->
-        <div *ngIf="!loading && !error && dashboardData && dashboardData.overview.totalBlunders === 0" class="text-center py-12">
-          <div class="text-muted-foreground">
-            <p class="text-lg font-medium">No blunders found</p>
-            <p class="text-sm mt-2">Great job! Keep up the excellent play.</p>
+        <div *ngIf="!loading && !error && dashboardData && dashboardData.overview.totalBlunders === 0" class="text-center py-12 sm:py-16 animate-fade-in">
+          <div class="rounded-2xl border-2 border-border/30 bg-gradient-to-br from-success/10 to-success/5 backdrop-blur-sm p-8 sm:p-12 max-w-md mx-auto shadow-xl">
+            <svg class="w-16 h-16 sm:w-20 sm:h-20 mx-auto mb-4 text-success" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"/>
+            </svg>
+            <p class="text-lg sm:text-xl font-bold text-success mb-2">No blunders found</p>
+            <p class="text-sm text-muted-foreground">Great job! Keep up the excellent play.</p>
           </div>
         </div>
 
@@ -167,28 +181,34 @@ interface DashboardData {
         <div *ngIf="!loading && !error && dashboardData && dashboardData.overview.totalBlunders > 0" class="space-y-6">
 
           <!-- Overview Statistics Cards -->
-          <div class="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
-            <app-stat-card
-              title="Total Blunders"
-              [value]="dashboardData.overview.totalBlunders"
-              [icon]="AlertTriangle"
-              [subtitle]="getTrendText()"
-              [trend]="getTrend()"
-              variant="warning">
-            </app-stat-card>
+          <div class="grid gap-4 sm:gap-6 grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 animate-slide-up">
+            <div class="group">
+              <app-stat-card
+                title="Total Blunders"
+                [value]="dashboardData.overview.totalBlunders"
+                [icon]="AlertTriangle"
+                [subtitle]="getTrendText()"
+                [trend]="getTrend()"
+                variant="warning"
+                class="transform transition-all duration-300 sm:hover:scale-105 sm:hover:-translate-y-1">
+              </app-stat-card>
+            </div>
 
-            <app-stat-card
-              title="Avg CP Loss"
-              [value]="dashboardData.overview.avgCentipawnLoss"
-              [icon]="BarChart"
-              subtitle="Per blunder"
-              variant="default">
-            </app-stat-card>
+            <div class="group">
+              <app-stat-card
+                title="Avg CP Loss"
+                [value]="dashboardData.overview.avgCentipawnLoss"
+                [icon]="BarChart"
+                subtitle="Per blunder"
+                variant="default"
+                class="transform transition-all duration-300 sm:hover:scale-105 sm:hover:-translate-y-1">
+              </app-stat-card>
+            </div>
 
             <a *ngIf="dashboardData.overview.mostCostlyBlunder"
                [routerLink]="['/games', dashboardData.overview.mostCostlyBlunder.gameId]"
                [queryParams]="{move: dashboardData.overview.mostCostlyBlunder.moveNumber}"
-               class="block">
+               class="block group transform transition-all duration-300 sm:hover:scale-105 sm:hover:-translate-y-1">
               <app-stat-card
                 title="Worst Blunder"
                 [value]="dashboardData.overview.mostCostlyBlunder.loss"
@@ -197,30 +217,36 @@ interface DashboardData {
                 variant="destructive">
               </app-stat-card>
             </a>
-            <app-stat-card *ngIf="!dashboardData.overview.mostCostlyBlunder"
-              title="Worst Blunder"
-              [value]="0"
-              [icon]="TrendingDown"
-              subtitle="No data"
-              variant="destructive">
-            </app-stat-card>
+            <div *ngIf="!dashboardData.overview.mostCostlyBlunder" class="group">
+              <app-stat-card
+                title="Worst Blunder"
+                [value]="0"
+                [icon]="TrendingDown"
+                subtitle="No data"
+                variant="destructive"
+                class="transform transition-all duration-300 sm:hover:scale-105 sm:hover:-translate-y-1">
+              </app-stat-card>
+            </div>
 
-            <app-stat-card
-              title="Learned"
-              [value]="dashboardData.learningProgress.percentage + '%'"
-              [icon]="CheckCircle"
-              [subtitle]="getLearningProgressSubtitle()"
-              variant="success">
-            </app-stat-card>
+            <div class="group">
+              <app-stat-card
+                title="Learned"
+                [value]="dashboardData.learningProgress.percentage + '%'"
+                [icon]="CheckCircle"
+                [subtitle]="getLearningProgressSubtitle()"
+                variant="success"
+                class="transform transition-all duration-300 sm:hover:scale-105 sm:hover:-translate-y-1">
+              </app-stat-card>
+            </div>
           </div>
 
           <!-- Charts Row -->
-          <div class="grid gap-6 md:grid-cols-2">
+          <div class="grid gap-4 sm:gap-6 grid-cols-1 md:grid-cols-2 animate-slide-up" style="animation-delay: 0.1s;">
             <!-- Phase Distribution -->
-            <div class="rounded-lg border bg-card text-card-foreground shadow-sm">
-              <div class="p-6">
+            <div class="group rounded-xl sm:rounded-2xl border-2 border-border/30 gradient-card text-card-foreground shadow-2xl hover:shadow-glow-primary hover:border-primary/50 transition-all duration-500 backdrop-blur-sm overflow-hidden">
+              <div class="p-4 sm:p-6 bg-gradient-to-br from-primary/5 to-transparent">
                 <div class="flex items-center gap-2 mb-4">
-                  <h3 class="text-lg font-semibold">Blunders by Game Phase</h3>
+                  <h3 class="text-lg sm:text-xl font-bold text-gradient">Blunders by Game Phase</h3>
                   <div class="tooltip-wrapper" (click)="toggleTooltip($event)">
                     <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4 text-muted-foreground cursor-help" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
                       <circle cx="12" cy="12" r="10"/>
@@ -266,10 +292,10 @@ interface DashboardData {
             </div>
 
             <!-- Theme Distribution -->
-            <div class="rounded-lg border bg-card text-card-foreground shadow-sm">
-              <div class="p-6">
+            <div class="group rounded-xl sm:rounded-2xl border-2 border-border/30 gradient-card text-card-foreground shadow-2xl hover:shadow-glow-accent hover:border-accent/50 transition-all duration-500 backdrop-blur-sm overflow-hidden">
+              <div class="p-4 sm:p-6 bg-gradient-to-br from-accent/5 to-transparent">
                 <div class="flex items-center gap-2 mb-4">
-                  <h3 class="text-lg font-semibold">Top Tactical Themes</h3>
+                  <h3 class="text-lg sm:text-xl font-bold text-gradient">Top Tactical Themes</h3>
                   <div class="tooltip-wrapper" (click)="toggleTooltip($event)">
                     <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4 text-muted-foreground cursor-help" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
                       <circle cx="12" cy="12" r="10"/>
@@ -296,11 +322,11 @@ interface DashboardData {
           </div>
 
           <!-- Top Patterns Table -->
-          <div class="rounded-lg border bg-card text-card-foreground shadow-sm">
-            <div class="p-6">
-              <h3 class="text-lg font-semibold mb-4">Top Patterns to Study</h3>
+          <div class="rounded-xl sm:rounded-2xl border-2 border-border/30 gradient-card text-card-foreground shadow-2xl hover:shadow-glow-success hover:border-success/50 transition-all duration-500 backdrop-blur-sm overflow-hidden animate-slide-up" style="animation-delay: 0.2s;">
+            <div class="p-4 sm:p-6 bg-gradient-to-br from-success/5 to-transparent">
+              <h3 class="text-lg sm:text-xl font-bold text-gradient mb-4">Top Patterns to Study</h3>
               <div class="relative w-full overflow-auto">
-                <table class="w-full caption-bottom text-sm">
+                <table class="w-full caption-bottom text-xs sm:text-sm">
                   <thead class="[&_tr]:border-b">
                     <tr class="border-b transition-colors hover:bg-muted/50">
                       <th class="h-12 px-4 text-left align-middle font-medium text-muted-foreground">Pattern</th>
@@ -337,31 +363,33 @@ interface DashboardData {
           </div>
 
           <!-- Recent Blunders -->
-          <div class="rounded-lg border bg-card text-card-foreground shadow-sm">
-            <div class="p-6">
-              <h3 class="text-lg font-semibold mb-4">Recent Blunders</h3>
-              <div class="space-y-3">
+          <div class="rounded-xl sm:rounded-2xl border-2 border-border/30 gradient-card text-card-foreground shadow-2xl hover:shadow-glow-accent hover:border-accent/50 transition-all duration-500 backdrop-blur-sm overflow-hidden animate-slide-up" style="animation-delay: 0.3s;">
+            <div class="p-4 sm:p-6 bg-gradient-to-br from-accent/5 to-transparent">
+              <h3 class="text-lg sm:text-xl font-bold text-gradient mb-4">Recent Blunders</h3>
+              <div class="space-y-2 sm:space-y-3">
                 <div *ngFor="let blunder of dashboardData.recentBlunders.slice(0, 10)"
-                     class="flex items-center justify-between p-3 rounded-md border hover:bg-muted/50 transition-colors cursor-pointer"
+                     class="flex flex-col sm:flex-row items-start sm:items-center justify-between p-3 sm:p-4 rounded-xl border-2 border-border/30 bg-card/50 hover:bg-card hover:border-primary/50 hover:shadow-lg transition-all duration-300 cursor-pointer"
                      [routerLink]="['/games', blunder.gameId]">
-                  <div class="flex-1">
-                    <div class="flex items-center gap-2">
-                      <span class="inline-flex items-center rounded-full px-2.5 py-0.5 text-xs font-medium capitalize"
+                  <div class="flex-1 w-full sm:w-auto">
+                    <div class="flex flex-wrap items-center gap-2 mb-2">
+                      <span class="inline-flex items-center rounded-full px-3 py-1 text-xs font-bold capitalize shadow-md"
                             [class]="getPhaseClass(blunder.phase)">
                         {{ blunder.phase }}
                       </span>
-                      <span class="text-sm font-medium">Move {{ blunder.moveNumber }}</span>
-                      <span class="text-xs text-muted-foreground">vs {{ blunder.opponent }}</span>
+                      <span class="text-sm font-bold text-foreground">Move {{ blunder.moveNumber }}</span>
+                      <span class="text-xs text-muted-foreground font-medium">vs {{ blunder.opponent }}</span>
                     </div>
-                    <div class="text-xs text-muted-foreground mt-1">
-                      Played: {{ blunder.playerMove }} | Best: {{ blunder.bestMove }}
+                    <div class="text-xs text-muted-foreground font-medium bg-muted/30 rounded-lg p-2">
+                      <span class="font-semibold text-destructive">Played:</span> {{ blunder.playerMove }} 
+                      <span class="mx-1">|</span> 
+                      <span class="font-semibold text-success">Best:</span> {{ blunder.bestMove }}
                     </div>
                   </div>
-                  <div class="text-right">
-                    <div [class]="getSeverityClass(blunder.centipawnLoss)" class="font-medium">
+                  <div class="text-left sm:text-right mt-2 sm:mt-0 flex sm:flex-col items-center sm:items-end gap-2 sm:gap-1">
+                    <div [class]="getSeverityClass(blunder.centipawnLoss)" class="font-bold text-base sm:text-lg">
                       -{{ blunder.centipawnLoss }} CP
                     </div>
-                    <div class="text-xs text-muted-foreground">{{ formatDate(blunder.date) }}</div>
+                    <div class="text-xs text-muted-foreground font-medium">{{ formatDate(blunder.date) }}</div>
                   </div>
                 </div>
               </div>

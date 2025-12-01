@@ -47,38 +47,54 @@ interface ManualPGNForm {
   `],
   template: `
     <app-layout>
-      <div class="mx-auto max-w-3xl space-y-6">
-        <div>
-          <h1 class="text-2xl sm:text-3xl font-bold text-foreground">Upload Games</h1>
+      <div class="mx-auto max-w-4xl space-y-6 sm:space-y-8 pb-8">
+        <!-- Header -->
+        <div class="animate-fade-in">
+          <h1 class="text-3xl sm:text-4xl lg:text-5xl font-bold text-gradient tracking-tight mb-2">Upload Games</h1>
           <p class="text-sm sm:text-base text-muted-foreground">Import PGN files or enter games manually</p>
         </div>
 
         <!-- Tab Navigation -->
-        <div class="flex gap-4 border-b border-border">
+        <div class="flex gap-2 sm:gap-4 border-b-2 border-border/30 animate-slide-up">
           <button
             (click)="activeTab = 'file'"
-            [class]="'px-4 py-2 font-medium transition-colors ' +
-              (activeTab === 'file' ? 'border-b-2 border-accent text-accent' : 'text-muted-foreground hover:text-foreground')">
-            File Upload
+            [class]="'px-4 sm:px-6 py-3 font-bold text-sm sm:text-base transition-all duration-300 rounded-t-lg ' +
+              (activeTab === 'file' ? 'border-b-4 border-primary text-primary bg-primary/10 -mb-0.5' : 'text-muted-foreground hover:text-foreground hover:bg-muted/50')">
+            <span class="flex items-center gap-2">
+              <svg class="h-4 w-4 sm:h-5 sm:w-5" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/>
+                <polyline points="17,8 12,3 7,8"/>
+                <line x1="12" x2="12" y1="3" y2="15"/>
+              </svg>
+              <span class="hidden sm:inline">File Upload</span>
+              <span class="sm:hidden">Upload</span>
+            </span>
           </button>
           <button
             (click)="activeTab = 'manual'; onManualTabClick()"
-            [class]="'px-4 py-2 font-medium transition-colors ' +
-              (activeTab === 'manual' ? 'border-b-2 border-accent text-accent' : 'text-muted-foreground hover:text-foreground')">
-            Manual Entry
+            [class]="'px-4 sm:px-6 py-3 font-bold text-sm sm:text-base transition-all duration-300 rounded-t-lg ' +
+              (activeTab === 'manual' ? 'border-b-4 border-primary text-primary bg-primary/10 -mb-0.5' : 'text-muted-foreground hover:text-foreground hover:bg-muted/50')">
+            <span class="flex items-center gap-2">
+              <svg class="h-4 w-4 sm:h-5 sm:w-5" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                <path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/>
+                <path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"/>
+              </svg>
+              <span class="hidden sm:inline">Manual Entry</span>
+              <span class="sm:hidden">Manual</span>
+            </span>
           </button>
         </div>
 
         <!-- File Upload Tab -->
-        <div *ngIf="activeTab === 'file'" class="rounded-lg border bg-card text-card-foreground shadow-sm">
-          <div class="flex flex-col space-y-1.5 p-6">
-            <h3 class="text-2xl font-semibold leading-none tracking-tight">PGN File Upload</h3>
-            <p class="text-sm text-muted-foreground">Upload your chess games in PGN format for comprehensive analysis</p>
+        <div *ngIf="activeTab === 'file'" class="rounded-xl sm:rounded-2xl border-2 border-border/30 gradient-card text-card-foreground shadow-2xl backdrop-blur-sm overflow-hidden animate-slide-up" style="animation-delay: 0.1s;">
+          <div class="flex flex-col space-y-2 p-4 sm:p-6 bg-gradient-to-br from-primary/5 to-transparent">
+            <h3 class="text-xl sm:text-2xl font-bold text-gradient">PGN File Upload</h3>
+            <p class="text-xs sm:text-sm text-muted-foreground">Upload your chess games in PGN format for comprehensive analysis</p>
           </div>
-          <div class="p-6 pt-0 space-y-6">
+          <div class="p-4 sm:p-6 pt-0 space-y-4 sm:space-y-6">
             <div
-              [class]="'relative flex min-h-[300px] cursor-pointer flex-col items-center justify-center rounded-lg border-2 border-dashed transition-all ' +
-                (dragActive ? 'border-accent bg-accent/10' : 'border-border bg-muted/20 hover:border-accent/50 hover:bg-muted/40')"
+              [class]="'relative flex min-h-[250px] sm:min-h-[300px] cursor-pointer flex-col items-center justify-center rounded-xl border-3 border-dashed transition-all duration-300 p-4 sm:p-6 ' +
+                (dragActive ? 'border-primary bg-primary/10 scale-[1.02] shadow-glow-primary' : 'border-border/50 bg-gradient-to-br from-muted/20 to-muted/40 hover:border-primary/50 hover:bg-muted/50 hover:shadow-xl')"
               (dragenter)="handleDragEnter($event)"
               (dragleave)="handleDragLeave($event)"
               (dragover)="handleDragOver($event)"
@@ -93,19 +109,19 @@ interface ManualPGNForm {
                 (change)="handleFileInput($event)"
                 class="hidden" />
 
-              <div class="flex flex-col items-center gap-4 text-center">
-                <div class="rounded-full bg-accent/10 p-6">
-                  <svg class="h-12 w-12 text-accent" xmlns="http://www.w3.org/2000/svg" width="48" height="48" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+              <div class="flex flex-col items-center gap-3 sm:gap-4 text-center">
+                <div class="rounded-full bg-primary/10 p-4 sm:p-6 shadow-lg">
+                  <svg class="h-10 w-10 sm:h-12 sm:w-12 text-primary" xmlns="http://www.w3.org/2000/svg" width="48" height="48" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
                     <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/>
                     <polyline points="17,8 12,3 7,8"/>
                     <line x1="12" x2="12" y1="3" y2="15"/>
                   </svg>
                 </div>
                 <div>
-                  <p class="text-lg font-semibold text-foreground">Drop your PGN files here</p>
-                  <p class="text-sm text-muted-foreground">or click to browse files</p>
+                  <p class="text-base sm:text-lg font-bold text-foreground">Drop your PGN files here</p>
+                  <p class="text-sm text-muted-foreground mt-1">or click to browse files</p>
                 </div>
-                <p class="text-xs text-muted-foreground">Supports multiple file selection • Max 10MB per file</p>
+                <p class="text-xs text-muted-foreground">Supports multiple files • Max 10MB each</p>
               </div>
             </div>
 
@@ -177,18 +193,23 @@ interface ManualPGNForm {
             <button
               (click)="handleUpload()"
               [disabled]="files.length === 0 || uploadStatus === 'uploading'"
-              class="w-full inline-flex items-center justify-center rounded-md text-sm font-medium ring-offset-background transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:pointer-events-none disabled:opacity-50 bg-primary text-primary-foreground hover:bg-primary/90 h-11 px-8">
+              class="w-full inline-flex items-center justify-center rounded-xl text-sm sm:text-base font-bold transition-all duration-300 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-2 disabled:pointer-events-none disabled:opacity-50 bg-gradient-to-r from-primary to-primary/80 text-primary-foreground hover:shadow-glow-primary hover:scale-[1.02] h-12 sm:h-14 px-8 shadow-lg">
               <ng-container [ngSwitch]="uploadStatus">
-                <span *ngSwitchCase="'uploading'">Processing...</span>
+                <span *ngSwitchCase="'uploading'" class="flex items-center gap-2">
+                  <svg class="h-5 w-5 animate-spin" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                    <path d="M21 12a9 9 0 11-6.219-8.56"/>
+                  </svg>
+                  Processing...
+                </span>
                 <span *ngSwitchCase="'success'" class="flex items-center gap-2">
-                  <svg class="h-5 w-5" xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                  <svg class="h-5 w-5 sm:h-6 sm:w-6" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
                     <path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"/>
                     <polyline points="22,4 12,14.01 9,11.01"/>
                   </svg>
                   Upload Complete
                 </span>
                 <span *ngSwitchDefault class="flex items-center gap-2">
-                  <svg class="h-5 w-5" xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                  <svg class="h-5 w-5 sm:h-6 sm:w-6" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
                     <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/>
                     <polyline points="17,8 12,3 7,8"/>
                     <line x1="12" x2="12" y1="3" y2="15"/>
@@ -201,12 +222,12 @@ interface ManualPGNForm {
         </div>
 
         <!-- Manual Entry Tab -->
-        <div *ngIf="activeTab === 'manual'" class="rounded-lg border bg-card text-card-foreground shadow-sm">
-          <div class="flex flex-col space-y-1.5 p-6">
-            <h3 class="text-2xl font-semibold leading-none tracking-tight">Manual Game Entry</h3>
-            <p class="text-sm text-muted-foreground">Enter game details and moves from your tournament</p>
+        <div *ngIf="activeTab === 'manual'" class="rounded-xl sm:rounded-2xl border-2 border-border/30 gradient-card text-card-foreground shadow-2xl backdrop-blur-sm overflow-hidden animate-slide-up" style="animation-delay: 0.1s;">
+          <div class="flex flex-col space-y-2 p-4 sm:p-6 bg-gradient-to-br from-accent/5 to-transparent">
+            <h3 class="text-xl sm:text-2xl font-bold text-gradient">Manual Game Entry</h3>
+            <p class="text-xs sm:text-sm text-muted-foreground">Enter game details and moves from your tournament</p>
           </div>
-          <div class="p-6 pt-0 space-y-6">
+          <div class="p-4 sm:p-6 pt-0 space-y-4 sm:space-y-6">
             <form (ngSubmit)="handleManualSubmit()" #manualForm="ngForm">
               <!-- Tournament Name -->
               <div class="space-y-2">
@@ -528,23 +549,30 @@ interface ManualPGNForm {
         </div>
 
         <!-- How it works -->
-        <div class="rounded-lg border border-accent/20 bg-accent/5 text-card-foreground shadow-sm">
-          <div class="flex flex-col space-y-1.5 p-6">
-            <h3 class="text-base font-semibold leading-none tracking-tight">How it works</h3>
+        <div class="rounded-xl sm:rounded-2xl border-2 border-accent/30 bg-gradient-to-br from-accent/10 to-accent/5 text-card-foreground shadow-xl backdrop-blur-sm overflow-hidden animate-slide-up" style="animation-delay: 0.2s;">
+          <div class="flex items-center gap-3 p-4 sm:p-6 pb-3 sm:pb-4">
+            <div class="p-2 rounded-lg bg-accent/20">
+              <svg class="h-5 w-5 text-accent" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                <circle cx="12" cy="12" r="10"/>
+                <path d="M12 16v-4"/>
+                <path d="M12 8h.01"/>
+              </svg>
+            </div>
+            <h3 class="text-base sm:text-lg font-bold text-gradient">How it works</h3>
           </div>
-          <div class="p-6 pt-0">
-            <ol class="space-y-2 text-sm text-foreground">
-              <li class="flex gap-2">
-                <span class="font-semibold text-accent">1.</span>
-                <span>Upload PGN files or enter game details manually</span>
+          <div class="p-4 sm:p-6 pt-0">
+            <ol class="space-y-3 sm:space-y-4 text-sm sm:text-base">
+              <li class="flex gap-3 sm:gap-4 p-3 sm:p-4 rounded-lg bg-card/50 border border-border/30">
+                <span class="flex-shrink-0 flex items-center justify-center w-7 h-7 sm:w-8 sm:h-8 rounded-full bg-accent text-accent-foreground font-bold text-sm sm:text-base shadow-md">1</span>
+                <span class="text-foreground font-medium">Upload PGN files or enter game details manually</span>
               </li>
-              <li class="flex gap-2">
-                <span class="font-semibold text-accent">2.</span>
-                <span>Our Stockfish engine analyzes each move for accuracy and mistakes</span>
+              <li class="flex gap-3 sm:gap-4 p-3 sm:p-4 rounded-lg bg-card/50 border border-border/30">
+                <span class="flex-shrink-0 flex items-center justify-center w-7 h-7 sm:w-8 sm:h-8 rounded-full bg-accent text-accent-foreground font-bold text-sm sm:text-base shadow-md">2</span>
+                <span class="text-foreground font-medium">Our Stockfish engine analyzes each move for accuracy and mistakes</span>
               </li>
-              <li class="flex gap-2">
-                <span class="font-semibold text-accent">3.</span>
-                <span>View detailed insights on the dashboard and individual game pages</span>
+              <li class="flex gap-3 sm:gap-4 p-3 sm:p-4 rounded-lg bg-card/50 border border-border/30">
+                <span class="flex-shrink-0 flex items-center justify-center w-7 h-7 sm:w-8 sm:h-8 rounded-full bg-accent text-accent-foreground font-bold text-sm sm:text-base shadow-md">3</span>
+                <span class="text-foreground font-medium">View detailed insights on the dashboard and individual game pages</span>
               </li>
             </ol>
           </div>

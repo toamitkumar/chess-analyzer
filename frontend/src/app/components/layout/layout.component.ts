@@ -7,7 +7,7 @@ import { RouterModule } from '@angular/router';
   standalone: true,
   imports: [CommonModule, RouterModule],
   template: `
-    <div class="min-h-screen bg-background">
+    <div class="min-h-screen bg-background pb-20 md:pb-0">
       <nav class="sticky top-0 z-50 border-b border-border bg-card shadow-xl">
         <div class="container mx-auto px-4">
           <div class="flex h-16 items-center justify-between">
@@ -74,79 +74,71 @@ import { RouterModule } from '@angular/router';
               </a>
             </div>
 
-            <!-- Mobile Menu Button -->
-            <button (click)="toggleMobileMenu()" class="md:hidden p-2 rounded-lg border border-transparent hover:border-primary/30 hover:bg-primary/5 transition-all duration-300 text-muted-foreground hover:text-primary">
-              <svg *ngIf="!mobileMenuOpen" class="h-6 w-6" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 6h16M4 12h16M4 18h16" />
-              </svg>
-              <svg *ngIf="mobileMenuOpen" class="h-6 w-6" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12" />
-              </svg>
-            </button>
           </div>
+        </div>
+      </nav>
 
-          <!-- Mobile Navigation -->
-          <div *ngIf="mobileMenuOpen" class="md:hidden py-4 border-t border-border/50 animate-slide-down">
-            <div class="flex flex-col gap-2">
-              <a routerLink="/"
-                 (click)="closeMobileMenu()"
-                 routerLinkActive="bg-secondary text-secondary-foreground"
-                 [routerLinkActiveOptions]="{exact: true}"
-                 class="flex items-center gap-2 rounded-md px-4 py-3 text-sm font-medium transition-colors text-muted-foreground hover:bg-muted hover:text-foreground">
-                <svg class="h-4 w-4" xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-                  <path d="m3 9 9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/>
-                  <polyline points="9,22 9,12 15,12 15,22"/>
-                </svg>
-                Dashboard
-              </a>
-              <a routerLink="/upload"
-                 (click)="closeMobileMenu()"
-                 routerLinkActive="bg-secondary text-secondary-foreground"
-                 class="flex items-center gap-2 rounded-md px-4 py-3 text-sm font-medium transition-colors text-muted-foreground hover:bg-muted hover:text-foreground">
-                <svg class="h-4 w-4" xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-                  <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/>
-                  <polyline points="7,10 12,15 17,10"/>
-                  <line x1="12" x2="12" y1="15" y2="3"/>
-                </svg>
-                Upload
-              </a>
-              <a routerLink="/games"
-                 (click)="closeMobileMenu()"
-                 routerLinkActive="bg-secondary text-secondary-foreground"
-                 class="flex items-center gap-2 rounded-md px-4 py-3 text-sm font-medium transition-colors text-muted-foreground hover:bg-muted hover:text-foreground">
-                <svg class="h-4 w-4" xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-                  <path d="M3 3v18h18"/>
-                  <path d="m19 9-5 5-4-4-3 3"/>
-                </svg>
-                Games
-              </a>
-              <a routerLink="/tournaments"
-                 (click)="closeMobileMenu()"
-                 routerLinkActive="bg-secondary text-secondary-foreground"
-                 class="flex items-center gap-2 rounded-md px-4 py-3 text-sm font-medium transition-colors text-muted-foreground hover:bg-muted hover:text-foreground">
-                <svg class="h-4 w-4" xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-                  <path d="M6 9H4.5a2.5 2.5 0 0 1 0-5H6"/>
-                  <path d="M18 9h1.5a2.5 2.5 0 0 0 0-5H18"/>
-                  <path d="M4 22h16"/>
-                  <path d="M10 14.66V17c0 .55-.47.98-.97 1.21C7.85 18.75 7 20.24 7 22"/>
-                  <path d="M14 14.66V17c0 .55.47.98.97 1.21C16.15 18.75 17 20.24 17 22"/>
-                  <path d="M18 2H6v7a6 6 0 0 0 12 0V2Z"/>
-                </svg>
-                Tournaments
-              </a>
-              <a routerLink="/blunders"
-                 (click)="closeMobileMenu()"
-                 routerLinkActive="bg-secondary text-secondary-foreground"
-                 class="flex items-center gap-2 rounded-md px-4 py-3 text-sm font-medium transition-colors text-muted-foreground hover:bg-muted hover:text-foreground">
-                <svg class="h-4 w-4" xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-                  <path d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"/>
-                  <line x1="12" y1="9" x2="12" y2="13"/>
-                  <line x1="12" y1="17" x2="12.01" y2="17"/>
-                </svg>
-                Blunders
-              </a>
+      <!-- Mobile Bottom Navigation -->
+      <nav class="md:hidden fixed bottom-0 left-0 right-0 z-50 border-t-2 border-border/30 bg-card/95 backdrop-blur-lg shadow-2xl">
+        <div class="grid grid-cols-5 h-16">
+          <a routerLink="/"
+             routerLinkActive="text-primary bg-primary/10"
+             [routerLinkActiveOptions]="{exact: true}"
+             class="flex flex-col items-center justify-center gap-1 text-muted-foreground hover:text-primary transition-all duration-300 active:scale-95">
+            <svg class="h-5 w-5" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+              <path d="m3 9 9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/>
+              <polyline points="9,22 9,12 15,12 15,22"/>
+            </svg>
+            <span class="text-xs font-medium">Home</span>
+          </a>
+          
+          <a routerLink="/games"
+             routerLinkActive="text-primary bg-primary/10"
+             class="flex flex-col items-center justify-center gap-1 text-muted-foreground hover:text-primary transition-all duration-300 active:scale-95">
+            <svg class="h-5 w-5" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+              <path d="M3 3v18h18"/>
+              <path d="m19 9-5 5-4-4-3 3"/>
+            </svg>
+            <span class="text-xs font-medium">Games</span>
+          </a>
+          
+          <a routerLink="/upload"
+             routerLinkActive="text-primary bg-primary/10"
+             class="flex flex-col items-center justify-center text-muted-foreground hover:text-primary transition-all duration-300 active:scale-95 relative -mt-6">
+            <div class="flex h-14 w-14 items-center justify-center rounded-full bg-gradient-to-br from-primary to-accent shadow-glow-primary border-4 border-card">
+              <svg class="h-7 w-7 text-primary-foreground" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/>
+                <polyline points="17,8 12,3 7,8"/>
+                <line x1="12" x2="12" y1="3" y2="15"/>
+              </svg>
             </div>
-          </div>
+            <span class="text-xs font-medium mt-1">Upload</span>
+          </a>
+          
+          <a routerLink="/tournaments"
+             routerLinkActive="text-primary bg-primary/10"
+             class="flex flex-col items-center justify-center gap-1 text-muted-foreground hover:text-primary transition-all duration-300 active:scale-95">
+            <svg class="h-5 w-5" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+              <path d="M6 9H4.5a2.5 2.5 0 0 1 0-5H6"/>
+              <path d="M18 9h1.5a2.5 2.5 0 0 0 0-5H18"/>
+              <path d="M4 22h16"/>
+              <path d="M10 14.66V17c0 .55-.47.98-.97 1.21C7.85 18.75 7 20.24 7 22"/>
+              <path d="M14 14.66V17c0 .55.47.98.97 1.21C16.15 18.75 17 20.24 17 22"/>
+              <path d="M18 2H6v7a6 6 0 0 0 12 0V2Z"/>
+            </svg>
+            <span class="text-xs font-medium">Events</span>
+          </a>
+          
+          <a routerLink="/blunders"
+             routerLinkActive="text-warning bg-warning/10"
+             class="flex flex-col items-center justify-center gap-1 text-muted-foreground hover:text-warning transition-all duration-300 active:scale-95">
+            <svg class="h-5 w-5" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+              <path d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"/>
+              <line x1="12" y1="9" x2="12" y2="13"/>
+              <line x1="12" y1="17" x2="12.01" y2="17"/>
+            </svg>
+            <span class="text-xs font-medium">Errors</span>
+          </a>
         </div>
       </nav>
 
@@ -156,14 +148,4 @@ import { RouterModule } from '@angular/router';
     </div>
   `
 })
-export class LayoutComponent {
-  mobileMenuOpen = false;
-
-  toggleMobileMenu() {
-    this.mobileMenuOpen = !this.mobileMenuOpen;
-  }
-
-  closeMobileMenu() {
-    this.mobileMenuOpen = false;
-  }
-}
+export class LayoutComponent {}

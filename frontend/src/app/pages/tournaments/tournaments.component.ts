@@ -29,58 +29,87 @@ interface Tournament {
   imports: [CommonModule, RouterModule, LayoutComponent, StatCardComponent],
   template: `
     <app-layout>
-      <div class="space-y-6">
-        <div>
-          <h1 class="text-2xl sm:text-3xl font-bold text-foreground">Tournament Performance</h1>
+      <div class="space-y-6 sm:space-y-8 pb-8">
+        <!-- Header -->
+        <div class="animate-fade-in">
+          <h1 class="text-3xl sm:text-4xl lg:text-5xl font-bold text-gradient tracking-tight mb-2">Tournament Performance</h1>
           <p class="text-sm sm:text-base text-muted-foreground">Analyze your performance across tournaments</p>
         </div>
 
-        <div class="grid gap-4 md:grid-cols-3">
-          <app-stat-card
-            title="Total Tournaments"
-            [value]="tournaments.length"
-            [icon]="Trophy"
-            [subtitle]="getTotalGames() + ' total games'"
-            variant="default">
-          </app-stat-card>
+        <!-- Stats Cards -->
+        <div class="grid gap-4 sm:gap-6 grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 animate-slide-up">
+          <div class="group">
+            <app-stat-card
+              title="Total Tournaments"
+              [value]="tournaments.length"
+              [icon]="Trophy"
+              [subtitle]="getTotalGames() + ' total games'"
+              variant="default"
+              class="transform transition-all duration-300 sm:hover:scale-105 sm:hover:-translate-y-1">
+            </app-stat-card>
+          </div>
 
-          <app-stat-card
-            title="Avg Win Rate"
-            [value]="getAvgWinRate() + '%'"
-            [icon]="TrendingUp"
-            subtitle="Across all tournaments"
-            variant="success">
-          </app-stat-card>
+          <div class="group">
+            <app-stat-card
+              title="Avg Win Rate"
+              [value]="getAvgWinRate() + '%'"
+              [icon]="TrendingUp"
+              subtitle="Across all tournaments"
+              variant="success"
+              class="transform transition-all duration-300 sm:hover:scale-105 sm:hover:-translate-y-1">
+            </app-stat-card>
+          </div>
 
-          <app-stat-card
-            title="Avg Accuracy"
-            [value]="getAvgAccuracy() + '%'"
-            [icon]="Target"
-            subtitle="Average performance"
-            variant="default">
-          </app-stat-card>
+          <div class="group sm:col-span-2 lg:col-span-1">
+            <app-stat-card
+              title="Avg Accuracy"
+              [value]="getAvgAccuracy() + '%'"
+              [icon]="Target"
+              subtitle="Average performance"
+              variant="default"
+              class="transform transition-all duration-300 sm:hover:scale-105 sm:hover:-translate-y-1">
+            </app-stat-card>
+          </div>
         </div>
 
-        <div class="rounded-xl border border-border gradient-card text-card-foreground shadow-xl">
-          <div class="flex flex-col space-y-1.5 p-6">
-            <h3 class="text-2xl font-semibold leading-none tracking-tight">Tournament History</h3>
+        <!-- Tournament History Card -->
+        <div class="rounded-xl sm:rounded-2xl border-2 border-border/30 gradient-card text-card-foreground shadow-2xl backdrop-blur-sm overflow-hidden animate-slide-up" style="animation-delay: 0.1s;">
+          <div class="flex flex-col space-y-2 p-4 sm:p-6 bg-gradient-to-br from-primary/5 to-transparent">
+            <h3 class="text-xl sm:text-2xl font-bold text-gradient">Tournament History</h3>
           </div>
-          <div class="p-6 pt-0">
+          <div class="p-4 sm:p-6 pt-0">
             <!-- Loading state -->
-            <div *ngIf="loading" class="flex justify-center items-center py-8">
-              <div class="text-muted-foreground">Loading tournaments...</div>
+            <div *ngIf="loading" class="flex flex-col justify-center items-center py-12 sm:py-16">
+              <div class="relative">
+                <div class="w-12 h-12 sm:w-16 sm:h-16 border-4 border-primary/20 border-t-primary rounded-full animate-spin"></div>
+                <div class="absolute inset-0 w-12 h-12 sm:w-16 sm:h-16 border-4 border-transparent border-t-accent rounded-full animate-spin" style="animation-duration: 1.5s;"></div>
+              </div>
+              <p class="mt-6 text-sm font-medium text-muted-foreground">Loading tournaments...</p>
             </div>
 
             <!-- Error state -->
-            <div *ngIf="error && !loading" class="rounded-xl border border-destructive/50 bg-destructive/10 p-4 shadow-lg">
-              <div class="text-destructive font-medium">Error loading tournaments: {{ error }}</div>
+            <div *ngIf="error && !loading" class="rounded-xl border-2 border-destructive/30 bg-gradient-to-br from-destructive/10 to-destructive/5 p-4 sm:p-6 shadow-lg">
+              <div class="flex items-start gap-3 sm:gap-4">
+                <div class="flex-shrink-0 p-2 rounded-lg bg-destructive/20">
+                  <svg class="w-5 h-5 sm:w-6 sm:h-6 text-destructive" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8v4m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"/>
+                  </svg>
+                </div>
+                <div>
+                  <h3 class="text-base sm:text-lg font-bold text-destructive mb-1">Error Loading Tournaments</h3>
+                  <p class="text-sm text-foreground/80">{{ error }}</p>
+                </div>
+              </div>
             </div>
 
             <!-- Empty state -->
-            <div *ngIf="!loading && !error && tournaments.length === 0" class="text-center py-12">
-              <div class="text-muted-foreground">
-                <p class="text-lg font-medium">No tournaments found</p>
-                <p class="text-sm mt-2">Upload some PGN files to create tournament records.</p>
+            <div *ngIf="!loading && !error && tournaments.length === 0" class="text-center py-12 sm:py-16">
+              <div class="rounded-2xl border-2 border-border/30 bg-card/50 backdrop-blur-sm p-8 sm:p-12 max-w-md mx-auto">
+                <svg class="w-16 h-16 sm:w-20 sm:h-20 mx-auto mb-4 text-muted-foreground/30" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 11H5m14 0a2 2 0 012 2v6a2 2 0 01-2 2H5a2 2 0 01-2-2v-6a2 2 0 012-2m14 0V9a2 2 0 00-2-2M5 11V9a2 2 0 012-2m0 0V5a2 2 0 012-2h6a2 2 0 012 2v2M7 7h10"/>
+                </svg>
+                <p class="text-lg sm:text-xl font-bold text-foreground mb-2">No tournaments found</p>
+                <p class="text-sm text-muted-foreground">Upload some PGN files to create tournament records.</p>
               </div>
             </div>
 
@@ -162,9 +191,9 @@ interface Tournament {
             </div>
 
             <!-- Mobile card view -->
-            <div *ngIf="!loading && !error && tournaments.length > 0" class="md:hidden space-y-3">
+            <div *ngIf="!loading && !error && tournaments.length > 0" class="md:hidden space-y-3 sm:space-y-4">
               <div *ngFor="let tournament of tournaments"
-                   class="rounded-xl border border-border gradient-card text-card-foreground shadow-xl p-4 space-y-3 cursor-pointer hover:shadow-glow-primary hover:-translate-y-1 transition-all duration-300"
+                   class="rounded-xl border-2 border-border/30 gradient-card text-card-foreground shadow-xl hover:shadow-glow-primary hover:border-primary/50 p-4 space-y-3 cursor-pointer transition-all duration-300"
                    [routerLink]="['/tournaments', tournament.id]">
                 <div class="flex items-start gap-2">
                   <svg class="h-5 w-5 text-primary mt-0.5" xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
@@ -255,7 +284,7 @@ export class TournamentsComponent implements OnInit {
       
       // Load performance data for each tournament using BE calculation
       this.tournaments = await Promise.all(
-        tournaments.map(async (tournament) => {
+        (tournaments || []).map(async (tournament) => {
           try {
             const performance = await this.chessApi.getTournamentPerformance(tournament.id).toPromise();
             

@@ -4,6 +4,7 @@ import { HttpClientModule } from '@angular/common/http';
 import { FormsModule } from '@angular/forms';
 import { LayoutComponent } from '../../components/layout/layout.component';
 import { ChessApiService } from '../../services/chess-api.service';
+import { AccessCodeService } from '../../services/access-code.service';
 import { Chess } from 'chess.js';
 import { Chessground } from '@lichess-org/chessground';
 import type { Api } from '@lichess-org/chessground/api';
@@ -578,6 +579,46 @@ interface ManualPGNForm {
           </div>
         </div>
       </div>
+
+      <!-- Access Code Modal -->
+      <div *ngIf="showAccessCodePrompt" class="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
+        <div class="bg-card rounded-2xl shadow-2xl max-w-md w-full p-6 sm:p-8 animate-scale-in">
+          <div class="text-center mb-6">
+            <div class="text-5xl mb-4">🔒</div>
+            <h2 class="text-2xl font-bold text-foreground mb-2">Access Code Required</h2>
+            <p class="text-muted-foreground text-sm">Enter the access code to upload games</p>
+          </div>
+
+          <div class="space-y-4">
+            <div>
+              <input
+                type="password"
+                [(ngModel)]="accessCode"
+                (keyup.enter)="verifyAndSetAccessCode()"
+                placeholder="Enter access code"
+                class="w-full px-4 py-3 border-2 border-border rounded-xl focus:outline-none focus:ring-2 focus:ring-primary focus:border-transparent text-center font-mono text-lg"
+                [class.border-red-500]="accessCodeError"
+                autofocus
+              />
+              <p *ngIf="accessCodeError" class="text-red-500 text-sm mt-2 text-center">{{ accessCodeError }}</p>
+            </div>
+
+            <div class="flex gap-3">
+              <button
+                (click)="cancelAccessCodePrompt()"
+                class="flex-1 px-4 py-3 border-2 border-border rounded-xl font-semibold text-foreground hover:bg-muted transition-colors">
+                Cancel
+              </button>
+              <button
+                (click)="verifyAndSetAccessCode()"
+                [disabled]="!accessCode.trim()"
+                class="flex-1 px-4 py-3 bg-gradient-to-r from-primary to-primary/80 text-primary-foreground rounded-xl font-semibold hover:shadow-lg transition-all disabled:opacity-50 disabled:cursor-not-allowed">
+                Verify & Upload
+              </button>
+            </div>
+          </div>
+        </div>
+      </div>
     </app-layout>
   `
 })
@@ -611,7 +652,15 @@ export class UploadComponent implements AfterViewInit, OnDestroy {
   manualSubmitStatus: 'idle' | 'uploading' | 'success' | 'error' = 'idle';
   manualSubmitError: string = '';
 
-  constructor(private chessApi: ChessApiService) {}
+  // Access code properties
+  showAccessCodePrompt = false;
+  accessCode = '';
+  accessCodeError = '';
+
+  constructor(
+    private chessApi: ChessApiService,
+    private accessCodeService: AccessCodeService
+  ) {}
 
   ngAfterViewInit() {
     // Initialize chessboard when view is ready and manual tab is active
@@ -1030,6 +1079,12 @@ export class UploadComponent implements AfterViewInit, OnDestroy {
       return;
     }
 
+    // Check if access code is set, if not prompt for it
+    if (!this.accessCodeService.hasCode()) {
+      this.showAccessCodePrompt = true;
+      return;
+    }
+
     this.uploadStatus = 'uploading';
 
     try {
@@ -1174,5 +1229,35 @@ export class UploadComponent implements AfterViewInit, OnDestroy {
       this.manualSubmitError = error.error?.error || error.message || 'Failed to submit game';
       console.error('Failed to submit manual game:', error);
     }
+  }
+
+  // Access code methods
+  async verifyAndSetAccessCode() {
+    if (!this.accessCode.trim()) {
+      this.accessCodeError = 'Please enter an access code';
+      return;
+    }
+
+    // Set the code temporarily
+    this.accessCodeService.setCode(this.accessCode);
+
+    try {
+      // Try to upload with the code
+      this.showAccessCodePrompt = false;
+      this.accessCodeError = '';
+      await this.handleUpload();
+    } catch (error: any) {
+      if (error.status === 403) {
+        this.accessCodeError = 'Invalid access code';
+        this.accessCodeService.clearCode();
+        this.showAccessCodePrompt = true;
+      }
+    }
+  }
+
+  cancelAccessCodePrompt() {
+    this.showAccessCodePrompt = false;
+    this.accessCode = '';
+    this.accessCodeError = '';
   }
 }

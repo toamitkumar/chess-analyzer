@@ -2,6 +2,7 @@ const express = require('express');
 const path = require('path');
 const fs = require('fs');
 const multer = require('multer');
+const rateLimit = require('express-rate-limit');
 const PerformanceCalculator = require('../models/performance-stats');
 const TrendCalculator = require('../models/trend-calculator');
 const HeatmapCalculator = require('../models/HeatmapCalculator');
@@ -17,6 +18,15 @@ const { checkAccessCode } = require('../middleware/access-code');
 
 const app = express();
 const port = API_CONFIG.port;
+
+// Rate limiter for upload endpoint
+const uploadLimiter = rateLimit({
+  windowMs: 15 * 60 * 1000, // 15 minutes
+  max: 10, // 10 uploads per 15 minutes per IP
+  message: 'Too many uploads from this IP, please try again later',
+  standardHeaders: true,
+  legacyHeaders: false
+});
 
 // Initialize database, file storage, tournament manager, and analyzer
 let database = null;
@@ -616,9 +626,9 @@ app.post('/api/manual-pgn', async (req, res) => {
   }
 });
 
-// Bind both routes to the same handler with access code protection
-app.post('/api/upload', checkAccessCode, upload.single('pgn'), uploadHandler);
-app.post('/api/upload/pgn', checkAccessCode, upload.single('pgn'), uploadHandler);
+// Bind both routes to the same handler with access code protection and rate limiting
+app.post('/api/upload', uploadLimiter, checkAccessCode, upload.single('pgn'), uploadHandler);
+app.post('/api/upload/pgn', uploadLimiter, checkAccessCode, upload.single('pgn'), uploadHandler);
 
 // Health check
 app.get('/api/health', (req, res) => {

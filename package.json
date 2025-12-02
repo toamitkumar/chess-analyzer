@@ -14,7 +14,9 @@
     "build": "cd frontend && npm install && npm run build --configuration production",
     "heroku-postbuild": "cd frontend && npm install && npm run build --configuration production",
     "download-puzzles": "node scripts/download-lichess-puzzles.js",
-    "import-puzzle-index": "node scripts/import-puzzle-index.js"
+    "import-puzzle-index": "node scripts/import-puzzle-index.js",
+    "test-import": "bash scripts/test-import.sh",
+    "import-production": "bash scripts/import-to-production.sh"
   },
   "engines": {
     "node": "20.x",
@@ -26,6 +28,7 @@
     "cli-progress": "^3.12.0",
     "csv-parser": "^3.2.0",
     "express": "^4.18.2",
+    "express-rate-limit": "^8.2.1",
     "multer": "^2.0.2",
     "pg": "^8.16.3",
     "pg-hstore": "^2.3.4",

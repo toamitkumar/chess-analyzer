@@ -13,6 +13,7 @@ const { getTournamentManager } = require('../models/tournament-manager');
 const AccuracyCalculator = require('../models/accuracy-calculator');
 const { getTournamentAnalyzer } = require('../models/tournament-analyzer');
 const { TARGET_PLAYER, API_CONFIG } = require('../config/app-config');
+const { checkAccessCode } = require('../middleware/access-code');
 
 const app = express();
 const port = API_CONFIG.port;
@@ -53,7 +54,7 @@ const upload = multer({
 app.use((req, res, next) => {
   res.header('Access-Control-Allow-Origin', '*');
   res.header('Access-Control-Allow-Methods', 'GET, POST, PUT, DELETE, OPTIONS');
-  res.header('Access-Control-Allow-Headers', 'Origin, X-Requested-With, Content-Type, Accept, Authorization');
+  res.header('Access-Control-Allow-Headers', 'Origin, X-Requested-With, Content-Type, Accept, Authorization, X-Access-Code');
   
   if (req.method === 'OPTIONS') {
     res.sendStatus(200);
@@ -66,6 +67,8 @@ app.use((req, res, next) => {
 app.use(express.static(path.join(__dirname, '../../frontend/dist/chess-analyzer')));
 app.use(express.json({ limit: '10mb' }));
 app.use(express.text({ limit: '10mb', type: 'text/plain' }));
+
+// Note: Access code protection applied only to upload endpoint (see upload route below)
 
 // Performance data cache
 let performanceCache = null;
@@ -613,9 +616,9 @@ app.post('/api/manual-pgn', async (req, res) => {
   }
 });
 
-// Bind both routes to the same handler
-app.post('/api/upload', upload.single('pgn'), uploadHandler);
-app.post('/api/upload/pgn', upload.single('pgn'), uploadHandler);
+// Bind both routes to the same handler with access code protection
+app.post('/api/upload', checkAccessCode, upload.single('pgn'), uploadHandler);
+app.post('/api/upload/pgn', checkAccessCode, upload.single('pgn'), uploadHandler);
 
 // Health check
 app.get('/api/health', (req, res) => {

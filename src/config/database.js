@@ -9,12 +9,15 @@ const pgPool = usePostgres ? new Pool({
   ssl: process.env.DATABASE_URL ? { rejectUnauthorized: false } : false
 }) : null;
 
-// SQLite setup (for development)
-const sqliteDb = !usePostgres ? new sqlite3.Database('./data/chess-analysis.db', (err) => {
+// SQLite setup (for development and testing)
+const isTestEnvironment = process.env.NODE_ENV === 'test';
+const dbFileName = isTestEnvironment ? 'chess_analysis_test.db' : 'chess-analysis.db';
+const sqliteDb = !usePostgres ? new sqlite3.Database(`./data/${dbFileName}`, (err) => {
   if (err) {
     console.error('Error opening SQLite database:', err);
   } else {
-    console.log('✅ Connected to SQLite database (development mode)');
+    const mode = isTestEnvironment ? 'test' : 'development';
+    console.log(`✅ Connected to SQLite database (${mode} mode)`);
     // Enable foreign key constraints (required for CASCADE DELETE to work)
     sqliteDb.run('PRAGMA foreign_keys = ON');
   }

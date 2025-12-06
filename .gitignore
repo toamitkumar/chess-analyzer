@@ -17,3 +17,4 @@ newfrontend/.angular/cache/
 frontend/.angular/cache/
 blunder.json
 test-migrations.js
+data/lichess_puzzles.csv.bz2

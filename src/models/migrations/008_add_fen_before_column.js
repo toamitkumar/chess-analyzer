@@ -15,13 +15,20 @@ class Migration008 {
   async up() {
     console.log('🔄 Running migration: Add fen_before column to analysis table');
 
-    // Add fen_before column
-    await this.db.run(`
-      ALTER TABLE analysis
-      ADD COLUMN fen_before TEXT
-    `);
-
-    console.log('  ✓ Added fen_before column to analysis table');
+    // Add fen_before column (check if it exists first)
+    try {
+      await this.db.run(`
+        ALTER TABLE analysis
+        ADD COLUMN fen_before TEXT
+      `);
+      console.log('  ✓ Added fen_before column to analysis table');
+    } catch (err) {
+      if (err.message.includes('duplicate column')) {
+        console.log('  ⏭️  Column fen_before already exists, skipping');
+      } else {
+        throw err;
+      }
+    }
   }
 
   async down() {

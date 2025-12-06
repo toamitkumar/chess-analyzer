@@ -93,9 +93,17 @@ class Migration002 {
       )
     `);
 
-    // Add time management columns to analysis table
-    await this.db.run(`ALTER TABLE analysis ADD COLUMN time_spent INTEGER DEFAULT 0`);
-    await this.db.run(`ALTER TABLE analysis ADD COLUMN time_remaining INTEGER DEFAULT 0`);
+    // Add time management columns to analysis table (check if they exist first)
+    try {
+      await this.db.run(`ALTER TABLE analysis ADD COLUMN time_spent INTEGER DEFAULT 0`);
+    } catch (err) {
+      if (!err.message.includes('duplicate column')) throw err;
+    }
+    try {
+      await this.db.run(`ALTER TABLE analysis ADD COLUMN time_remaining INTEGER DEFAULT 0`);
+    } catch (err) {
+      if (!err.message.includes('duplicate column')) throw err;
+    }
 
     // Create indexes for performance
     const indexes = [

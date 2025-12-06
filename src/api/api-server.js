@@ -2492,6 +2492,198 @@ app.post('/api/puzzles/link', async (req, res) => {
   }
 });
 
+//===========================================
+// Learning Path API Endpoints (Phase 3: Issue #78)
+//===========================================
+
+// GET /api/learning-path - Get personalized learning path
+app.get('/api/learning-path', async (req, res) => {
+  try {
+    const LearningPathGenerator = require('../models/learning-path-generator');
+    const pathGenerator = new LearningPathGenerator(database);
+    const learningPath = await pathGenerator.getLearningPath();
+    res.json(learningPath);
+  } catch (error) {
+    console.error('[API] Error getting learning path:', error);
+    res.status(500).json({ error: 'Failed to generate learning path' });
+  }
+});
+
+// GET /api/learning-path/recommendations - Get puzzle recommendations
+app.get('/api/learning-path/recommendations', async (req, res) => {
+  try {
+    const { limit = 10, rating = 1500, enhanced = false } = req.query;
+    const LearningPathGenerator = require('../models/learning-path-generator');
+    const pathGenerator = new LearningPathGenerator(database);
+    
+    if (enhanced === 'true') {
+      // Enhanced recommendations with spaced repetition and adaptive difficulty
+      const recommendations = await pathGenerator.generateEnhancedRecommendations({
+        limit: parseInt(limit),
+        playerRating: parseInt(rating)
+      });
+      res.json(recommendations);
+    } else {
+      // Basic recommendations
+      const recommendations = await pathGenerator.generateRecommendations({
+        limit: parseInt(limit),
+        playerRating: parseInt(rating)
+      });
+      res.json({ recommendations });
+    }
+  } catch (error) {
+    console.error('[API] Error getting recommendations:', error);
+    res.status(500).json({ error: 'Failed to get recommendations' });
+  }
+});
+
+// GET /api/learning-path/daily-goals - Get daily goals
+app.get('/api/learning-path/daily-goals', async (req, res) => {
+  try {
+    const LearningPathGenerator = require('../models/learning-path-generator');
+    const pathGenerator = new LearningPathGenerator(database);
+    const dailyGoals = await pathGenerator.generateDailyGoals();
+    res.json(dailyGoals);
+  } catch (error) {
+    console.error('[API] Error getting daily goals:', error);
+    res.status(500).json({ error: 'Failed to get daily goals' });
+  }
+});
+
+// GET /api/learning-path/review - Get puzzles due for review (spaced repetition)
+app.get('/api/learning-path/review', async (req, res) => {
+  try {
+    const LearningPathGenerator = require('../models/learning-path-generator');
+    const pathGenerator = new LearningPathGenerator(database);
+    const reviewPuzzles = await pathGenerator.getPuzzlesDueForReview();
+    res.json({ puzzles: reviewPuzzles, count: reviewPuzzles.length });
+  } catch (error) {
+    console.error('[API] Error getting review puzzles:', error);
+    res.status(500).json({ error: 'Failed to get review puzzles' });
+  }
+});
+
+// GET /api/learning-path/adaptive-difficulty - Get adaptive difficulty recommendations
+app.get('/api/learning-path/adaptive-difficulty', async (req, res) => {
+  try {
+    const { rating = 1500 } = req.query;
+    const LearningPathGenerator = require('../models/learning-path-generator');
+    const pathGenerator = new LearningPathGenerator(database);
+    const adaptiveDifficulty = await pathGenerator.getAdaptiveDifficulty(parseInt(rating));
+    res.json(adaptiveDifficulty);
+  } catch (error) {
+    console.error('[API] Error getting adaptive difficulty:', error);
+    res.status(500).json({ error: 'Failed to get adaptive difficulty' });
+  }
+});
+
+// GET /api/learning-path/trends - Get performance trends
+app.get('/api/learning-path/trends', async (req, res) => {
+  try {
+    const { days = 30 } = req.query;
+    const LearningPathGenerator = require('../models/learning-path-generator');
+    const pathGenerator = new LearningPathGenerator(database);
+    const trends = await pathGenerator.getPerformanceTrends(parseInt(days));
+    res.json(trends);
+  } catch (error) {
+    console.error('[API] Error getting performance trends:', error);
+    res.status(500).json({ error: 'Failed to get performance trends' });
+  }
+});
+
+// GET /api/learning-path/theme-mastery - Get theme mastery levels
+app.get('/api/learning-path/theme-mastery', async (req, res) => {
+  try {
+    const LearningPathGenerator = require('../models/learning-path-generator');
+    const pathGenerator = new LearningPathGenerator(database);
+    const themeMastery = await pathGenerator.getThemeMasteryLevels();
+    res.json({ themes: themeMastery });
+  } catch (error) {
+    console.error('[API] Error getting theme mastery:', error);
+    res.status(500).json({ error: 'Failed to get theme mastery' });
+  }
+});
+
+// POST /api/puzzle-progress - Record puzzle attempt
+app.post('/api/puzzle-progress', async (req, res) => {
+  try {
+    const { puzzleId, solved, timeSpent, movesCount, hintsUsed } = req.body;
+    
+    if (!puzzleId) {
+      return res.status(400).json({ error: 'Puzzle ID is required' });
+    }
+
+    const PuzzleProgressTracker = require('../models/puzzle-progress-tracker');
+    const progressTracker = new PuzzleProgressTracker(database);
+    
+    const progress = await progressTracker.recordAttempt(puzzleId, {
+      solved: Boolean(solved),
+      timeSpent: parseInt(timeSpent) || 0,
+      movesCount: parseInt(movesCount) || 0,
+      hintsUsed: parseInt(hintsUsed) || 0
+    });
+
+    res.json({ success: true, progress });
+  } catch (error) {
+    console.error('[API] Error recording puzzle progress:', error);
+    res.status(500).json({ error: 'Failed to record progress' });
+  }
+});
+
+// GET /api/puzzle-progress/:puzzleId - Get progress for specific puzzle
+app.get('/api/puzzle-progress/:puzzleId', async (req, res) => {
+  try {
+    const { puzzleId } = req.params;
+    const PuzzleProgressTracker = require('../models/puzzle-progress-tracker');
+    const progressTracker = new PuzzleProgressTracker(database);
+    
+    const progress = await progressTracker.getProgress(puzzleId);
+    
+    if (!progress) {
+      return res.status(404).json({ error: 'Progress not found' });
+    }
+
+    res.json(progress);
+  } catch (error) {
+    console.error('[API] Error getting puzzle progress:', error);
+    res.status(500).json({ error: 'Failed to get progress' });
+  }
+});
+
+// GET /api/puzzle-progress - Get all progress
+app.get('/api/puzzle-progress', async (req, res) => {
+  try {
+    const { limit = 100, orderBy = 'last_attempted', order = 'DESC', minMastery = 0 } = req.query;
+    const PuzzleProgressTracker = require('../models/puzzle-progress-tracker');
+    const progressTracker = new PuzzleProgressTracker(database);
+    
+    const progress = await progressTracker.getAllProgress({
+      limit: parseInt(limit),
+      orderBy,
+      order,
+      minMastery: parseInt(minMastery)
+    });
+
+    res.json({ progress });
+  } catch (error) {
+    console.error('[API] Error getting all progress:', error);
+    res.status(500).json({ error: 'Failed to get progress' });
+  }
+});
+
+// GET /api/puzzle-statistics - Get puzzle statistics
+app.get('/api/puzzle-statistics', async (req, res) => {
+  try {
+    const PuzzleProgressTracker = require('../models/puzzle-progress-tracker');
+    const progressTracker = new PuzzleProgressTracker(database);
+    const statistics = await progressTracker.getStatistics();
+    res.json(statistics);
+  } catch (error) {
+    console.error('[API] Error getting puzzle statistics:', error);
+    res.status(500).json({ error: 'Failed to get statistics' });
+  }
+});
+
 // Serve Angular app for all non-API routes (MUST BE LAST)
 app.get('*', (req, res) => {
   // Only serve Angular for non-API routes
@@ -2511,6 +2703,8 @@ async function startServer() {
       console.log(`📊 API available at http://localhost:${port}/api/performance`);
       console.log(`💾 Database API at http://localhost:${port}/api/performance-db`);
       console.log(`🔥 Heatmap API at http://localhost:${port}/api/heatmap-db`);
+      console.log(`🧩 Learning Path API at http://localhost:${port}/api/learning-path`);
+      console.log(`📈 Puzzle Progress API at http://localhost:${port}/api/puzzle-progress`);
     });
 
     server.on('error', (err) => {

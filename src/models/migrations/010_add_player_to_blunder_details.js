@@ -16,12 +16,19 @@ class Migration010 {
     console.log('🔄 Running migration: Add player_color to blunder_details table');
 
     // Add column to track which player made the blunder
-    await this.db.run(`
-      ALTER TABLE blunder_details
-      ADD COLUMN player_color TEXT CHECK (player_color IN ('white', 'black'))
-    `);
-
-    console.log('  ✓ Added player_color column to blunder_details table');
+    try {
+      await this.db.run(`
+        ALTER TABLE blunder_details
+        ADD COLUMN player_color TEXT CHECK (player_color IN ('white', 'black'))
+      `);
+      console.log('  ✓ Added player_color column to blunder_details table');
+    } catch (err) {
+      if (err.message.includes('duplicate column')) {
+        console.log('  ⏭️  Column player_color already exists, skipping');
+      } else {
+        throw err;
+      }
+    }
   }
 
   async down() {

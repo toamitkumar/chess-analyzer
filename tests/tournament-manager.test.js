@@ -9,22 +9,13 @@ describe('TournamentManager', () => {
   let testDbPath;
 
   beforeEach(async () => {
-    // Create temporary test database
-    testDbPath = path.join(__dirname, '../data/test_tournament.db');
-    
-    // Remove test db if exists
-    if (fs.existsSync(testDbPath)) {
-      fs.unlinkSync(testDbPath);
-    }
-
-    // Create test database instance
+    // Use shared test database
     testDb = new Database();
-    testDb.dbPath = testDbPath;
     await testDb.connect();
     
-    // Create base tables
+    // Create base tables with IF NOT EXISTS
     await testDb.run(`
-      CREATE TABLE tournaments (
+      CREATE TABLE IF NOT EXISTS tournaments (
         id INTEGER PRIMARY KEY AUTOINCREMENT,
         name TEXT NOT NULL UNIQUE,
         event_type TEXT,
@@ -37,7 +28,7 @@ describe('TournamentManager', () => {
     `);
 
     await testDb.run(`
-      CREATE TABLE games (
+      CREATE TABLE IF NOT EXISTS games (
         id INTEGER PRIMARY KEY AUTOINCREMENT,
         pgn_file_path TEXT NOT NULL,
         white_player TEXT NOT NULL,
@@ -52,6 +43,13 @@ describe('TournamentManager', () => {
         created_at DATETIME DEFAULT CURRENT_TIMESTAMP
       )
     `);
+    
+    // Clean up any existing test data AFTER tables are created
+    await testDb.run('DELETE FROM games WHERE pgn_file_path = ?', ['test_tournament_manager']);
+    await testDb.run(`DELETE FROM tournaments WHERE name IN (
+      'Test Tournament', 'Existing Tournament', 'Tournament 1', 'Tournament 2',
+      'Stats Test Tournament', 'Count Test Tournament', 'Processing Test Tournament'
+    )`);
 
     // Create tournament manager with test database
     tournamentManager = new TournamentManager();
@@ -59,9 +57,15 @@ describe('TournamentManager', () => {
   });
 
   afterEach(async () => {
-    await testDb.close();
-    if (fs.existsSync(testDbPath)) {
-      fs.unlinkSync(testDbPath);
+    // Clean up test data but don't close shared database connection
+    try {
+      await testDb.run('DELETE FROM games WHERE pgn_file_path = ?', ['test_tournament_manager']);
+      await testDb.run(`DELETE FROM tournaments WHERE name IN (
+        'Test Tournament', 'Existing Tournament', 'Tournament 1', 'Tournament 2',
+        'Stats Test Tournament', 'Count Test Tournament', 'Processing Test Tournament'
+      )`);
+    } catch (err) {
+      // Ignore errors during cleanup
     }
   });
 
@@ -265,17 +269,17 @@ describe('TournamentManager', () => {
       await testDb.run(`
         INSERT INTO games (pgn_file_path, white_player, black_player, result, white_elo, black_elo, tournament_id)
         VALUES (?, ?, ?, ?, ?, ?, ?)
-      `, ['db', 'P1', 'P2', '1-0', 1500, 1400, tournamentId]);
+      `, ['test_tournament_manager', 'P1', 'P2', '1-0', 1500, 1400, tournamentId]);
 
       await testDb.run(`
         INSERT INTO games (pgn_file_path, white_player, black_player, result, white_elo, black_elo, tournament_id)
         VALUES (?, ?, ?, ?, ?, ?, ?)
-      `, ['db', 'P3', 'P4', '0-1', 1600, 1550, tournamentId]);
+      `, ['test_tournament_manager', 'P3', 'P4', '0-1', 1600, 1550, tournamentId]);
 
       await testDb.run(`
         INSERT INTO games (pgn_file_path, white_player, black_player, result, white_elo, black_elo, tournament_id)
         VALUES (?, ?, ?, ?, ?, ?, ?)
-      `, ['db', 'P5', 'P6', '1/2-1/2', 1700, 1650, tournamentId]);
+      `, ['test_tournament_manager', 'P5', 'P6', '1/2-1/2', 1700, 1650, tournamentId]);
 
       const stats = await tournamentManager.getTournamentStats(tournamentId);
 
@@ -302,12 +306,12 @@ describe('TournamentManager', () => {
       await testDb.run(`
         INSERT INTO games (pgn_file_path, white_player, black_player, result, tournament_id)
         VALUES (?, ?, ?, ?, ?)
-      `, ['db', 'P1', 'P2', '1-0', tournamentId]);
+      `, ['test_tournament_manager', 'P1', 'P2', '1-0', tournamentId]);
 
       await testDb.run(`
         INSERT INTO games (pgn_file_path, white_player, black_player, result, tournament_id)
         VALUES (?, ?, ?, ?, ?)
-      `, ['db', 'P3', 'P4', '0-1', tournamentId]);
+      `, ['test_tournament_manager', 'P3', 'P4', '0-1', tournamentId]);
 
       // Update count
       await tournamentManager.updateTournamentGameCount(tournamentId);
@@ -335,12 +339,12 @@ describe('TournamentManager', () => {
       await testDb.run(`
         INSERT INTO games (pgn_file_path, white_player, black_player, result, tournament_id)
         VALUES (?, ?, ?, ?, ?)
-      `, ['db', 'P1', 'P2', '1-0', tournament1.id]);
+      `, ['test_tournament_manager', 'P1', 'P2', '1-0', tournament1.id]);
 
       await testDb.run(`
         INSERT INTO games (pgn_file_path, white_player, black_player, result, tournament_id)
         VALUES (?, ?, ?, ?, ?)
-      `, ['db', 'P3', 'P4', '0-1', tournament2.id]);
+      `, ['test_tournament_manager', 'P3', 'P4', '0-1', tournament2.id]);
 
       // Merge tournaments
       await tournamentManager.mergeTournaments(tournament1.id, tournament2.id);

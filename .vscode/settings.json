@@ -1,0 +1,10 @@
+{
+    "kiroAgent.enableTabAutocomplete": true,
+    "kiroAgent.modelSelection": "auto",
+    "kiroAgent.trustedCommands": [
+        "`git *`",
+        "",
+        "`npm *`"
+    ],
+    "kiroAgent.enableDebugLogs": true
+}

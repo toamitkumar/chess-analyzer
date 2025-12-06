@@ -81,9 +81,12 @@ async function importPuzzleIndex(options = {}) {
 
   try {
     // Create read stream with bzip2 decompression
+    // Note: Lichess CSV has NO headers, columns are positional
     const stream = fs.createReadStream(INPUT_FILE)
       .pipe(bz2())
-      .pipe(csv());
+      .pipe(csv({
+        headers: ['PuzzleId', 'FEN', 'Moves', 'Rating', 'RatingDeviation', 'Popularity', 'NbPlays', 'Themes', 'GameUrl', 'OpeningTags']
+      }));
 
     // Process each row
     for await (const row of stream) {

@@ -370,12 +370,13 @@ async function seedTestData(db, testId) {
   // Insert test blunder
   await db.run(`
     INSERT INTO blunder_details (
-      id, game_id, move_number, fen, player_move, tactical_theme, position_type,
-      player_color, is_blunder, centipawn_loss
+      id, game_id, move_number, fen, phase, player_move, best_move, 
+      evaluation_before, evaluation_after, centipawn_loss,
+      tactical_theme, position_type, player_color, is_blunder
     )
     VALUES (
-      ?, ?, 15, 'rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1', 'e4',
-      'fork,pin', 'middlegame', 'white', 1, 300
+      ?, ?, 15, 'rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1', 'middlegame', 'e4', 'd4',
+      0.5, -2.5, 300, 'fork,pin', 'middlegame', 'white', 1
     )
   `, [blunderId, gameId]);
 

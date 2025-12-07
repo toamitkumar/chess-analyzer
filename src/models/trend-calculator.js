@@ -19,11 +19,13 @@ class TrendCalculator {
 
   calculateCentipawnLossTrend(games) {
     const trendData = games
-      .filter(game => game.moves && game.date)
+      .filter(game => game.date && (game.avgCentipawnLoss !== undefined || game.moves))
       .map(game => ({
         date: this.parseDate(game.date),
-        avgCentipawnLoss: this.calculateGameCentipawnLoss(game.moves),
-        moveCount: game.moves.length
+        avgCentipawnLoss: game.avgCentipawnLoss !== undefined 
+          ? game.avgCentipawnLoss 
+          : this.calculateGameCentipawnLoss(game.moves),
+        moveCount: game.moveCount || (game.moves ? game.moves.length : 0)
       }))
       .sort((a, b) => a.date - b.date);
 

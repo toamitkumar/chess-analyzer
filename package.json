@@ -12,7 +12,6 @@
     "test:coverage": "jest --coverage",
     "test:clean": "rm -f data/chess_analysis_test.db data/test_*.db tests/data/*.db",
     "build": "cd frontend && npm install && npm run build --configuration production",
-    "heroku-postbuild": "cd frontend && npm install && npm run build --configuration production",
     "download-puzzles": "node scripts/download-lichess-puzzles.js",
     "import-puzzle-index": "node scripts/import-puzzle-index.js",
     "test-import": "bash scripts/test-import.sh",

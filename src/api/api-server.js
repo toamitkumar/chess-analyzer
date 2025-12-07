@@ -197,14 +197,34 @@ class PerformanceAPI {
       }
 
       // Convert database games to trend calculator format
-      const trendGames = games.map(game => ({
-        date: new Date(game.date || game.created_at),
-        whiteElo: game.white_elo,
-        blackElo: game.black_elo,
-        result: game.result,
-        avgCentipawnLoss: game.avgCentipawnLoss || 0,
-        moveCount: game.moveCount || 0
-      }));
+      const trendGames = games.map(game => {
+        // Determine which rating belongs to the target player
+        const isWhite = game.white_player?.toLowerCase() === TARGET_PLAYER.toLowerCase();
+        const isBlack = game.black_player?.toLowerCase() === TARGET_PLAYER.toLowerCase();
+        
+        let playerRating = null;
+        let opponentRating = null;
+        
+        if (isWhite) {
+          playerRating = game.white_elo;
+          opponentRating = game.black_elo;
+        } else if (isBlack) {
+          playerRating = game.black_elo;
+          opponentRating = game.white_elo;
+        }
+        
+        return {
+          date: new Date(game.date || game.created_at),
+          playerRating: playerRating,
+          opponentRating: opponentRating,
+          whiteElo: game.white_elo,
+          blackElo: game.black_elo,
+          result: game.result,
+          avgCentipawnLoss: game.avgCentipawnLoss || 0,
+          moveCount: game.moveCount || 0,
+          moves: [] // Placeholder for centipawn calculation
+        };
+      });
 
       const ratingProgression = this.trendCalculator.calculateRatingProgression(trendGames);
       const centipawnTrend = this.trendCalculator.calculateCentipawnLossTrend(trendGames);
@@ -533,6 +553,11 @@ const uploadHandler = async (req, res) => {
     if (analyzedGames.length > 0) {
       await updatePerformanceCacheWithGames(analyzedGames);
       await updateHeatmapCacheWithGames(analyzedGames);
+      
+      // Clear trends cache to force refresh on next request
+      trendsCache = null;
+      trendsCacheTimestamp = null;
+      console.log('🔄 Trends cache cleared - Rating Progress will refresh on next load');
     }
     
     console.log(`🎯 Analysis complete: ${analyzedGames.filter(g => g.analysis).length}/${parseResult.totalGames} games analyzed`);

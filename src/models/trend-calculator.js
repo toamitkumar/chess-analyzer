@@ -52,6 +52,11 @@ class TrendCalculator {
   }
 
   parseDate(dateString) {
+    // If already a Date object, return it
+    if (dateString instanceof Date) {
+      return dateString;
+    }
+    
     // Handle PGN date format: "2023.01.15" or "2023.01.??"
     if (!dateString || dateString.includes('?')) {
       return new Date();

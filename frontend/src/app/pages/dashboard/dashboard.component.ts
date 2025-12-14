@@ -1,6 +1,5 @@
 import { Component, OnInit } from '@angular/core';
 import { CommonModule } from '@angular/common';
-import { FormsModule } from '@angular/forms';
 import { HttpClientModule } from '@angular/common/http';
 import { RouterModule } from '@angular/router';
 import { LayoutComponent } from '../../components/layout/layout.component';
@@ -11,7 +10,7 @@ import { Trophy, Target, Activity, TriangleAlert } from 'lucide-angular';
 @Component({
   selector: 'app-dashboard',
   standalone: true,
-  imports: [CommonModule, FormsModule, HttpClientModule, RouterModule, LayoutComponent, StatCardComponent],
+  imports: [CommonModule, HttpClientModule, RouterModule, LayoutComponent, StatCardComponent],
   template: `
     <app-layout>
       <div class="space-y-8 pb-8">
@@ -21,14 +20,6 @@ import { Trophy, Target, Activity, TriangleAlert } from 'lucide-angular';
             <h1 class="text-3xl sm:text-4xl lg:text-5xl font-bold text-gradient tracking-tight mb-2">Performance Dashboard</h1>
             <p class="text-sm sm:text-base text-muted-foreground">Analyze your chess performance and track improvement</p>
           </div>
-          <select
-            [(ngModel)]="timeRange"
-            class="flex h-11 w-full sm:w-[200px] items-center justify-between rounded-xl border-2 border-border/50 bg-card/80 backdrop-blur-sm px-4 py-2 text-sm font-medium shadow-lg hover:border-primary/50 hover:shadow-glow-primary transition-all duration-300 cursor-pointer focus:outline-none focus:ring-2 focus:ring-primary/50">
-            <option value="7">Last 7 days</option>
-            <option value="30">Last 30 days</option>
-            <option value="90">Last 90 days</option>
-            <option value="365">Last year</option>
-          </select>
         </div>
 
         <!-- Stats Grid with Enhanced Cards -->
@@ -363,7 +354,6 @@ import { Trophy, Target, Activity, TriangleAlert } from 'lucide-angular';
   `
 })
 export class DashboardComponent implements OnInit {
-  timeRange = '30';
   performanceData: PerformanceData | null = null;
   trendsData: any = null;
   loading = true;

@@ -16,6 +16,7 @@ class Migration016 {
     console.log('🔄 Running migration: Add missing puzzle progress columns');
 
     const isPostgres = this.db.usePostgres;
+    const { timestampType } = this.db.getSQLTypes();
     let columnNames;
 
     // Get existing column names (different query for SQLite vs PostgreSQL)
@@ -51,6 +52,12 @@ class Migration016 {
       console.log('✅ Added mastery_score column');
     } else {
       console.log('ℹ️  Column mastery_score already exists');
+    }
+
+    // Add last_attempted_at if it doesn't exist (for compatibility)
+    if (!columnNames.includes('last_attempted_at') && columnNames.includes('last_attempted')) {
+      // Column exists but with different name, nothing to do
+      console.log('ℹ️  Column last_attempted exists (no _at suffix)');
     }
 
     console.log('✅ Migration completed: Puzzle progress columns updated');

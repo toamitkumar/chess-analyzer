@@ -359,40 +359,40 @@ class LearningPathGenerator {
       
       // Calculate review dates based on mastery status
       const query = isPostgres ? `
-        SELECT 
+        SELECT
           upp.*,
           pi.themes,
           pi.rating,
-          CASE 
-            WHEN upp.mastery_score >= 80 THEN upp.last_attempted + INTERVAL '7 days'
-            WHEN upp.mastery_score >= 50 THEN upp.last_attempted + INTERVAL '3 days'
-            ELSE upp.last_attempted + INTERVAL '1 day'
+          CASE
+            WHEN upp.mastery_score >= 80 THEN upp.last_attempted_at + INTERVAL '7 days'
+            WHEN upp.mastery_score >= 50 THEN upp.last_attempted_at + INTERVAL '3 days'
+            ELSE upp.last_attempted_at + INTERVAL '1 day'
           END as next_review
         FROM user_puzzle_progress upp
         JOIN puzzle_index pi ON upp.puzzle_id = pi.id
-        WHERE CASE 
-          WHEN upp.mastery_score >= 80 THEN upp.last_attempted + INTERVAL '7 days' <= NOW()
-          WHEN upp.mastery_score >= 50 THEN upp.last_attempted + INTERVAL '3 days' <= NOW()
-          ELSE upp.last_attempted + INTERVAL '1 day' <= NOW()
+        WHERE CASE
+          WHEN upp.mastery_score >= 80 THEN upp.last_attempted_at + INTERVAL '7 days' <= NOW()
+          WHEN upp.mastery_score >= 50 THEN upp.last_attempted_at + INTERVAL '3 days' <= NOW()
+          ELSE upp.last_attempted_at + INTERVAL '1 day' <= NOW()
         END
         ORDER BY next_review ASC
         LIMIT 20
       ` : `
-        SELECT 
+        SELECT
           upp.*,
           pi.themes,
           pi.rating,
-          CASE 
-            WHEN upp.mastery_score >= 80 THEN datetime(upp.last_attempted, '+7 days')
-            WHEN upp.mastery_score >= 50 THEN datetime(upp.last_attempted, '+3 days')
-            ELSE datetime(upp.last_attempted, '+1 day')
+          CASE
+            WHEN upp.mastery_score >= 80 THEN datetime(upp.last_attempted_at, '+7 days')
+            WHEN upp.mastery_score >= 50 THEN datetime(upp.last_attempted_at, '+3 days')
+            ELSE datetime(upp.last_attempted_at, '+1 day')
           END as next_review
         FROM user_puzzle_progress upp
         JOIN puzzle_index pi ON upp.puzzle_id = pi.id
-        WHERE CASE 
-          WHEN upp.mastery_score >= 80 THEN datetime(upp.last_attempted, '+7 days') <= datetime('now')
-          WHEN upp.mastery_score >= 50 THEN datetime(upp.last_attempted, '+3 days') <= datetime('now')
-          ELSE datetime(upp.last_attempted, '+1 day') <= datetime('now')
+        WHERE CASE
+          WHEN upp.mastery_score >= 80 THEN datetime(upp.last_attempted_at, '+7 days') <= datetime('now')
+          WHEN upp.mastery_score >= 50 THEN datetime(upp.last_attempted_at, '+3 days') <= datetime('now')
+          ELSE datetime(upp.last_attempted_at, '+1 day') <= datetime('now')
         END
         ORDER BY next_review ASC
         LIMIT 20

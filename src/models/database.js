@@ -371,7 +371,21 @@ class Database {
       playerColor
     ];
 
-    return await this.run(sql, params);
+    const result = await this.run(sql, params);
+
+    // Queue puzzle linking (non-blocking, batched processing)
+    if (categorization.tactical_theme) {
+      const blunderId = result.lastID;
+      try {
+        const { getPuzzleLinkQueue } = require('./puzzle-link-queue');
+        const queue = getPuzzleLinkQueue(this);
+        queue.enqueue(blunderId);
+      } catch (error) {
+        console.warn(`[Database] Failed to queue puzzle linking for blunder ${blunderId}:`, error.message);
+      }
+    }
+
+    return result;
   }
 
   // Phase analysis operations

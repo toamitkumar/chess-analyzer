@@ -390,7 +390,17 @@ const uploadHandler = async (req, res) => {
 
     const parseResult = parser.parseFile(pgnContent);
     console.log(`📊 Starting analysis for ${parseResult.totalGames} games in tournament: ${tournament.name}`);
-    
+
+    // Disable auto-linking during bulk upload to avoid slowing down analysis
+    const { getPuzzleLinkQueue } = require('../models/puzzle-link-queue');
+    const puzzleQueue = getPuzzleLinkQueue(database);
+    const isBulkUpload = parseResult.totalGames > 1;
+
+    if (isBulkUpload) {
+      console.log(`🔇 Disabling auto-linking for bulk upload (${parseResult.totalGames} games)`);
+      puzzleQueue.disable();
+    }
+
     // Initialize ChessAnalyzer for analysis
     const analyzer = new ChessAnalyzer();
     
@@ -563,7 +573,13 @@ const uploadHandler = async (req, res) => {
     console.log(`🎯 Analysis complete: ${analyzedGames.filter(g => g.analysis).length}/${parseResult.totalGames} games analyzed`);
     console.log(`💾 Stored ${storedGameIds.length} games in database`);
     console.log(`🏆 Tournament: ${tournament.name} (${tournament.event_type})`);
-    
+
+    // Re-enable auto-linking and process queued blunders in background
+    if (isBulkUpload) {
+      console.log(`🔊 Re-enabling auto-linking and processing ${puzzleQueue.getStatus().queueSize} queued blunders in background`);
+      puzzleQueue.enable();
+    }
+
     res.json({
       success: true,
       message: `Successfully imported and analyzed ${parseResult.totalGames} games`,
@@ -2386,17 +2402,68 @@ app.get('/api/blunders/timeline', async (req, res) => {
 });
 
 //===========================================
-// Puzzle API Endpoints (Phase 2: Issue #78)
+// Puzzle API Endpoints (Phase 2 & 3: Issue #78)
 //===========================================
+// IMPORTANT: Specific routes must come BEFORE dynamic routes
+// Order: /recommended → /blunder/:id → /link → /:id
 
-// GET /api/puzzles/blunder/:blunderId - Get recommended puzzles for a blunder
+// GET /api/puzzles/recommended - Get recommended puzzles for user (Phase 3)
+app.get('/api/puzzles/recommended', async (req, res) => {
+  try {
+    const { limit = 10, rating, enhanced = false } = req.query;
+
+    // Get player rating from query or use default
+    let playerRating = parseInt(rating) || 1500;
+
+    // Try to get player's actual rating from latest games
+    if (!rating) {
+      const latestGame = await database.get(`
+        SELECT white_elo, black_elo, white_player, black_player
+        FROM games
+        WHERE (white_player = ? OR black_player = ?)
+        ORDER BY date DESC
+        LIMIT 1
+      `, [TARGET_PLAYER, TARGET_PLAYER]);
+
+      if (latestGame) {
+        playerRating = latestGame.white_player === TARGET_PLAYER
+          ? parseInt(latestGame.white_elo) || 1500
+          : parseInt(latestGame.black_elo) || 1500;
+      }
+    }
+
+    const LearningPathGenerator = require('../models/learning-path-generator');
+    const pathGenerator = new LearningPathGenerator(database);
+
+    if (enhanced === 'true') {
+      // Enhanced recommendations with spaced repetition and adaptive difficulty
+      const result = await pathGenerator.generateEnhancedRecommendations({
+        limit: parseInt(limit),
+        playerRating
+      });
+      res.json(result);
+    } else {
+      // Basic recommendations based on blunder themes
+      const recommendations = await pathGenerator.generateRecommendations({
+        limit: parseInt(limit),
+        playerRating
+      });
+      res.json({ recommendations, playerRating });
+    }
+  } catch (error) {
+    console.error('[API] Error getting recommended puzzles:', error);
+    res.status(500).json({ error: 'Failed to get recommendations' });
+  }
+});
+
+// GET /api/puzzles/blunder/:blunderId - Get recommended puzzles for a blunder (Phase 2)
 app.get('/api/puzzles/blunder/:blunderId', async (req, res) => {
   try {
     const blunderId = parseInt(req.params.blunderId);
 
     // Get blunder from database
     const blunder = await database.get(`
-      SELECT id, fen, tactical_theme, position_type
+      SELECT id, fen, tactical_theme, position_type, phase
       FROM blunder_details
       WHERE id = ?
     `, [blunderId]);
@@ -2405,14 +2472,13 @@ app.get('/api/puzzles/blunder/:blunderId', async (req, res) => {
       return res.status(404).json({ error: 'Blunder not found' });
     }
 
-    // Parse themes from tactical_theme and position_type
-    const themes = [];
-    if (blunder.tactical_theme) {
-      themes.push(...blunder.tactical_theme.split(',').map(t => t.trim()));
-    }
-    if (blunder.position_type) {
-      themes.push(blunder.position_type);
-    }
+    // Map blunder themes to Lichess puzzle themes
+    const ThemeMapper = require('../models/theme-mapper');
+    const themes = ThemeMapper.getCombinedThemes(
+      blunder.tactical_theme,
+      blunder.position_type,
+      blunder.phase
+    );
 
     // Find matching puzzles
     const PuzzleMatcher = require('../models/puzzle-matcher');
@@ -2424,6 +2490,8 @@ app.get('/api/puzzles/blunder/:blunderId', async (req, res) => {
 
     res.json({
       blunderId,
+      blunderTheme: blunder.tactical_theme,
+      mappedThemes: themes,
       puzzles: matches
     });
   } catch (error) {
@@ -2432,7 +2500,7 @@ app.get('/api/puzzles/blunder/:blunderId', async (req, res) => {
   }
 });
 
-// GET /api/puzzles/:puzzleId - Get full puzzle details (with caching)
+// GET /api/puzzles/:puzzleId - Get full puzzle details (with caching) (Phase 2)
 app.get('/api/puzzles/:puzzleId', async (req, res) => {
   try {
     const puzzleId = req.params.puzzleId;
@@ -2514,6 +2582,42 @@ app.post('/api/puzzles/link', async (req, res) => {
   } catch (error) {
     console.error('[API] Error linking puzzles:', error);
     res.status(500).json({ error: 'Failed to link puzzles' });
+  }
+});
+
+// POST /api/puzzles/:id/attempt - Record puzzle attempt (Phase 3)
+app.post('/api/puzzles/:id/attempt', async (req, res) => {
+  try {
+    const puzzleId = req.params.id;
+    const { solved, timeSpent, movesCount, hintsUsed } = req.body;
+
+    if (typeof solved !== 'boolean') {
+      return res.status(400).json({ error: 'solved (boolean) is required' });
+    }
+
+    const PuzzleProgressTracker = require('../models/puzzle-progress-tracker');
+    const progressTracker = new PuzzleProgressTracker(database);
+
+    const progress = await progressTracker.recordAttempt(puzzleId, {
+      solved: Boolean(solved),
+      timeSpent: parseInt(timeSpent) || 0,
+      movesCount: parseInt(movesCount) || 0,
+      hintsUsed: parseInt(hintsUsed) || 0
+    });
+
+    // Calculate new mastery score
+    const masteryScore = progressTracker.calculateMasteryScore(progress);
+
+    res.json({
+      success: true,
+      progress: {
+        ...progress,
+        masteryScore
+      }
+    });
+  } catch (error) {
+    console.error('[API] Error recording puzzle attempt:', error);
+    res.status(500).json({ error: 'Failed to record attempt' });
   }
 });
 

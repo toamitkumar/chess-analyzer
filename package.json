@@ -15,7 +15,10 @@
     "download-puzzles": "node scripts/download-lichess-puzzles.js",
     "import-puzzle-index": "node scripts/import-puzzle-index.js",
     "test-import": "bash scripts/test-import.sh",
-    "import-production": "bash scripts/import-to-production.sh"
+    "import-production": "bash scripts/import-to-production.sh",
+    "link-puzzles": "node scripts/link-blunders-to-puzzles.js",
+    "test-puzzle-matching": "node scripts/test-puzzle-matching.js",
+    "test-phase3": "node scripts/test-phase3-endpoints.js"
   },
   "engines": {
     "node": "20.x",

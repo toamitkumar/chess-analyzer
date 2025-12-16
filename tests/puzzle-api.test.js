@@ -32,7 +32,54 @@ describe('Puzzle API Endpoints', () => {
     puzzleCache = new PuzzleCacheManager(db);
     lichessClient = new LichessAPIClient();
 
-    // Define puzzle routes (will be implemented in api-server.js)
+    // Define puzzle routes (in correct order: specific routes before dynamic ones)
+
+    // GET /api/puzzles/recommended - Get personalized puzzle recommendations (Phase 3)
+    // MUST come BEFORE /api/puzzles/:puzzleId to avoid route matching issues
+    app.get('/api/puzzles/recommended', async (req, res) => {
+      try {
+        const { limit = 10, rating, enhanced = false } = req.query;
+        const LearningPathGenerator = require('../src/models/learning-path-generator');
+        const pathGenerator = new LearningPathGenerator(db);
+
+        // Get player rating from query or default
+        let playerRating = parseInt(rating) || 1500;
+
+        // Try to get player's actual rating from latest game
+        if (!rating) {
+          const latestGame = await db.get(`
+            SELECT white_elo, black_elo, white_player, black_player
+            FROM games
+            WHERE (white_player = ? OR black_player = ?)
+            ORDER BY date DESC
+            LIMIT 1
+          `, ['TestPlayer', 'TestPlayer']);
+
+          if (latestGame) {
+            playerRating = latestGame.white_player === 'TestPlayer'
+              ? parseInt(latestGame.white_elo) || 1500
+              : parseInt(latestGame.black_elo) || 1500;
+          }
+        }
+
+        if (enhanced === 'true') {
+          const result = await pathGenerator.generateEnhancedRecommendations({
+            limit: parseInt(limit),
+            playerRating
+          });
+          res.json(result);
+        } else {
+          const recommendations = await pathGenerator.generateRecommendations({
+            limit: parseInt(limit),
+            playerRating
+          });
+          res.json({ recommendations, playerRating });
+        }
+      } catch (error) {
+        console.error('[API] Error getting recommended puzzles:', error);
+        res.status(500).json({ error: 'Failed to get recommendations' });
+      }
+    });
 
     // GET /api/puzzles/blunder/:blunderId - Get recommended puzzles for a blunder
     app.get('/api/puzzles/blunder/:blunderId', async (req, res) => {
@@ -152,6 +199,41 @@ describe('Puzzle API Endpoints', () => {
         res.status(500).json({ error: 'Failed to link puzzles' });
       }
     });
+
+    // POST /api/puzzles/:id/attempt - Record puzzle attempt (Phase 3)
+    app.post('/api/puzzles/:id/attempt', async (req, res) => {
+      try {
+        const puzzleId = req.params.id;
+        const { solved, timeSpent, movesCount, hintsUsed } = req.body;
+
+        if (typeof solved !== 'boolean') {
+          return res.status(400).json({ error: 'solved (boolean) is required' });
+        }
+
+        const PuzzleProgressTracker = require('../src/models/puzzle-progress-tracker');
+        const progressTracker = new PuzzleProgressTracker(db);
+
+        const progress = await progressTracker.recordAttempt(puzzleId, {
+          solved: Boolean(solved),
+          timeSpent: parseInt(timeSpent) || 0,
+          movesCount: parseInt(movesCount) || 0,
+          hintsUsed: parseInt(hintsUsed) || 0
+        });
+
+        const masteryScore = progressTracker.calculateMasteryScore(progress);
+
+        res.json({
+          success: true,
+          progress: {
+            ...progress,
+            masteryScore
+          }
+        });
+      } catch (error) {
+        console.error('[API] Error recording puzzle attempt:', error);
+        res.status(500).json({ error: 'Failed to record attempt' });
+      }
+    });
   });
 
   afterAll(async () => {
@@ -166,9 +248,12 @@ describe('Puzzle API Endpoints', () => {
     // Increment test counter for unique IDs
     testCounter++;
 
-    // Clear puzzle data (games/blunders are test-specific with unique IDs)
+    // Clear test data from previous runs (cascading deletes handle blunders/links)
     await db.run('DELETE FROM puzzle_cache');
-    await db.run(`DELETE FROM puzzle_index WHERE id LIKE 'test_${testCounter}%'`);
+    await db.run(`DELETE FROM puzzle_index WHERE id LIKE 'test_%'`);
+    await db.run(`DELETE FROM blunder_puzzle_links WHERE blunder_id >= 10000`);
+    await db.run(`DELETE FROM blunder_details WHERE id >= 10000`);
+    await db.run(`DELETE FROM games WHERE id >= 10000`);
 
     // Seed test data with unique IDs
     await seedTestData(db, testCounter);
@@ -348,6 +433,177 @@ describe('Puzzle API Endpoints', () => {
       `, [blunderId, puzzleId]);
 
       expect(link).toBeDefined();
+    });
+  });
+
+  describe('GET /api/puzzles/recommended (Phase 3)', () => {
+    test('should return personalized recommendations based on blunder history', async () => {
+      const response = await request(app)
+        .get('/api/puzzles/recommended?limit=5')
+        .expect(200);
+
+      expect(response.body).toHaveProperty('recommendations');
+      expect(response.body).toHaveProperty('playerRating');
+      expect(Array.isArray(response.body.recommendations)).toBe(true);
+    });
+
+    test('should use player rating from latest game if not provided', async () => {
+      const response = await request(app)
+        .get('/api/puzzles/recommended?limit=5')
+        .expect(200);
+
+      expect(response.body).toHaveProperty('playerRating');
+      // Should be from the test game (no ELO set, defaults to 1500)
+      expect(response.body.playerRating).toBe(1500);
+    });
+
+    test('should accept custom rating parameter', async () => {
+      const response = await request(app)
+        .get('/api/puzzles/recommended?limit=5&rating=1800')
+        .expect(200);
+
+      expect(response.body).toHaveProperty('playerRating', 1800);
+    });
+
+    test('should return enhanced recommendations when enhanced=true', async () => {
+      const response = await request(app)
+        .get('/api/puzzles/recommended?limit=5&enhanced=true')
+        .expect(200);
+
+      // Enhanced mode returns different structure from LearningPathGenerator
+      expect(response.body).toHaveProperty('recommendations');
+      expect(Array.isArray(response.body.recommendations)).toBe(true);
+
+      // May not have these fields if no puzzle history exists yet
+      if (response.body.adaptiveDifficulty) {
+        expect(response.body.adaptiveDifficulty).toHaveProperty('min');
+        expect(response.body.adaptiveDifficulty).toHaveProperty('max');
+      }
+    });
+
+    test('should limit results to requested limit', async () => {
+      const response = await request(app)
+        .get('/api/puzzles/recommended?limit=3')
+        .expect(200);
+
+      expect(response.body).toHaveProperty('recommendations');
+      expect(Array.isArray(response.body.recommendations)).toBe(true);
+      expect(response.body.recommendations.length).toBeLessThanOrEqual(3);
+    });
+  });
+
+  describe('POST /api/puzzles/:id/attempt (Phase 3)', () => {
+    test('should record a successful puzzle attempt', async () => {
+      const puzzleId = `test_${testCounter}_p001`;
+
+      const response = await request(app)
+        .post(`/api/puzzles/${puzzleId}/attempt`)
+        .send({
+          solved: true,
+          timeSpent: 15000,
+          movesCount: 3,
+          hintsUsed: 0
+        })
+        .expect(200);
+
+      expect(response.body).toHaveProperty('success', true);
+      expect(response.body).toHaveProperty('progress');
+      expect(response.body.progress).toHaveProperty('puzzle_id', puzzleId);
+      expect(response.body.progress).toHaveProperty('masteryScore');
+      expect(response.body.progress.masteryScore).toBeGreaterThan(0);
+    });
+
+    test('should record a failed puzzle attempt', async () => {
+      const puzzleId = `test_${testCounter}_p002`;
+
+      const response = await request(app)
+        .post(`/api/puzzles/${puzzleId}/attempt`)
+        .send({
+          solved: false,
+          timeSpent: 30000,
+          movesCount: 5,
+          hintsUsed: 2
+        })
+        .expect(200);
+
+      expect(response.body).toHaveProperty('success', true);
+      expect(response.body.progress).toHaveProperty('puzzle_id', puzzleId);
+      // Failed attempt should have lower mastery score
+      expect(response.body.progress.masteryScore).toBeLessThan(100);
+    });
+
+    test('should increment attempt count on multiple attempts', async () => {
+      const puzzleId = `test_${testCounter}_p003`;
+
+      // First attempt
+      const firstResponse = await request(app)
+        .post(`/api/puzzles/${puzzleId}/attempt`)
+        .send({ solved: false, timeSpent: 20000, movesCount: 4, hintsUsed: 1 })
+        .expect(200);
+
+      expect(firstResponse.body.progress.attempts).toBe(1);
+
+      // Second attempt
+      const secondResponse = await request(app)
+        .post(`/api/puzzles/${puzzleId}/attempt`)
+        .send({ solved: true, timeSpent: 10000, movesCount: 2, hintsUsed: 0 })
+        .expect(200);
+
+      expect(secondResponse.body.progress.attempts).toBe(2);
+    });
+
+    test('should return 400 if solved is not a boolean', async () => {
+      const puzzleId = `test_${testCounter}_p001`;
+
+      const response = await request(app)
+        .post(`/api/puzzles/${puzzleId}/attempt`)
+        .send({
+          solved: 'yes', // Invalid: should be boolean
+          timeSpent: 15000
+        })
+        .expect(400);
+
+      expect(response.body).toHaveProperty('error', 'solved (boolean) is required');
+    });
+
+    test('should handle missing optional parameters gracefully', async () => {
+      const puzzleId = `test_${testCounter}_p001`;
+
+      const response = await request(app)
+        .post(`/api/puzzles/${puzzleId}/attempt`)
+        .send({
+          solved: true
+          // timeSpent, movesCount, hintsUsed not provided
+        })
+        .expect(200);
+
+      expect(response.body.success).toBe(true);
+      // Should default to 0
+      expect(response.body.progress.total_time_ms).toBeDefined();
+    });
+
+    test('should improve mastery score on successful attempts', async () => {
+      // Use an existing puzzle from seed data
+      const puzzleId = `test_${testCounter}_p001`;
+
+      // First attempt - solved quickly
+      const firstResponse = await request(app)
+        .post(`/api/puzzles/${puzzleId}/attempt`)
+        .send({ solved: true, timeSpent: 10000, movesCount: 2, hintsUsed: 0 })
+        .expect(200);
+
+      const firstMastery = firstResponse.body.progress.masteryScore;
+
+      // Second attempt - also solved quickly
+      const secondResponse = await request(app)
+        .post(`/api/puzzles/${puzzleId}/attempt`)
+        .send({ solved: true, timeSpent: 8000, movesCount: 2, hintsUsed: 0 })
+        .expect(200);
+
+      const secondMastery = secondResponse.body.progress.masteryScore;
+
+      // Mastery should improve or stay same with consistent success
+      expect(secondMastery).toBeGreaterThanOrEqual(firstMastery);
     });
   });
 });

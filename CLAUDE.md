@@ -10,6 +10,12 @@ This is a comprehensive chess analysis platform for analyzing games of player **
 2. **Game-PGNs/** - Source PGN files organized by tournament and platform
 3. **Past-Analysis/** - Historical analysis outputs (archived results)
 
+## Documentation
+
+For architectural decisions, design documents, and technical specifications, see:
+- **[docs/](./docs/)** - Architecture Decision Records (ADRs) and design documentation
+  - [ADR-001: Automatic Puzzle Linking](./docs/ADR-001-Auto-Puzzle-Linking.md) - Queue-based puzzle linking system
+
 ## Development Commands
 
 **Backend:**

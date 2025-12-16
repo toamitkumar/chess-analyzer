@@ -1,6 +1,6 @@
 import { Component, OnInit } from '@angular/core';
 import { CommonModule } from '@angular/common';
-import { RouterModule } from '@angular/router';
+import { Router, RouterModule } from '@angular/router';
 import { HttpClientModule } from '@angular/common/http';
 import { LayoutComponent } from '../../components/layout/layout.component';
 import { ChessApiService } from '../../services/chess-api.service';
@@ -368,9 +368,8 @@ interface DashboardData {
               <h3 class="text-lg sm:text-xl font-bold text-gradient mb-4">Recent Blunders</h3>
               <div class="space-y-2 sm:space-y-3">
                 <div *ngFor="let blunder of dashboardData.recentBlunders.slice(0, 10)"
-                     class="flex flex-col sm:flex-row items-start sm:items-center justify-between p-3 sm:p-4 rounded-xl border-2 border-border/30 bg-card/50 hover:bg-card hover:border-primary/50 hover:shadow-lg transition-all duration-300 cursor-pointer"
-                     [routerLink]="['/games', blunder.gameId]">
-                  <div class="flex-1 w-full sm:w-auto">
+                     class="flex flex-col sm:flex-row items-start sm:items-center justify-between p-3 sm:p-4 rounded-xl border-2 border-border/30 bg-card/50 hover:bg-card hover:border-primary/50 hover:shadow-lg transition-all duration-300">
+                  <div class="flex-1 w-full sm:w-auto cursor-pointer" [routerLink]="['/games', blunder.gameId]">
                     <div class="flex flex-wrap items-center gap-2 mb-2">
                       <span class="inline-flex items-center rounded-full px-3 py-1 text-xs font-bold capitalize shadow-md"
                             [class]="getPhaseClass(blunder.phase)">
@@ -380,16 +379,26 @@ interface DashboardData {
                       <span class="text-xs text-muted-foreground font-medium">vs {{ blunder.opponent }}</span>
                     </div>
                     <div class="text-xs text-muted-foreground font-medium bg-muted/30 rounded-lg p-2">
-                      <span class="font-semibold text-destructive">Played:</span> {{ blunder.playerMove }} 
-                      <span class="mx-1">|</span> 
+                      <span class="font-semibold text-destructive">Played:</span> {{ blunder.playerMove }}
+                      <span class="mx-1">|</span>
                       <span class="font-semibold text-success">Best:</span> {{ blunder.bestMove }}
                     </div>
                   </div>
-                  <div class="text-left sm:text-right mt-2 sm:mt-0 flex sm:flex-col items-center sm:items-end gap-2 sm:gap-1">
-                    <div [class]="getSeverityClass(blunder.centipawnLoss)" class="font-bold text-base sm:text-lg">
-                      -{{ blunder.centipawnLoss }} CP
+                  <div class="text-left sm:text-right mt-2 sm:mt-0 flex sm:flex-col items-center sm:items-end gap-2">
+                    <div class="flex flex-col items-end gap-1">
+                      <div [class]="getSeverityClass(blunder.centipawnLoss)" class="font-bold text-base sm:text-lg">
+                        -{{ blunder.centipawnLoss }} CP
+                      </div>
+                      <div class="text-xs text-muted-foreground font-medium">{{ formatDate(blunder.date) }}</div>
                     </div>
-                    <div class="text-xs text-muted-foreground font-medium">{{ formatDate(blunder.date) }}</div>
+                    <button
+                      (click)="$event.stopPropagation(); navigateToPuzzles(blunder.id)"
+                      class="flex items-center gap-1 px-3 py-1.5 text-xs font-semibold rounded-lg bg-gradient-to-r from-accent to-primary text-primary-foreground hover:shadow-lg hover:scale-105 transition-all duration-200">
+                      <svg class="h-3.5 w-3.5" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                        <path d="M11 4a2 2 0 114 0v1a1 1 0 001 1h3a1 1 0 011 1v3a1 1 0 01-1 1h-1a2 2 0 100 4h1a1 1 0 011 1v3a1 1 0 01-1 1h-3a1 1 0 01-1-1v-1a2 2 0 10-4 0v1a1 1 0 01-1 1H7a1 1 0 01-1-1v-3a1 1 0 00-1-1H4a2 2 0 110-4h1a1 1 0 001-1V7a1 1 0 011-1h3a1 1 0 001-1V4z"/>
+                      </svg>
+                      Practice
+                    </button>
                   </div>
                 </div>
               </div>
@@ -414,7 +423,10 @@ export class BlundersComponent implements OnInit {
   TrendingDown = TrendingDown;
   CheckCircle = CheckCircle;
 
-  constructor(private apiService: ChessApiService) {}
+  constructor(
+    private apiService: ChessApiService,
+    private router: Router
+  ) {}
 
   ngOnInit(): void {
     this.loadDashboardData();
@@ -515,5 +527,10 @@ export class BlundersComponent implements OnInit {
         wrapper.classList.remove('active');
       }, 3000);
     }
+  }
+
+  navigateToPuzzles(blunderId: number): void {
+    // Navigate to puzzles page with blunder ID as query parameter
+    this.router.navigate(['/puzzles'], { queryParams: { blunder: blunderId } });
   }
 }

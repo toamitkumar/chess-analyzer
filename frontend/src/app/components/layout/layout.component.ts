@@ -63,6 +63,14 @@ import { RouterModule } from '@angular/router';
                 </svg>
                 Blunders
               </a>
+              <a routerLink="/puzzles"
+                 routerLinkActive="bg-accent/10 text-accent border-accent/50 shadow-glow-accent"
+                 class="flex items-center gap-2 rounded-lg px-4 py-2 text-sm font-medium transition-all duration-300 text-muted-foreground hover:bg-accent/5 hover:text-accent hover:border-accent/30 border border-transparent">
+                <svg class="h-4 w-4" xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                  <path d="M11 4a2 2 0 114 0v1a1 1 0 001 1h3a1 1 0 011 1v3a1 1 0 01-1 1h-1a2 2 0 100 4h1a1 1 0 011 1v3a1 1 0 01-1 1h-3a1 1 0 01-1-1v-1a2 2 0 10-4 0v1a1 1 0 01-1 1H7a1 1 0 01-1-1v-3a1 1 0 00-1-1H4a2 2 0 110-4h1a1 1 0 001-1V7a1 1 0 011-1h3a1 1 0 001-1V4z"/>
+                </svg>
+                Puzzles
+              </a>
             </div>
 
           </div>
@@ -71,7 +79,7 @@ import { RouterModule } from '@angular/router';
 
       <!-- Mobile Bottom Navigation -->
       <nav class="md:hidden fixed bottom-0 left-0 right-0 z-50 border-t-2 border-border/30 bg-card/95 backdrop-blur-lg shadow-2xl">
-        <div class="grid grid-cols-5 h-16">
+        <div class="grid grid-cols-6 h-16">
           <a routerLink="/"
              routerLinkActive="text-primary bg-primary/10"
              [routerLinkActiveOptions]="{exact: true}"
@@ -129,6 +137,15 @@ import { RouterModule } from '@angular/router';
               <line x1="12" y1="17" x2="12.01" y2="17"/>
             </svg>
             <span class="text-xs font-medium">Errors</span>
+          </a>
+
+          <a routerLink="/puzzles"
+             routerLinkActive="text-accent bg-accent/10"
+             class="flex flex-col items-center justify-center gap-1 text-muted-foreground hover:text-accent transition-all duration-300 active:scale-95">
+            <svg class="h-5 w-5" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+              <path d="M11 4a2 2 0 114 0v1a1 1 0 001 1h3a1 1 0 011 1v3a1 1 0 01-1 1h-1a2 2 0 100 4h1a1 1 0 011 1v3a1 1 0 01-1 1h-3a1 1 0 01-1-1v-1a2 2 0 10-4 0v1a1 1 0 01-1 1H7a1 1 0 01-1-1v-3a1 1 0 00-1-1H4a2 2 0 110-4h1a1 1 0 001-1V7a1 1 0 011-1h3a1 1 0 001-1V4z"/>
+            </svg>
+            <span class="text-xs font-medium">Puzzles</span>
           </a>
         </div>
       </nav>

@@ -15,6 +15,7 @@ const AccuracyCalculator = require('../models/accuracy-calculator');
 const { getTournamentAnalyzer } = require('../models/tournament-analyzer');
 const { TARGET_PLAYER, API_CONFIG } = require('../config/app-config');
 const { checkAccessCode } = require('../middleware/access-code');
+const { requireAuth, optionalAuth, useDefaultUser } = require('../middleware/clerk-auth');
 
 const app = express();
 const port = API_CONFIG.port;
@@ -77,6 +78,12 @@ app.use((req, res, next) => {
 app.use(express.static(path.join(__dirname, '../../frontend/dist/chess-analyzer')));
 app.use(express.json({ limit: '10mb' }));
 app.use(express.text({ limit: '10mb', type: 'text/plain' }));
+
+// Authentication middleware
+// During transition: Use optionalAuth to support both authenticated and legacy requests
+// TODO: Change to requireAuth once frontend integration is complete
+app.use('/api/*', optionalAuth);
+app.use('/api/*', useDefaultUser); // Falls back to default_user if no auth
 
 // Note: Access code protection applied only to upload endpoint (see upload route below)
 
@@ -354,7 +361,7 @@ const uploadHandler = async (req, res) => {
 
     // Check for duplicate content
     const contentHash = require('crypto').createHash('sha256').update(pgnContent).digest('hex');
-    const existingGame = await database.findGameByContentHash(contentHash);
+    const existingGame = await database.findGameByContentHash(contentHash, req.userId || 'default_user');
     
     if (existingGame) {
       return res.json({
@@ -479,9 +486,10 @@ const uploadHandler = async (req, res) => {
               whiteElo: game.whiteElo ? parseInt(game.whiteElo) : null,
               blackElo: game.blackElo ? parseInt(game.blackElo) : null,
               movesCount: game.moves ? game.moves.length : 0,
-              tournamentId: tournament.id
+              tournamentId: tournament.id,
+              userId: req.userId || 'default_user'
             };
-            
+
             const gameResult = await database.insertGame(gameData, pgnContent);
             const gameId = gameResult.id;
             storedGameIds.push(gameId);
@@ -781,7 +789,7 @@ app.post('/api/tournaments', async (req, res) => {
     }
     
     // Check if tournament already exists
-    const existing = await database.findTournamentByName(name);
+    const existing = await database.findTournamentByName(name, req.userId || 'default_user');
     if (existing) {
       return res.status(409).json({ error: 'Tournament with this name already exists' });
     }
@@ -792,7 +800,8 @@ app.post('/api/tournaments', async (req, res) => {
       eventType: eventType || 'standard',
       location: location || null,
       startDate: startDate || null,
-      endDate: endDate || null
+      endDate: endDate || null,
+      userId: req.userId || 'default_user'
     };
     
     const result = await database.insertTournament(tournamentData);
@@ -1173,7 +1182,7 @@ app.get('/api/performance', async (req, res) => {
       throw new Error('Database not initialized');
     }
     
-    const performanceData = await database.getPerformanceMetrics(tournamentId);
+    const performanceData = await database.getPerformanceMetrics(tournamentId, req.userId || 'default_user');
     res.json(performanceData);
   } catch (error) {
     console.error('Performance API error:', error);
@@ -1530,7 +1539,7 @@ app.get('/api/trends/centipawn-loss', async (req, res) => {
 app.get('/api/games/:id', async (req, res) => {
   try {
     const gameId = parseInt(req.params.id);
-    const game = await database.get('SELECT * FROM games WHERE id = ?', [gameId]);
+    const game = await database.get('SELECT * FROM games WHERE id = ? AND user_id = ?', [gameId, req.userId || 'default_user']) // UPDATED;
     
     if (!game) {
       return res.status(404).json({ error: 'Game not found' });
@@ -1567,7 +1576,7 @@ app.get('/api/games/:id', async (req, res) => {
 app.get('/api/games/:id/analysis', async (req, res) => {
   try {
     const gameId = parseInt(req.params.id);
-    const gameAnalysis = await database.getGameAnalysis(gameId);
+    const gameAnalysis = await database.getGameAnalysis(gameId, req.userId || 'default_user');
     
     if (!gameAnalysis) {
       return res.status(404).json({ error: 'Game not found' });
@@ -1585,8 +1594,8 @@ app.get('/api/games/:id/alternatives/:moveNumber', async (req, res) => {
     const gameId = parseInt(req.params.id);
     const moveNumber = parseInt(req.params.moveNumber);
     
-    const alternatives = await database.getAlternativeMoves(gameId, moveNumber);
-    const position = await database.getPositionEvaluation(gameId, moveNumber);
+    const alternatives = await database.getAlternativeMoves(gameId, moveNumber, req.userId || 'default_user');
+    const position = await database.getPositionEvaluation(gameId, moveNumber, req.userId || 'default_user');
     
     res.json({
       position: position || { moveNumber },
@@ -1627,7 +1636,7 @@ app.get('/api/games/:id/accuracy', async (req, res) => {
   try {
     const gameId = parseInt(req.params.id);
     
-    const game = await database.get('SELECT * FROM games WHERE id = ?', [gameId]);
+    const game = await database.get('SELECT * FROM games WHERE id = ? AND user_id = ?', [gameId, req.userId || 'default_user']) // UPDATED;
     if (!game) {
       return res.status(404).json({ error: 'Game not found' });
     }
@@ -1667,7 +1676,7 @@ app.get('/api/games/:id/performance', async (req, res) => {
   try {
     const gameId = parseInt(req.params.id);
     
-    const game = await database.get('SELECT * FROM games WHERE id = ?', [gameId]);
+    const game = await database.get('SELECT * FROM games WHERE id = ? AND user_id = ?', [gameId, req.userId || 'default_user']) // UPDATED;
     if (!game) {
       return res.status(404).json({ error: 'Game not found' });
     }
@@ -1748,7 +1757,7 @@ app.get('/api/games/:id/phases', async (req, res) => {
   try {
     const gameId = parseInt(req.params.id);
     
-    const game = await database.get('SELECT * FROM games WHERE id = ?', [gameId]);
+    const game = await database.get('SELECT * FROM games WHERE id = ? AND user_id = ?', [gameId, req.userId || 'default_user']) // UPDATED;
     if (!game) {
       return res.status(404).json({ error: 'Game not found' });
     }
@@ -2045,7 +2054,11 @@ app.put('/api/blunders/:id/review', async (req, res) => {
     const blunderId = parseInt(req.params.id);
 
     // Check if blunder exists
-    const blunder = await database.get('SELECT * FROM blunder_details WHERE id = ?', [blunderId]);
+    const blunder = await database.get(`
+      SELECT bd.* FROM blunder_details bd
+      JOIN games g ON bd.game_id = g.id
+      WHERE bd.id = ? AND g.user_id = ?
+    `, [blunderId, req.userId || 'default_user']) // UPDATED;
     if (!blunder) {
       return res.status(404).json({ error: 'Blunder not found' });
     }
@@ -2068,7 +2081,11 @@ app.put('/api/blunders/:id/review', async (req, res) => {
       WHERE id = ?
     `, [newReviewCount, currentTimestamp, newMasteryScore, currentTimestamp, blunderId]);
 
-    const updated = await database.get('SELECT * FROM blunder_details WHERE id = ?', [blunderId]);
+    const updated = await database.get(`
+      SELECT bd.* FROM blunder_details bd
+      JOIN games g ON bd.game_id = g.id
+      WHERE bd.id = ? AND g.user_id = ?
+    `, [blunderId, req.userId || 'default_user']) // UPDATED;
 
     res.json({
       success: true,
@@ -2087,7 +2104,11 @@ app.put('/api/blunders/:id/learned', async (req, res) => {
     const { learned, notes } = req.body;
 
     // Check if blunder exists
-    const blunder = await database.get('SELECT * FROM blunder_details WHERE id = ?', [blunderId]);
+    const blunder = await database.get(`
+      SELECT bd.* FROM blunder_details bd
+      JOIN games g ON bd.game_id = g.id
+      WHERE bd.id = ? AND g.user_id = ?
+    `, [blunderId, req.userId || 'default_user']) // UPDATED;
     if (!blunder) {
       return res.status(404).json({ error: 'Blunder not found' });
     }
@@ -2116,7 +2137,11 @@ app.put('/api/blunders/:id/learned', async (req, res) => {
 
     await database.run(query, params);
 
-    const updated = await database.get('SELECT * FROM blunder_details WHERE id = ?', [blunderId]);
+    const updated = await database.get(`
+      SELECT bd.* FROM blunder_details bd
+      JOIN games g ON bd.game_id = g.id
+      WHERE bd.id = ? AND g.user_id = ?
+    `, [blunderId, req.userId || 'default_user']) // UPDATED;
 
     res.json({
       success: true,
@@ -2476,7 +2501,11 @@ app.post('/api/puzzles/link', async (req, res) => {
     }
 
     // Get blunder and find matching puzzles
-    const blunder = await database.get('SELECT * FROM blunder_details WHERE id = ?', [blunderId]);
+    const blunder = await database.get(`
+      SELECT bd.* FROM blunder_details bd
+      JOIN games g ON bd.game_id = g.id
+      WHERE bd.id = ? AND g.user_id = ?
+    `, [blunderId, req.userId || 'default_user']) // UPDATED;
     if (!blunder) {
       return res.status(404).json({ error: 'Blunder not found' });
     }

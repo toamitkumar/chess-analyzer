@@ -65,15 +65,15 @@ class TournamentManager {
   }
 
   // Find or create tournament in database
-  async findOrCreateTournament(tournamentInfo) {
+  async findOrCreateTournament(tournamentInfo, userId = 'default_user') {
     if (!this.db) {
       await this.initialize();
     }
 
     try {
       // Try to find existing tournament by name
-      let tournament = await this.db.findTournamentByName(tournamentInfo.name);
-      
+      let tournament = await this.db.findTournamentByName(tournamentInfo.name, userId);
+
       if (!tournament) {
         // Create new tournament
         const result = await this.db.insertTournament({
@@ -81,7 +81,8 @@ class TournamentManager {
           eventType: tournamentInfo.eventType,
           location: tournamentInfo.location,
           startDate: tournamentInfo.date,
-          endDate: null // Will be updated as we see more games
+          endDate: null, // Will be updated as we see more games
+          userId: userId
         });
         
         tournament = {

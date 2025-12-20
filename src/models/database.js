@@ -214,14 +214,14 @@ class Database {
 
   // Game operations (updated for database storage)
   async insertGame(gameData, pgnContent = null) {
-    const contentHash = pgnContent ? 
+    const contentHash = pgnContent ?
       require('crypto').createHash('sha256').update(pgnContent).digest('hex') : null;
 
     const sql = `
-      INSERT INTO games (pgn_file_path, white_player, black_player, result, date, event, white_elo, black_elo, moves_count, pgn_content, content_hash, tournament_id)
-      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+      INSERT INTO games (pgn_file_path, white_player, black_player, result, date, event, white_elo, black_elo, moves_count, pgn_content, content_hash, tournament_id, user_id)
+      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
     `;
-    
+
     const params = [
       gameData.pgnFilePath || 'database',
       gameData.whitePlayer,
@@ -234,44 +234,46 @@ class Database {
       gameData.movesCount,
       pgnContent,
       contentHash,
-      gameData.tournamentId || null
+      gameData.tournamentId || null,
+      gameData.userId || 'default_user'
     ];
-    
+
     return await this.run(sql, params);
   }
 
   // Check for duplicate PGN content
-  async findGameByContentHash(contentHash) {
+  async findGameByContentHash(contentHash, userId = 'default_user') {
     return await this.get(
-      'SELECT id FROM games WHERE content_hash = ?',
-      [contentHash]
+      'SELECT id FROM games WHERE content_hash = ? AND user_id = ?',
+      [contentHash, userId]
     );
   }
 
   // Tournament operations
   async insertTournament(tournamentData) {
     const sql = `
-      INSERT INTO tournaments (name, event_type, location, start_date, end_date)
-      VALUES (?, ?, ?, ?, ?)
+      INSERT INTO tournaments (name, event_type, location, start_date, end_date, user_id)
+      VALUES (?, ?, ?, ?, ?, ?)
     `;
-    
+
     const params = [
       tournamentData.name,
       tournamentData.eventType,
       tournamentData.location,
       tournamentData.startDate,
-      tournamentData.endDate
+      tournamentData.endDate,
+      tournamentData.userId || 'default_user'
     ];
-    
+
     return await this.run(sql, params);
   }
 
-  async findTournamentByName(name) {
-    return await this.get('SELECT * FROM tournaments WHERE name = ?', [name]);
+  async findTournamentByName(name, userId = 'default_user') {
+    return await this.get('SELECT * FROM tournaments WHERE name = ? AND user_id = ?', [name, userId]);
   }
 
-  async getAllTournaments() {
-    return await this.all('SELECT * FROM tournaments ORDER BY created_at DESC');
+  async getAllTournaments(userId = 'default_user') {
+    return await this.all('SELECT * FROM tournaments WHERE user_id = ? ORDER BY created_at DESC', [userId]);
   }
 
   // Analysis operations
@@ -395,8 +397,12 @@ class Database {
     return await this.run(sql, params);
   }
 
-  async getPhaseAnalysis(gameId) {
-    return await this.all('SELECT * FROM phase_analysis WHERE game_id = ?', [gameId]);
+  async getPhaseAnalysis(gameId, userId = 'default_user') {
+    return await this.all(`
+      SELECT pa.* FROM phase_analysis pa
+      JOIN games g ON pa.game_id = g.id
+      WHERE pa.game_id = ? AND g.user_id = ?
+    `, [gameId, userId]);
   }
 
   // Opening analysis operations
@@ -487,8 +493,12 @@ class Database {
     return await this.run(sql, params);
   }
 
-  async getTacticalMotifs(gameId) {
-    return await this.all('SELECT * FROM tactical_motifs WHERE game_id = ?', [gameId]);
+  async getTacticalMotifs(gameId, userId = 'default_user') {
+    return await this.all(`
+      SELECT tm.* FROM tactical_motifs tm
+      JOIN games g ON tm.game_id = g.id
+      WHERE tm.game_id = ? AND g.user_id = ?
+    `, [gameId, userId]);
   }
 
   // Phase statistics operations
@@ -572,32 +582,34 @@ class Database {
     `);
   }
 
-  async getPerformanceMetrics(tournamentId = null) {
+  async getPerformanceMetrics(tournamentId = null, userId = 'default_user') {
     // Get player-specific statistics for configured target player
     const playerName = TARGET_PLAYER;
-    
-    // Build WHERE clause for tournament filtering
+
+    // Build WHERE clause for tournament and user filtering
     const tournamentFilter = tournamentId ? 'AND tournament_id = ?' : '';
-    const params = tournamentId ? [playerName, playerName, playerName, playerName, playerName, playerName, playerName, playerName, tournamentId] : [playerName, playerName, playerName, playerName, playerName, playerName, playerName, playerName];
+    const params = tournamentId
+      ? [userId, playerName, playerName, playerName, playerName, playerName, playerName, playerName, playerName, tournamentId]
+      : [userId, playerName, playerName, playerName, playerName, playerName, playerName, playerName, playerName];
 
     const playerStats = await this.get(`
-      SELECT 
+      SELECT
         COUNT(*) as total_games,
         -- Games as white
         COUNT(CASE WHEN white_player = ? THEN 1 END) as games_as_white,
         COUNT(CASE WHEN white_player = ? AND result = '1-0' THEN 1 END) as wins_as_white,
-        -- Games as black  
+        -- Games as black
         COUNT(CASE WHEN black_player = ? THEN 1 END) as games_as_black,
         COUNT(CASE WHEN black_player = ? AND result = '0-1' THEN 1 END) as wins_as_black,
         -- Overall wins
-        COUNT(CASE WHEN (white_player = ? AND result = '1-0') 
+        COUNT(CASE WHEN (white_player = ? AND result = '1-0')
                      OR (black_player = ? AND result = '0-1') THEN 1 END) as total_wins
       FROM games
-      WHERE (white_player = ? OR black_player = ?) ${tournamentFilter}
+      WHERE user_id = ? AND (white_player = ? OR black_player = ?) ${tournamentFilter}
     `, params);
 
     // Get analysis statistics for target player only
-    const analysisParams = tournamentId ? [playerName, playerName, tournamentId] : [playerName, playerName];
+    const analysisParams = tournamentId ? [userId, playerName, playerName, tournamentId] : [userId, playerName, playerName];
     const analysisStats = await this.get(`
       SELECT
         COUNT(*) as total_moves,
@@ -605,7 +617,7 @@ class Database {
         COALESCE(SUM(centipawn_loss), 0) as total_centipawn_loss
       FROM analysis a
       JOIN games g ON a.game_id = g.id
-      WHERE (g.white_player = ? OR g.black_player = ?) ${tournamentFilter}
+      WHERE g.user_id = ? AND (g.white_player = ? OR g.black_player = ?) ${tournamentFilter}
     `, analysisParams);
 
     const totalGames = playerStats.total_games || 0;
@@ -667,12 +679,13 @@ class Database {
     }
   }
 
-  async getAlternativeMoves(gameId, moveNumber) {
+  async getAlternativeMoves(gameId, moveNumber, userId = 'default_user') {
     return await this.all(`
-      SELECT * FROM alternative_moves 
-      WHERE game_id = ? AND move_number = ?
-      ORDER BY evaluation DESC
-    `, [gameId, moveNumber]);
+      SELECT am.* FROM alternative_moves am
+      JOIN games g ON am.game_id = g.id
+      WHERE am.game_id = ? AND am.move_number = ? AND g.user_id = ?
+      ORDER BY am.evaluation DESC
+    `, [gameId, moveNumber, userId]);
   }
 
   // Position evaluation methods
@@ -683,20 +696,24 @@ class Database {
     `, [gameId, moveNumber, fen, evaluation, bestMove, depth, mateIn]);
   }
 
-  async getPositionEvaluation(gameId, moveNumber) {
+  async getPositionEvaluation(gameId, moveNumber, userId = 'default_user') {
     return await this.get(`
-      SELECT * FROM position_evaluations 
-      WHERE game_id = ? AND move_number = ?
-    `, [gameId, moveNumber]);
+      SELECT pe.* FROM position_evaluations pe
+      JOIN games g ON pe.game_id = g.id
+      WHERE pe.game_id = ? AND pe.move_number = ? AND g.user_id = ?
+    `, [gameId, moveNumber, userId]);
   }
 
-  async getGameAnalysis(gameId) {
-    const game = await this.get('SELECT * FROM games WHERE id = ?', [gameId]);
+  async getGameAnalysis(gameId, userId = 'default_user') {
+    const game = await this.get('SELECT * FROM games WHERE id = ? AND user_id = ?', [gameId, userId]);
     if (!game) return null;
 
     const analysis = await this.all(`
-      SELECT * FROM analysis WHERE game_id = ? ORDER BY move_number
-    `, [gameId]);
+      SELECT a.* FROM analysis a
+      JOIN games g ON a.game_id = g.id
+      WHERE a.game_id = ? AND g.user_id = ?
+      ORDER BY a.move_number
+    `, [gameId, userId]);
 
     return { game, analysis };
   }

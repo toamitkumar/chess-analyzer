@@ -12,23 +12,28 @@ describe('TournamentManager', () => {
     // Use shared test database
     testDb = new Database();
     await testDb.connect();
-    
-    // Create base tables with IF NOT EXISTS
+
+    // Drop and recreate tables to ensure schema is correct
+    await testDb.run('DROP TABLE IF EXISTS games');
+    await testDb.run('DROP TABLE IF EXISTS tournaments');
+
+    // Create base tables (including user_id for multi-user support)
     await testDb.run(`
-      CREATE TABLE IF NOT EXISTS tournaments (
+      CREATE TABLE tournaments (
         id INTEGER PRIMARY KEY AUTOINCREMENT,
-        name TEXT NOT NULL UNIQUE,
+        name TEXT NOT NULL,
         event_type TEXT,
         location TEXT,
         start_date TEXT,
         end_date TEXT,
         total_games INTEGER DEFAULT 0,
+        user_id TEXT NOT NULL DEFAULT 'default_user',
         created_at DATETIME DEFAULT CURRENT_TIMESTAMP
       )
     `);
 
     await testDb.run(`
-      CREATE TABLE IF NOT EXISTS games (
+      CREATE TABLE games (
         id INTEGER PRIMARY KEY AUTOINCREMENT,
         pgn_file_path TEXT NOT NULL,
         white_player TEXT NOT NULL,
@@ -40,6 +45,7 @@ describe('TournamentManager', () => {
         black_elo INTEGER,
         moves_count INTEGER,
         tournament_id INTEGER,
+        user_id TEXT NOT NULL DEFAULT 'default_user',
         created_at DATETIME DEFAULT CURRENT_TIMESTAMP
       )
     `);
@@ -172,9 +178,9 @@ describe('TournamentManager', () => {
     test('should find existing tournament', async () => {
       // Create tournament first
       await testDb.run(`
-        INSERT INTO tournaments (name, event_type, location)
-        VALUES (?, ?, ?)
-      `, ['Existing Tournament', 'rapid', 'New York']);
+        INSERT INTO tournaments (name, event_type, location, user_id)
+        VALUES (?, ?, ?, ?)
+      `, ['Existing Tournament', 'rapid', 'New York', 'default_user']);
 
       const tournamentInfo = {
         name: 'Existing Tournament',
@@ -259,27 +265,27 @@ describe('TournamentManager', () => {
     test('should calculate tournament statistics', async () => {
       // Create tournament
       const tournamentResult = await testDb.run(`
-        INSERT INTO tournaments (name, event_type)
-        VALUES (?, ?)
-      `, ['Stats Test Tournament', 'standard']);
+        INSERT INTO tournaments (name, event_type, user_id)
+        VALUES (?, ?, ?)
+      `, ['Stats Test Tournament', 'standard', 'default_user']);
       
       const tournamentId = tournamentResult.id;
 
       // Add games
       await testDb.run(`
-        INSERT INTO games (pgn_file_path, white_player, black_player, result, white_elo, black_elo, tournament_id)
-        VALUES (?, ?, ?, ?, ?, ?, ?)
-      `, ['test_tournament_manager', 'P1', 'P2', '1-0', 1500, 1400, tournamentId]);
+        INSERT INTO games (pgn_file_path, white_player, black_player, result, white_elo, black_elo, tournament_id, user_id)
+        VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+      `, ['test_tournament_manager', 'P1', 'P2', '1-0', 1500, 1400, tournamentId, 'default_user']);
 
       await testDb.run(`
-        INSERT INTO games (pgn_file_path, white_player, black_player, result, white_elo, black_elo, tournament_id)
-        VALUES (?, ?, ?, ?, ?, ?, ?)
-      `, ['test_tournament_manager', 'P3', 'P4', '0-1', 1600, 1550, tournamentId]);
+        INSERT INTO games (pgn_file_path, white_player, black_player, result, white_elo, black_elo, tournament_id, user_id)
+        VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+      `, ['test_tournament_manager', 'P3', 'P4', '0-1', 1600, 1550, tournamentId, 'default_user']);
 
       await testDb.run(`
-        INSERT INTO games (pgn_file_path, white_player, black_player, result, white_elo, black_elo, tournament_id)
-        VALUES (?, ?, ?, ?, ?, ?, ?)
-      `, ['test_tournament_manager', 'P5', 'P6', '1/2-1/2', 1700, 1650, tournamentId]);
+        INSERT INTO games (pgn_file_path, white_player, black_player, result, white_elo, black_elo, tournament_id, user_id)
+        VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+      `, ['test_tournament_manager', 'P5', 'P6', '1/2-1/2', 1700, 1650, tournamentId, 'default_user']);
 
       const stats = await tournamentManager.getTournamentStats(tournamentId);
 
@@ -296,22 +302,22 @@ describe('TournamentManager', () => {
     test('should update tournament game count', async () => {
       // Create tournament
       const tournamentResult = await testDb.run(`
-        INSERT INTO tournaments (name, event_type, total_games)
-        VALUES (?, ?, ?)
-      `, ['Count Test Tournament', 'standard', 0]);
+        INSERT INTO tournaments (name, event_type, total_games, user_id)
+        VALUES (?, ?, ?, ?)
+      `, ['Count Test Tournament', 'standard', 0, 'default_user']);
       
       const tournamentId = tournamentResult.id;
 
       // Add games
       await testDb.run(`
-        INSERT INTO games (pgn_file_path, white_player, black_player, result, tournament_id)
-        VALUES (?, ?, ?, ?, ?)
-      `, ['test_tournament_manager', 'P1', 'P2', '1-0', tournamentId]);
+        INSERT INTO games (pgn_file_path, white_player, black_player, result, tournament_id, user_id)
+        VALUES (?, ?, ?, ?, ?, ?)
+      `, ['test_tournament_manager', 'P1', 'P2', '1-0', tournamentId, 'default_user']);
 
       await testDb.run(`
-        INSERT INTO games (pgn_file_path, white_player, black_player, result, tournament_id)
-        VALUES (?, ?, ?, ?, ?)
-      `, ['test_tournament_manager', 'P3', 'P4', '0-1', tournamentId]);
+        INSERT INTO games (pgn_file_path, white_player, black_player, result, tournament_id, user_id)
+        VALUES (?, ?, ?, ?, ?, ?)
+      `, ['test_tournament_manager', 'P3', 'P4', '0-1', tournamentId, 'default_user']);
 
       // Update count
       await tournamentManager.updateTournamentGameCount(tournamentId);
@@ -326,25 +332,25 @@ describe('TournamentManager', () => {
     test('should merge tournaments correctly', async () => {
       // Create two tournaments
       const tournament1 = await testDb.run(`
-        INSERT INTO tournaments (name, event_type)
-        VALUES (?, ?)
-      `, ['Tournament 1', 'standard']);
+        INSERT INTO tournaments (name, event_type, user_id)
+        VALUES (?, ?, ?)
+      `, ['Tournament 1', 'standard', 'default_user']);
 
       const tournament2 = await testDb.run(`
-        INSERT INTO tournaments (name, event_type)
-        VALUES (?, ?)
-      `, ['Tournament 2', 'standard']);
+        INSERT INTO tournaments (name, event_type, user_id)
+        VALUES (?, ?, ?)
+      `, ['Tournament 2', 'standard', 'default_user']);
 
       // Add games to both tournaments
       await testDb.run(`
-        INSERT INTO games (pgn_file_path, white_player, black_player, result, tournament_id)
-        VALUES (?, ?, ?, ?, ?)
-      `, ['test_tournament_manager', 'P1', 'P2', '1-0', tournament1.id]);
+        INSERT INTO games (pgn_file_path, white_player, black_player, result, tournament_id, user_id)
+        VALUES (?, ?, ?, ?, ?, ?)
+      `, ['test_tournament_manager', 'P1', 'P2', '1-0', tournament1.id, 'default_user']);
 
       await testDb.run(`
-        INSERT INTO games (pgn_file_path, white_player, black_player, result, tournament_id)
-        VALUES (?, ?, ?, ?, ?)
-      `, ['test_tournament_manager', 'P3', 'P4', '0-1', tournament2.id]);
+        INSERT INTO games (pgn_file_path, white_player, black_player, result, tournament_id, user_id)
+        VALUES (?, ?, ?, ?, ?, ?)
+      `, ['test_tournament_manager', 'P3', 'P4', '0-1', tournament2.id, 'default_user']);
 
       // Merge tournaments
       await tournamentManager.mergeTournaments(tournament1.id, tournament2.id);

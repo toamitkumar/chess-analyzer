@@ -615,162 +615,162 @@ app.get('/api/performance', async (req, res) => {
   }
 });
 
-app.get('/api/tournaments/:id', async (req, res) => {
-  try {
-    const tournamentId = parseInt(req.params.id);
-    console.log(`🏆 Tournament ${tournamentId} details requested`);
+// app.get('/api/tournaments/:id', async (req, res) => {
+//   try {
+//     const tournamentId = parseInt(req.params.id);
+//     console.log(`🏆 Tournament ${tournamentId} details requested`);
     
-    if (!tournamentManager) {
-      throw new Error('Tournament manager not initialized');
-    }
+//     if (!tournamentManager) {
+//       throw new Error('Tournament manager not initialized');
+//     }
     
-    const tournament = await tournamentManager.getTournamentById(tournamentId);
-    if (!tournament) {
-      return res.status(404).json({ error: 'Tournament not found' });
-    }
+//     const tournament = await tournamentManager.getTournamentById(tournamentId);
+//     if (!tournament) {
+//       return res.status(404).json({ error: 'Tournament not found' });
+//     }
     
-    const stats = await tournamentManager.getTournamentStats(tournamentId);
+//     const stats = await tournamentManager.getTournamentStats(tournamentId);
     
-    res.json({
-      ...tournament,
-      stats
-    });
-  } catch (error) {
-    console.error('Tournament details API error:', error);
-    res.status(500).json({ error: 'Failed to get tournament details' });
-  }
-});
+//     res.json({
+//       ...tournament,
+//       stats
+//     });
+//   } catch (error) {
+//     console.error('Tournament details API error:', error);
+//     res.status(500).json({ error: 'Failed to get tournament details' });
+//   }
+// });
 
-app.get('/api/tournaments/:id/files', async (req, res) => {
-  try {
-    const tournamentId = parseInt(req.params.id);
-    console.log(`📁 Tournament ${tournamentId} files requested`);
+// app.get('/api/tournaments/:id/files', async (req, res) => {
+//   try {
+//     const tournamentId = parseInt(req.params.id);
+//     console.log(`📁 Tournament ${tournamentId} files requested`);
     
-    if (!tournamentManager || !fileStorage) {
-      throw new Error('Services not initialized');
-    }
+//     if (!tournamentManager || !fileStorage) {
+//       throw new Error('Services not initialized');
+//     }
     
-    const tournament = await tournamentManager.getTournamentById(tournamentId);
-    if (!tournament) {
-      return res.status(404).json({ error: 'Tournament not found' });
-    }
+//     const tournament = await tournamentManager.getTournamentById(tournamentId);
+//     if (!tournament) {
+//       return res.status(404).json({ error: 'Tournament not found' });
+//     }
     
-    const files = fileStorage.listTournamentFiles(tournament.name);
-    res.json(files);
-  } catch (error) {
-    console.error('Tournament files API error:', error);
-    res.json([]);
-  }
-});
+//     const files = fileStorage.listTournamentFiles(tournament.name);
+//     res.json(files);
+//   } catch (error) {
+//     console.error('Tournament files API error:', error);
+//     res.json([]);
+//   }
+// });
 
-app.get('/api/tournament-folders', async (req, res) => {
-  try {
-    console.log('📁 Tournament folders list requested');
+// app.get('/api/tournament-folders', async (req, res) => {
+//   try {
+//     console.log('📁 Tournament folders list requested');
     
-    if (!fileStorage) {
-      throw new Error('File storage not initialized');
-    }
+//     if (!fileStorage) {
+//       throw new Error('File storage not initialized');
+//     }
     
-    const folders = fileStorage.listTournamentFolders();
-    res.json(folders);
-  } catch (error) {
-    console.error('Tournament folders API error:', error);
-    res.json([]);
-  }
-});
+//     const folders = fileStorage.listTournamentFolders();
+//     res.json(folders);
+//   } catch (error) {
+//     console.error('Tournament folders API error:', error);
+//     res.json([]);
+//   }
+// });
 
-app.get('/api/tournaments/:id/games', async (req, res) => {
-  try {
-    const tournamentId = parseInt(req.params.id);
-    console.log(`🎮 Games for tournament ${tournamentId} requested`);
+// app.get('/api/tournaments/:id/games', async (req, res) => {
+//   try {
+//     const tournamentId = parseInt(req.params.id);
+//     console.log(`🎮 Games for tournament ${tournamentId} requested`);
     
-    if (!database) {
-      throw new Error('Database not initialized');
-    }
+//     if (!database) {
+//       throw new Error('Database not initialized');
+//     }
 
-    const games = await database.all(`
-      SELECT 
-        id, white_player, black_player, result, date, 
-        white_elo, black_elo, moves_count, created_at, pgn_content
-      FROM games 
-      WHERE tournament_id = ?
-      ORDER BY created_at DESC
-    `, [tournamentId]);
+//     const games = await database.all(`
+//       SELECT 
+//         id, white_player, black_player, result, date, 
+//         white_elo, black_elo, moves_count, created_at, pgn_content
+//       FROM games 
+//       WHERE tournament_id = ?
+//       ORDER BY created_at DESC
+//     `, [tournamentId]);
     
-    // Add opening extraction and accuracy calculation to each game
-    const gamesWithAnalysis = await Promise.all(games.map(async (game) => {
-      let opening = null;
-      if (game.pgn_content) {
-        // Try to get ECO from PGN headers first
-        const ecoMatch = game.pgn_content.match(/\[ECO "([^"]+)"\]/);
-        if (ecoMatch) {
-          const ecoCode = ecoMatch[1];
-          opening = await getOpeningName(ecoCode);
-        } else {
-          // Fallback: Detect opening from moves
-          const openingDetector = require('../models/opening-detector');
-          const detected = openingDetector.detect(game.pgn_content);
-          if (detected) {
-            opening = detected.name;
-          }
-        }
-      }
+//     // Add opening extraction and accuracy calculation to each game
+//     const gamesWithAnalysis = await Promise.all(games.map(async (game) => {
+//       let opening = null;
+//       if (game.pgn_content) {
+//         // Try to get ECO from PGN headers first
+//         const ecoMatch = game.pgn_content.match(/\[ECO "([^"]+)"\]/);
+//         if (ecoMatch) {
+//           const ecoCode = ecoMatch[1];
+//           opening = await getOpeningName(ecoCode);
+//         } else {
+//           // Fallback: Detect opening from moves
+//           const openingDetector = require('../models/opening-detector');
+//           const detected = openingDetector.detect(game.pgn_content);
+//           if (detected) {
+//             opening = detected.name;
+//           }
+//         }
+//       }
       
-      // Get analysis data for accuracy calculation
-      const analysis = await database.all(`
-        SELECT move_number, centipawn_loss
-        FROM analysis
-        WHERE game_id = ?
-        ORDER BY move_number
-      `, [game.id]);
+//       // Get analysis data for accuracy calculation
+//       const analysis = await database.all(`
+//         SELECT move_number, centipawn_loss
+//         FROM analysis
+//         WHERE game_id = ?
+//         ORDER BY move_number
+//       `, [game.id]);
 
-      // Calculate player-specific accuracy and blunders using centralized calculator
-      let playerAccuracy = 0;
-      let playerBlunders = 0;
+//       // Calculate player-specific accuracy and blunders using centralized calculator
+//       let playerAccuracy = 0;
+//       let playerBlunders = 0;
 
-      if (analysis.length > 0) {
-        const gameWithAnalysis = {
-          ...game,
-          analysis
-        };
+//       if (analysis.length > 0) {
+//         const gameWithAnalysis = {
+//           ...game,
+//           analysis
+//         };
 
-        // Calculate accuracy for AdvaitKumar1213 using centralized calculator
-        playerAccuracy = AccuracyCalculator.calculatePlayerAccuracy(
-          analysis,
-          TARGET_PLAYER,
-          game.white_player,
-          game.black_player
-        );
-      }
+//         // Calculate accuracy for AdvaitKumar1213 using centralized calculator
+//         playerAccuracy = AccuracyCalculator.calculatePlayerAccuracy(
+//           analysis,
+//           TARGET_PLAYER,
+//           game.white_player,
+//           game.black_player
+//         );
+//       }
 
-      // Count blunders from blunder_details table (only target player's blunders)
-      const blunderCount = await database.get(`
-        SELECT COUNT(*) as count
-        FROM blunder_details bd
-        JOIN games g ON bd.game_id = g.id
-        WHERE bd.game_id = ?
-          AND bd.is_blunder = ?
-          AND ((g.white_player = ? AND bd.player_color = 'white')
-            OR (g.black_player = ? AND bd.player_color = 'black'))
-      `, [game.id, true, TARGET_PLAYER, TARGET_PLAYER]);
+//       // Count blunders from blunder_details table (only target player's blunders)
+//       const blunderCount = await database.get(`
+//         SELECT COUNT(*) as count
+//         FROM blunder_details bd
+//         JOIN games g ON bd.game_id = g.id
+//         WHERE bd.game_id = ?
+//           AND bd.is_blunder = ?
+//           AND ((g.white_player = ? AND bd.player_color = 'white')
+//             OR (g.black_player = ? AND bd.player_color = 'black'))
+//       `, [game.id, true, TARGET_PLAYER, TARGET_PLAYER]);
 
-      playerBlunders = parseInt(blunderCount?.count) || 0;
+//       playerBlunders = parseInt(blunderCount?.count) || 0;
       
-      return {
-        ...game,
-        opening: opening || 'Unknown Opening',
-        accuracy: playerAccuracy,
-        blunders: playerBlunders,
-        playerColor: game.white_player === TARGET_PLAYER ? 'white' : 'black'
-      };
-    }));
+//       return {
+//         ...game,
+//         opening: opening || 'Unknown Opening',
+//         accuracy: playerAccuracy,
+//         blunders: playerBlunders,
+//         playerColor: game.white_player === TARGET_PLAYER ? 'white' : 'black'
+//       };
+//     }));
     
-    res.json(gamesWithAnalysis);
-  } catch (error) {
-    console.error('Tournament games API error:', error);
-    res.json([]);
-  }
-});
+//     res.json(gamesWithAnalysis);
+//   } catch (error) {
+//     console.error('Tournament games API error:', error);
+//     res.json([]);
+//   }
+// });
 // END OF COMMENTED OUT TOURNAMENT ROUTES */
 
 // Database-integrated API routes (merged into /api/performance above)

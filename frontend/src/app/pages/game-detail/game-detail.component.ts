@@ -680,6 +680,7 @@ export class GameDetailComponent implements OnInit, AfterViewInit {
     this.previewFen = null; // Clear preview when navigating
     this.updateCurrentMoveVariations();
     this.loadAlternativesForCurrentMove();
+    this.cdr.detectChanges(); // Manually trigger change detection
   }
 
   onMoveSelected(moveIndex: number) {
@@ -687,6 +688,7 @@ export class GameDetailComponent implements OnInit, AfterViewInit {
     this.previewFen = null; // Clear preview when selecting a move
     this.updateCurrentMoveVariations();
     this.loadAlternativesForCurrentMove();
+    this.cdr.detectChanges(); // Manually trigger change detection
   }
 
   onAlternativeSelected(event: {alternative: string, moveIndex: number}) {
@@ -756,6 +758,7 @@ export class GameDetailComponent implements OnInit, AfterViewInit {
     } else {
       // Clear preview when mouse leaves
       this.previewFen = null;
+      this.cdr.detectChanges(); // Manually trigger change detection
     }
   }
 
@@ -784,9 +787,11 @@ export class GameDetailComponent implements OnInit, AfterViewInit {
         console.error('Invalid alternative move:', alternativeMove);
         this.previewFen = null;
       }
+      this.cdr.detectChanges(); // Manually trigger change detection
     } catch (error) {
       console.error('Error calculating alternative move FEN:', error);
       this.previewFen = null;
+      this.cdr.detectChanges(); // Manually trigger change detection
     }
   }
 

@@ -96,6 +96,7 @@ describe('Database Migration 001', () => {
       expect(updatedColumns).toContain('tournament_id');
     } else {
       // Columns already exist - just verify they're there
+      expect(initialColumns).toContain('pgn_content');
       expect(initialColumns).toContain('content_hash');
       expect(initialColumns).toContain('tournament_id');
     }

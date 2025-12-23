@@ -145,17 +145,17 @@ class TournamentManager {
   }
 
   // Process PGN content and extract tournament info
-  async processPGNForTournament(pgnContent) {
+  async processPGNForTournament(pgnContent, userId = 'default_user') {
     try {
       // Extract headers from PGN
       const headers = this.extractPGNHeaders(pgnContent);
-      
+
       // Detect tournament information
       const tournamentInfo = this.detectTournament(headers);
-      
+
       // Find or create tournament
-      const tournament = await this.findOrCreateTournament(tournamentInfo);
-      
+      const tournament = await this.findOrCreateTournament(tournamentInfo, userId);
+
       return {
         tournament,
         headers,

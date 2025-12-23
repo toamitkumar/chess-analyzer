@@ -14,12 +14,11 @@ const tournamentRoutes = require('./tournament.routes');
 const gameRoutes = require('./game.routes');
 const blunderRoutes = require('./blunder.routes');
 const healthRoutes = require('./health.routes');
+const dashboardRoutes = require('./dashboard.routes');
 const uploadController = require('../controllers/upload.controller');
 // TODO: Add other routes as they're created
 // const puzzleRoutes = require('./puzzle.routes');
 // const learningPathRoutes = require('./learningPath.routes');
-// const performanceRoutes = require('./performance.routes');
-// const trendRoutes = require('./trend.routes');
 
 /**
  * Configure all API routes
@@ -36,6 +35,7 @@ function configureRoutes(middleware = {}) {
   router.use('/games', gameRoutes);
   router.use('/blunders', blunderRoutes);
   router.use('/health', healthRoutes);
+  router.use('/', dashboardRoutes);  // Dashboard routes mounted at root /api/
 
   // Mount upload routes with required middleware
   if (middleware.uploadLimiter && middleware.checkAccessCode && middleware.multerUpload) {
@@ -64,8 +64,6 @@ function configureRoutes(middleware = {}) {
   // TODO: Mount other routes
   // router.use('/puzzles', puzzleRoutes);
   // router.use('/learning-path', learningPathRoutes);
-  // router.use('/performance', performanceRoutes);
-  // router.use('/trends', trendRoutes);
 
   // Special route for tournament-folders (doesn't fit the pattern)
   const tournamentController = require('../controllers/tournament.controller');

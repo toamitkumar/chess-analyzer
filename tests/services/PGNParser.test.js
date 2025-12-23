@@ -1,4 +1,4 @@
-const PGNParser = require('../src/models/PGNParser');
+const PGNParser = require('../../src/services/PGNParser');
 
 describe('PGNParser', () => {
   let parser;

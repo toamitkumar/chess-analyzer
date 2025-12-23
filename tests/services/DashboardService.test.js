@@ -65,9 +65,11 @@ describe('DashboardService', () => {
       ];
 
       mockDatabase.all
-        .mockResolvedValueOnce(mockGames) // First call for games
-        .mockResolvedValueOnce([{ centipawn_loss: 25, move_number: 1 }]) // Analysis for game 1
-        .mockResolvedValueOnce([{ centipawn_loss: 30, move_number: 2 }]); // Analysis for game 2
+        .mockResolvedValueOnce(mockGames) // First call for games list
+        .mockResolvedValueOnce([{ centipawn_loss: 25, move_number: 1 }]) // Analysis for game 1 (loop)
+        .mockResolvedValueOnce([{ centipawn_loss: 30, move_number: 2 }]) // Analysis for game 2 (loop)
+        .mockResolvedValueOnce([{ centipawn_loss: 25, move_number: 1 }]) // Analysis for game 1 (gamesWithAnalysis loop)
+        .mockResolvedValueOnce([{ centipawn_loss: 30, move_number: 2 }]); // Analysis for game 2 (gamesWithAnalysis loop)
 
       mockDatabase.get
         .mockResolvedValueOnce({ count: 1 }) // Blunders for game 1
@@ -75,11 +77,10 @@ describe('DashboardService', () => {
 
       const result = await service.getPlayerPerformance('user123');
 
-      expect(result.overallRecord.wins).toBe(2);
-      expect(result.overallRecord.losses).toBe(0);
-      expect(result.byColor.white.games).toBe(1);
-      expect(result.byColor.black.games).toBe(1);
-      expect(result.analysis.totalBlunders).toBe(1);
+      expect(result.overall.totalGames).toBe(2);
+      expect(result.white.games).toBe(1);
+      expect(result.black.games).toBe(1);
+      expect(result.overall.totalBlunders).toBe(1);
     });
 
     it('should handle games with no analysis data', async () => {
@@ -88,26 +89,27 @@ describe('DashboardService', () => {
       ];
 
       mockDatabase.all
-        .mockResolvedValueOnce(mockGames)
-        .mockResolvedValueOnce([]); // No analysis
+        .mockResolvedValueOnce(mockGames) // Games list
+        .mockResolvedValueOnce([]) // No analysis for game 1 (first loop)
+        .mockResolvedValueOnce([]); // No analysis for game 1 (gamesWithAnalysis loop)
 
       mockDatabase.get.mockResolvedValue({ count: 0 });
 
       const result = await service.getPlayerPerformance('user123');
 
-      expect(result.overallRecord.wins).toBe(1);
-      expect(result.analysis.avgCentipawnLoss).toBe(0);
+      expect(result.white.wins).toBe(1);
+      expect(result.overall.avgAccuracy).toBe(0); // No analysis data means 0 accuracy
     });
 
     it('should handle empty games array', async () => {
-      mockDatabase.all.mockResolvedValue([]);
+      mockDatabase.all.mockResolvedValue([]); // No games
 
       const result = await service.getPlayerPerformance('user123');
 
-      expect(result.overallRecord.wins).toBe(0);
-      expect(result.overallRecord.winRate).toBe(0);
-      expect(result.byColor.white.games).toBe(0);
-      expect(result.byColor.black.games).toBe(0);
+      expect(result.white.games).toBe(0);
+      expect(result.black.games).toBe(0);
+      expect(result.overall.totalGames).toBe(0);
+      expect(result.overall.overallWinRate).toBe(0);
     });
   });
 

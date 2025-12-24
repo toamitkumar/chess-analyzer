@@ -19,7 +19,7 @@ class DashboardController {
   async getPerformance(req, res) {
     try {
       const tournamentId = req.query.tournament ? parseInt(req.query.tournament) : null;
-      console.log(`📊 Performance data requested${tournamentId ? ` for tournament ${tournamentId}` : ' (overall)'}`);
+      console.log(`📊 [DASHBOARD CONTROLLER]: Performance data requested${tournamentId ? ` for tournament ${tournamentId}` : ' (overall)'}`);
 
       const performanceData = await this.dashboardService.getPerformanceMetrics(tournamentId, req.userId);
       res.json(performanceData);
@@ -43,7 +43,7 @@ class DashboardController {
    */
   async getPlayerPerformance(req, res) {
     try {
-      console.log(`👤 Overall player performance requested`);
+      console.log(`👤 [NEW CONTROLLER]: Overall player performance requested`);
 
       const performanceData = await this.dashboardService.getPlayerPerformance(req.userId);
       res.json(performanceData);

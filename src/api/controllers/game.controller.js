@@ -22,7 +22,7 @@ class GameController {
    */
   async list(req, res) {
     try {
-      console.log('🎮 [NEW CONTROLLER] Games list requested');
+      console.log(`🎮 [GAME CONTROLLER] Games list requested for user ${req.userId}`);
 
       const database = getDatabase();
       if (!database) {
@@ -34,9 +34,10 @@ class GameController {
           id, white_player, black_player, result, date, event,
           white_elo, black_elo, moves_count, created_at, pgn_content
         FROM games
+        WHERE user_id = ?
         ORDER BY created_at DESC
         LIMIT 50
-      `);
+      `, [req.userId]);
 
       // Add opening extraction to each game
       const gamesWithOpenings = await Promise.all(games.map(async (game) => {
@@ -83,9 +84,9 @@ class GameController {
         throw new Error('Database not initialized');
       }
 
-      const game = await database.get('SELECT * FROM games WHERE id = ?', [gameId]);
+      const game = await database.get('SELECT * FROM games WHERE id = ? AND user_id = ?', [gameId, req.userId]);
 
-      console.log('🎮 [NEW CONTROLLER] Game details requested');
+      console.log(`🎮 [GAME CONTROLLER] Game ${gameId} details requested for user ${req.userId}`);
 
       if (!game) {
         return res.status(404).json({ error: 'Game not found' });
@@ -156,7 +157,7 @@ class GameController {
       const gameId = parseInt(req.params.id);
       const moveNumber = parseInt(req.params.moveNumber);
 
-      console.log('🎮 [NEW CONTROLLER] Alternatives for game ${gameId}, move ${moveNumber} requested');
+      console.log(`🎮 [GAME CONTROLLER] Alternatives for game ${gameId}, move ${moveNumber} requested`);
       
       const database = getDatabase();
       if (!database) {
@@ -188,7 +189,7 @@ class GameController {
   async getBlunders(req, res) {
     try {
       const gameId = parseInt(req.params.id);
-      console.log(`⚠️ [NEW CONTROLLER] Blunders for game ${gameId} requested`);
+      console.log(`⚠️ [GAME CONTROLLER] Blunders for game ${gameId} requested`);
 
       const database = getDatabase();
       if (!database) {
@@ -196,12 +197,14 @@ class GameController {
       }
 
       // Query blunder_details table (single source of truth for blunders)
+      // Verify game belongs to user
       const blunders = await database.all(`
         SELECT bd.*
         FROM blunder_details bd
-        WHERE bd.game_id = ? AND bd.is_blunder = ?
+        INNER JOIN games g ON bd.game_id = g.id
+        WHERE bd.game_id = ? AND bd.is_blunder = ? AND g.user_id = ?
         ORDER BY bd.move_number
-      `, [gameId, true]);
+      `, [gameId, true, req.userId]);
 
       res.json(blunders);
     } catch (error) {
@@ -217,25 +220,26 @@ class GameController {
   async getAccuracy(req, res) {
     try {
       const gameId = parseInt(req.params.id);
-      console.log(`🎯 [NEW CONTROLLER] Accuracy for game ${gameId} requested`);
+      console.log(`🎯 [GAME CONTROLLER] Accuracy for game ${gameId} requested`);
 
       const database = getDatabase();
       if (!database) {
         throw new Error('Database not initialized');
       }
 
-      const game = await database.get('SELECT * FROM games WHERE id = ?', [gameId]);
+      const game = await database.get('SELECT * FROM games WHERE id = ? AND user_id = ?', [gameId, req.userId]);
       if (!game) {
         return res.status(404).json({ error: 'Game not found' });
       }
-      
+
       // Get analysis data for accuracy calculation using centralized calculator
       const analysis = await database.all(`
-        SELECT move_number, centipawn_loss
-        FROM analysis 
-        WHERE game_id = ?
-        ORDER BY move_number
-      `, [gameId]);
+        SELECT a.move_number, a.centipawn_loss
+        FROM analysis a
+        INNER JOIN games g ON a.game_id = g.id
+        WHERE a.game_id = ? AND g.user_id = ?
+        ORDER BY a.move_number
+      `, [gameId, req.userId]);
       
       const gameWithAnalysis = {
         ...game,
@@ -266,18 +270,18 @@ class GameController {
   async getPerformance(req, res) {
     try {
       const gameId = parseInt(req.params.id);
-      console.log(`📈 [NEW CONTROLLER] Performance for game ${gameId} requested`);
+      console.log(`📈 [GAME CONTROLLER] Performance for game ${gameId} requested`);
 
       const database = getDatabase();
       if (!database) {
         throw new Error('Database not initialized');
       }
 
-      const game = await database.get('SELECT * FROM games WHERE id = ?', [gameId]);
+      const game = await database.get('SELECT * FROM games WHERE id = ? AND user_id = ?', [gameId, req.userId]);
       if (!game) {
         return res.status(404).json({ error: 'Game not found' });
       }
-      
+
       // Extract opening from PGN content (same logic as other endpoints)
       let opening = 'Unknown';
       if (game.pgn_content) {
@@ -295,14 +299,15 @@ class GameController {
           }
         }
       }
-      
+
       // Get analysis data
       const analysis = await database.all(`
-        SELECT move_number, centipawn_loss
-        FROM analysis
-        WHERE game_id = ?
-        ORDER BY move_number
-      `, [gameId]);
+        SELECT a.move_number, a.centipawn_loss
+        FROM analysis a
+        INNER JOIN games g ON a.game_id = g.id
+        WHERE a.game_id = ? AND g.user_id = ?
+        ORDER BY a.move_number
+      `, [gameId, req.userId]);
 
       // Calculate player-specific metrics using AccuracyCalculator
       const isPlayerWhite = game.white_player === TARGET_PLAYER;
@@ -328,9 +333,10 @@ class GameController {
         JOIN games g ON bd.game_id = g.id
         WHERE bd.game_id = ?
           AND bd.is_blunder = ?
+          AND g.user_id = ?
           AND ((g.white_player = ? AND bd.player_color = 'white')
             OR (g.black_player = ? AND bd.player_color = 'black'))
-      `, [gameId, true, TARGET_PLAYER, TARGET_PLAYER]);
+      `, [gameId, true, req.userId, TARGET_PLAYER, TARGET_PLAYER]);
 
       const playerBlunders = parseInt(blunderCount?.count) || 0;
       
@@ -344,7 +350,7 @@ class GameController {
         opening: opening
       });
     } catch (error) {
-      console.error('[NEW CONTROLLER] Performance calculation error:', error);
+      console.error('[GAME CONTROLLER] Performance calculation error:', error);
       res.status(500).json({ error: 'Failed to calculate performance' });
     }
   }
@@ -356,21 +362,25 @@ class GameController {
   async getPhases(req, res) {
     try {
       const gameId = parseInt(req.params.id);
-      console.log(`🔍 [NEW CONTROLLER] Phases for game ${gameId} requested`);
+      console.log(`🔍 [GAME CONTROLLER] Phases for game ${gameId} requested`);
 
       const database = getDatabase();
       if (!database) {
         throw new Error('Database not initialized');
       }
 
-      const game = await database.get('SELECT * FROM games WHERE id = ?', [gameId]);
+      const game = await database.get('SELECT * FROM games WHERE id = ? AND user_id = ?', [gameId, req.userId]);
       if (!game) {
         return res.status(404).json({ error: 'Game not found' });
       }
-      
+
       const analysis = await database.all(`
-        SELECT * FROM analysis WHERE game_id = ? ORDER BY move_number
-      `, [gameId]);
+        SELECT a.*
+        FROM analysis a
+        INNER JOIN games g ON a.game_id = g.id
+        WHERE a.game_id = ? AND g.user_id = ?
+        ORDER BY a.move_number
+      `, [gameId, req.userId]);
       
       if (analysis.length === 0) {
         return res.json({
@@ -426,9 +436,10 @@ class GameController {
         WHERE bd.game_id = ?
           AND bd.phase = 'opening'
           AND bd.is_blunder = ?
+          AND g.user_id = ?
           AND ((g.white_player = ? AND bd.player_color = 'white')
             OR (g.black_player = ? AND bd.player_color = 'black'))
-      `, [gameId, true, TARGET_PLAYER, TARGET_PLAYER]);
+      `, [gameId, true, req.userId, TARGET_PLAYER, TARGET_PLAYER]);
 
       const middlegameBlunderCount = await database.get(`
         SELECT COUNT(*) as count
@@ -437,9 +448,10 @@ class GameController {
         WHERE bd.game_id = ?
           AND bd.phase = 'middlegame'
           AND bd.is_blunder = ?
+          AND g.user_id = ?
           AND ((g.white_player = ? AND bd.player_color = 'white')
             OR (g.black_player = ? AND bd.player_color = 'black'))
-      `, [gameId, true, TARGET_PLAYER, TARGET_PLAYER]);
+      `, [gameId, true, req.userId, TARGET_PLAYER, TARGET_PLAYER]);
 
       const endgameBlunderCount = await database.get(`
         SELECT COUNT(*) as count
@@ -448,9 +460,10 @@ class GameController {
         WHERE bd.game_id = ?
           AND bd.phase = 'endgame'
           AND bd.is_blunder = ?
+          AND g.user_id = ?
           AND ((g.white_player = ? AND bd.player_color = 'white')
             OR (g.black_player = ? AND bd.player_color = 'black'))
-      `, [gameId, true, TARGET_PLAYER, TARGET_PLAYER]);
+      `, [gameId, true, req.userId, TARGET_PLAYER, TARGET_PLAYER]);
 
       const openingBlunders = parseInt(openingBlunderCount?.count) || 0;
       const middlegameBlunders = parseInt(middlegameBlunderCount?.count) || 0;
@@ -471,7 +484,7 @@ class GameController {
         }
       });
     } catch (error) {
-      console.error('[NEW CONTROLLER] Phase analysis error:', error);
+      console.error('[GAME CONTROLLER] Phase analysis error:', error);
       res.status(500).json({ error: 'Failed to analyze phases' });
     }
   }

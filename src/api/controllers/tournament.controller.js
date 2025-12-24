@@ -71,7 +71,7 @@ class TournamentController {
       res.status(201).json(tournament);
 
     } catch (error) {
-      console.error('[NEW CONTROLLER] Tournament creation error:', error);
+      console.error('[TOURNAMENT CONTROLLER] Tournament creation error:', error);
       res.status(500).json({ error: 'Failed to create tournament' });
     }
   }
@@ -82,7 +82,7 @@ class TournamentController {
    */
   async list(req, res) {
     try {
-      console.log('🏆 [NEW CONTROLLER] Tournaments list requested');
+      console.log('🏆 [TOURNAMENT CONTROLLER] Tournaments list requested');
 
       const tournamentManager = getTournamentManager();
 
@@ -106,7 +106,7 @@ class TournamentController {
   async getById(req, res) {
     try {
       const tournamentId = parseInt(req.params.id);
-      console.log(`🏆 [NEW CONTROLLER] Tournament ${tournamentId} details requested`);
+      console.log(`🏆 [TOURNAMENT CONTROLLER] Tournament ${tournamentId} details requested`);
 
       const tournamentManager = getTournamentManager();
 
@@ -139,7 +139,7 @@ class TournamentController {
   async getPerformance(req, res) {
     try {
       const tournamentId = parseInt(req.params.id);
-      console.log(`📊 [NEW CONTROLLER] Tournament ${tournamentId} performance requested`);
+      console.log(`📊 [TOURNAMENT CONTROLLER] Tournament ${tournamentId} performance requested`);
 
       const tournamentAnalyzer = getTournamentAnalyzer();
 
@@ -163,7 +163,7 @@ class TournamentController {
   async getHeatmap(req, res) {
     try {
       const tournamentId = parseInt(req.params.id);
-      console.log(`🔥 [NEW CONTROLLER] Tournament ${tournamentId} heatmap requested`);
+      console.log(`🔥 [TOURNAMENT CONTROLLER] Tournament ${tournamentId} heatmap requested`);
 
       const tournamentAnalyzer = getTournamentAnalyzer();
 
@@ -187,7 +187,7 @@ class TournamentController {
   async getTrends(req, res) {
     try {
       const tournamentId = parseInt(req.params.id);
-      console.log(`📈 [NEW CONTROLLER] Tournament ${tournamentId} trends requested`);
+      console.log(`📈 [TOURNAMENT CONTROLLER] Tournament ${tournamentId} trends requested`);
 
       const tournamentAnalyzer = getTournamentAnalyzer();
 
@@ -211,7 +211,7 @@ class TournamentController {
   async getSummary(req, res) {
     try {
       const tournamentId = parseInt(req.params.id);
-      console.log(`📋 [NEW CONTROLLER] Tournament ${tournamentId} summary requested`);
+      console.log(`📋 [TOURNAMENT CONTROLLER] Tournament ${tournamentId} summary requested`);
 
       const tournamentAnalyzer = getTournamentAnalyzer();
 
@@ -235,7 +235,7 @@ class TournamentController {
   async getPlayerPerformance(req, res) {
     try {
       const tournamentId = parseInt(req.params.id);
-      console.log(`👤 [NEW CONTROLLER] Player performance for tournament ${tournamentId} requested`);
+      console.log(`👤 [TOURNAMENT CONTROLLER] Player performance for tournament ${tournamentId} requested`);
 
       const database = getDatabase();
 
@@ -247,9 +247,9 @@ class TournamentController {
       const games = await database.all(`
         SELECT id, white_player, black_player, result, white_elo, black_elo
         FROM games
-        WHERE tournament_id = ? AND (white_player = ? OR black_player = ?)
+        WHERE tournament_id = ? AND (white_player = ? OR black_player = ?) AND user_id = ?
         ORDER BY created_at ASC
-      `, [tournamentId, TARGET_PLAYER, TARGET_PLAYER]);
+      `, [tournamentId, TARGET_PLAYER, TARGET_PLAYER, req.userId]);
 
       let wins = 0;
       let losses = 0;
@@ -276,11 +276,12 @@ class TournamentController {
 
         // Get analysis data
         const analysis = await database.all(`
-          SELECT centipawn_loss, move_number
-          FROM analysis
-          WHERE game_id = ?
-          ORDER BY move_number
-        `, [game.id]);
+          SELECT a.centipawn_loss, a.move_number
+          FROM analysis a
+          INNER JOIN games g ON a.game_id = g.id
+          WHERE a.game_id = ? AND g.user_id = ?
+          ORDER BY a.move_number
+        `, [game.id, req.userId]);
 
         // Filter moves for the target player
         const playerMoves = analysis.filter(move =>
@@ -295,9 +296,10 @@ class TournamentController {
           JOIN games g ON bd.game_id = g.id
           WHERE bd.game_id = ?
             AND bd.is_blunder = ?
+            AND g.user_id = ?
             AND ((g.white_player = ? AND bd.player_color = 'white')
               OR (g.black_player = ? AND bd.player_color = 'black'))
-        `, [game.id, true, TARGET_PLAYER, TARGET_PLAYER]);
+        `, [game.id, true, req.userId, TARGET_PLAYER, TARGET_PLAYER]);
 
         totalBlunders += parseInt(blunderCount?.count) || 0;
         totalCentipawnLoss += playerMoves.reduce((sum, move) => sum + (move.centipawn_loss || 0), 0);
@@ -334,7 +336,7 @@ class TournamentController {
   async compare(req, res) {
     try {
       const tournamentIds = req.query.ids ? req.query.ids.split(',').map(id => parseInt(id)) : [];
-      console.log(`🔄 [NEW CONTROLLER] Tournament comparison requested for: ${tournamentIds.join(', ')}`);
+      console.log(`🔄 [TOURNAMENT CONTROLLER] Tournament comparison requested for: ${tournamentIds.join(', ')}`);
 
       if (tournamentIds.length === 0) {
         return res.json([]);
@@ -356,7 +358,7 @@ class TournamentController {
    */
   async getRankings(req, res) {
     try {
-      console.log('🏆 [NEW CONTROLLER] Tournament rankings requested');
+      console.log('🏆 [TOURNAMENT CONTROLLER] Tournament rankings requested');
 
       const tournamentAnalyzer = getTournamentAnalyzer();
       const rankings = await tournamentAnalyzer.rankTournaments();
@@ -375,7 +377,7 @@ class TournamentController {
   async getFiles(req, res) {
     try {
       const tournamentId = parseInt(req.params.id);
-      console.log(`📁 [NEW CONTROLLER] Tournament ${tournamentId} files requested`);
+      console.log(`📁 [TOURNAMENT CONTROLLER] Tournament ${tournamentId} files requested`);
 
       const tournamentManager = getTournamentManager();
       const fileStorage = getFileStorage();
@@ -399,7 +401,7 @@ class TournamentController {
    */
   async listFolders(req, res) {
     try {
-      console.log('📁 [NEW CONTROLLER] Tournament folders list requested');
+      console.log('📁 [TOURNAMENT CONTROLLER] Tournament folders list requested');
 
       const fileStorage = getFileStorage();
       const folders = fileStorage.listTournamentFolders();
@@ -418,7 +420,7 @@ class TournamentController {
   async getGames(req, res) {
     try {
       const tournamentId = parseInt(req.params.id);
-      console.log(`🎮 [NEW CONTROLLER] Games for tournament ${tournamentId} requested`);
+      console.log(`🎮 [TOURNAMENT CONTROLLER] Games for tournament ${tournamentId} requested`);
 
       const database = getDatabase();
 
@@ -482,9 +484,10 @@ class TournamentController {
           JOIN games g ON bd.game_id = g.id
           WHERE bd.game_id = ?
             AND bd.is_blunder = ?
+            AND g.user_id = ?
             AND ((g.white_player = ? AND bd.player_color = 'white')
               OR (g.black_player = ? AND bd.player_color = 'black'))
-        `, [game.id, true, TARGET_PLAYER, TARGET_PLAYER]);
+        `, [game.id, true, req.userId, TARGET_PLAYER, TARGET_PLAYER]);
 
         playerBlunders = parseInt(blunderCount?.count) || 0;
 

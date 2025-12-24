@@ -1,4 +1,4 @@
-const TrendCalculator = require('../src/models/trend-calculator');
+const TrendCalculator = require('../../src/models/trend-calculator');
 
 describe('TrendCalculator', () => {
   let calculator;

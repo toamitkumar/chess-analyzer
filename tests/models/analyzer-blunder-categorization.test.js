@@ -1,4 +1,4 @@
-const ChessAnalyzer = require('../src/models/analyzer');
+const ChessAnalyzer = require('../../src/models/analyzer');
 const { Chess } = require('chess.js');
 
 describe('ChessAnalyzer - Blunder Categorization Integration', () => {

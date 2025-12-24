@@ -1,4 +1,4 @@
-const HeatmapCalculator = require('../src/models/HeatmapCalculator');
+const HeatmapCalculator = require('../../src/models/HeatmapCalculator');
 
 describe('HeatmapCalculator', () => {
   let calculator;

@@ -1,6 +1,6 @@
 const { describe, test, expect, beforeEach, afterEach } = require('@jest/globals');
-const PuzzleCacheManager = require('../src/models/puzzle-cache-manager');
-const { getDatabase } = require('../src/models/database');
+const PuzzleCacheManager = require('../../src/models/puzzle-cache-manager');
+const { getDatabase } = require('../../src/models/database');
 
 describe('PuzzleCacheManager', () => {
   let cacheManager;

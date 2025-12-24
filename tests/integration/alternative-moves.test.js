@@ -1,6 +1,6 @@
-const ChessAnalyzer = require('../src/models/analyzer');
-const PGNParser = require('../src/services/PGNParser');
-const { getDatabase } = require('../src/models/database');
+const ChessAnalyzer = require('../../src/models/analyzer');
+const PGNParser = require('../../src/services/PGNParser');
+const { getDatabase } = require('../../src/models/database');
 const fs = require('fs');
 const path = require('path');
 

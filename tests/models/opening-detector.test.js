@@ -1,4 +1,4 @@
-const openingDetector = require('../src/models/opening-detector');
+const openingDetector = require('../../src/models/opening-detector');
 
 describe('Opening Detector', () => {
   describe('Common Openings Detection', () => {

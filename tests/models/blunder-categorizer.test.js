@@ -1,5 +1,5 @@
 const { Chess } = require('chess.js');
-const BlunderCategorizer = require('../src/models/blunder-categorizer');
+const BlunderCategorizer = require('../../src/models/blunder-categorizer');
 
 describe('BlunderCategorizer', () => {
   let categorizer;

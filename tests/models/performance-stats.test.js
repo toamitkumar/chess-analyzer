@@ -1,4 +1,4 @@
-const PerformanceCalculator = require('../src/models/performance-stats');
+const PerformanceCalculator = require('../../src/models/performance-stats');
 
 describe('PerformanceCalculator', () => {
   let calculator;

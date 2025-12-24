@@ -1,9 +1,9 @@
 const request = require('supertest');
 const express = require('express');
-const { getDatabase } = require('../src/models/database');
+const { getDatabase } = require('../../src/models/database');
 
 // Mock database for testing
-jest.mock('../src/models/database');
+jest.mock('../../src/models/database');
 
 describe('Blunder API Endpoints', () => {
   let app;

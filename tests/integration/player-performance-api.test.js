@@ -1,6 +1,6 @@
 const request = require('supertest');
 const express = require('express');
-const { getDatabase } = require('../src/models/database');
+const { getDatabase } = require('../../src/models/database');
 
 describe('Player Performance API Tests', () => {
   let app;

@@ -1,6 +1,6 @@
 const { describe, test, expect, beforeEach, afterEach } = require('@jest/globals');
-const PuzzleMatcher = require('../src/models/puzzle-matcher');
-const { getDatabase } = require('../src/models/database');
+const PuzzleMatcher = require('../../src/models/puzzle-matcher');
+const { getDatabase } = require('../../src/models/database');
 
 describe('PuzzleMatcher', () => {
   let matcher;

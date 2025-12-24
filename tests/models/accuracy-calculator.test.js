@@ -1,4 +1,4 @@
-const AccuracyCalculator = require('../src/models/accuracy-calculator');
+const AccuracyCalculator = require('../../src/models/accuracy-calculator');
 
 describe('AccuracyCalculator', () => {
   describe('calculatePlayerAccuracy', () => {

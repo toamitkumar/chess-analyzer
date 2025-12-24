@@ -1,6 +1,6 @@
 const { describe, test, expect, beforeAll, afterAll, beforeEach } = require('@jest/globals');
-const { getDatabase } = require('../src/models/database');
-const PuzzleProgressTracker = require('../src/models/puzzle-progress-tracker');
+const { getDatabase } = require('../../src/models/database');
+const PuzzleProgressTracker = require('../../src/models/puzzle-progress-tracker');
 
 describe('PuzzleProgressTracker', () => {
   let db;

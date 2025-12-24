@@ -1,13 +1,13 @@
 const { describe, test, expect, beforeAll, afterAll, beforeEach } = require('@jest/globals');
 const request = require('supertest');
 const express = require('express');
-const { getDatabase } = require('../src/models/database');
-const PuzzleMatcher = require('../src/models/puzzle-matcher');
-const PuzzleCacheManager = require('../src/models/puzzle-cache-manager');
-const LichessAPIClient = require('../src/models/lichess-api-client');
+const { getDatabase } = require('../../src/models/database');
+const PuzzleMatcher = require('../../src/models/puzzle-matcher');
+const PuzzleCacheManager = require('../../src/models/puzzle-cache-manager');
+const LichessAPIClient = require('../../src/models/lichess-api-client');
 
 // Mock Lichess API to avoid external API calls in tests
-jest.mock('../src/models/lichess-api-client');
+jest.mock('../../src/models/lichess-api-client');
 
 describe('Puzzle API Endpoints', () => {
   let app;

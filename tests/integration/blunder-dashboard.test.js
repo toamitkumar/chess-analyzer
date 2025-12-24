@@ -1,7 +1,7 @@
 const request = require('supertest');
 const express = require('express');
 const path = require('path');
-const { Database } = require('../src/models/database');
+const { Database } = require('../../src/models/database');
 
 describe('Blunder Dashboard API Endpoints', () => {
   let app;

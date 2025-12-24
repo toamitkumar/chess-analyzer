@@ -1,4 +1,4 @@
-const ChessAnalyzer = require('../src/models/analyzer');
+const ChessAnalyzer = require('../../src/models/analyzer');
 
 describe('ChessAnalyzer', () => {
   let analyzer;

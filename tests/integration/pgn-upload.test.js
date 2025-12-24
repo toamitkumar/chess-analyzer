@@ -1,5 +1,5 @@
 const request = require('supertest');
-const { getDatabase } = require('../src/models/database');
+const { getDatabase } = require('../../src/models/database');
 
 describe('PGN Upload Tests', () => {
   let db;
@@ -48,7 +48,7 @@ describe('PGN Upload Tests', () => {
 1. d4 d5 2. c4 e6 3. Nc3 0-1`;
 
     // Mock the upload process by directly testing the database insertion logic
-    const PGNParser = require('../src/models/PGNParser');
+    const PGNParser = require('../../src/services/PGNParser');
     const parser = new PGNParser();
     const parseResult = parser.parseFile(samplePGN);
 
@@ -116,7 +116,7 @@ describe('PGN Upload Tests', () => {
 
 1. e4 e5 2. Nf3 1-0`;
 
-    const PGNParser = require('../src/models/PGNParser');
+    const PGNParser = require('../../src/services/PGNParser');
     const parser = new PGNParser();
     const parseResult = parser.parseFile(samplePGN);
     

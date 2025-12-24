@@ -1,5 +1,5 @@
-const { TournamentAnalyzer } = require('../src/models/tournament-analyzer');
-const { Database } = require('../src/models/database');
+const { TournamentAnalyzer } = require('../../src/models/tournament-analyzer');
+const { Database } = require('../../src/models/database');
 const fs = require('fs');
 const path = require('path');
 

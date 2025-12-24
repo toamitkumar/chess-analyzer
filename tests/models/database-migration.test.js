@@ -1,5 +1,5 @@
-const { Database } = require('../src/models/database');
-const Migration001 = require('../src/models/migrations/001_add_pgn_content');
+const { Database } = require('../../src/models/database');
+const Migration001 = require('../../src/models/migrations/001_add_pgn_content');
 const fs = require('fs');
 const path = require('path');
 

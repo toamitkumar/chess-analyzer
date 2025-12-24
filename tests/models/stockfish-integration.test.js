@@ -1,4 +1,4 @@
-const ChessAnalyzer = require('../src/models/analyzer');
+const ChessAnalyzer = require('../../src/models/analyzer');
 const fs = require('fs');
 const path = require('path');
 
@@ -60,7 +60,7 @@ describe('Stockfish Integration Tests', () => {
       return;
     }
     
-    const fixturePath = path.join(__dirname, 'fixtures', 'match-won-black.pgn');
+    const fixturePath = path.join(__dirname, '..', 'fixtures', 'match-won-black.pgn');
     const pgnContent = fs.readFileSync(fixturePath, 'utf8');
     
     // Extract moves from PGN

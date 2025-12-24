@@ -1,5 +1,5 @@
-const { TournamentManager } = require('../src/models/tournament-manager');
-const { Database } = require('../src/models/database');
+const { TournamentManager } = require('../../src/models/tournament-manager');
+const { Database } = require('../../src/models/database');
 const fs = require('fs');
 const path = require('path');
 

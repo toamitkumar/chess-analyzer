@@ -1,8 +1,8 @@
 const request = require('supertest');
 const express = require('express');
-const { getDatabase } = require('../src/models/database');
-const { TARGET_PLAYER } = require('../src/config/app-config');
-const ChessAnalyzer = require('../src/models/analyzer');
+const { getDatabase } = require('../../src/models/database');
+const { TARGET_PLAYER } = require('../../src/config/app-config');
+const ChessAnalyzer = require('../../src/models/analyzer');
 
 describe('Blunder Integration Tests', () => {
   let database;
@@ -334,7 +334,7 @@ describe('Blunder Integration Tests', () => {
     test('should respect environment variable override', () => {
       // This test verifies that the config system is set up correctly
       // The actual value depends on whether TARGET_PLAYER env var is set
-      const { TARGET_PLAYER: configPlayer } = require('../src/config/app-config');
+      const { TARGET_PLAYER: configPlayer } = require('../../src/config/app-config');
 
       if (process.env.TARGET_PLAYER) {
         expect(configPlayer).toBe(process.env.TARGET_PLAYER);

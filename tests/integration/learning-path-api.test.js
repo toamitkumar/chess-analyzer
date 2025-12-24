@@ -1,9 +1,9 @@
 const { describe, test, expect, beforeAll, afterAll, beforeEach } = require('@jest/globals');
 const request = require('supertest');
 const express = require('express');
-const { getDatabase } = require('../src/models/database');
-const LearningPathGenerator = require('../src/models/learning-path-generator');
-const PuzzleProgressTracker = require('../src/models/puzzle-progress-tracker');
+const { getDatabase } = require('../../src/models/database');
+const LearningPathGenerator = require('../../src/models/learning-path-generator');
+const PuzzleProgressTracker = require('../../src/models/puzzle-progress-tracker');
 
 describe('Learning Path API Endpoints', () => {
   let app;

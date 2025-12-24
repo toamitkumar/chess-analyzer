@@ -1,5 +1,5 @@
 const { describe, test, expect, beforeEach } = require('@jest/globals');
-const LichessAPIClient = require('../src/models/lichess-api-client');
+const LichessAPIClient = require('../../src/models/lichess-api-client');
 
 // Mock fetch globally
 global.fetch = jest.fn();

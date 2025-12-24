@@ -3,7 +3,7 @@
  * Verifies that all migrations work correctly on both SQLite and PostgreSQL
  */
 
-const { getDatabase } = require('../src/models/database');
+const { getDatabase } = require('../../src/models/database');
 const fs = require('fs');
 const path = require('path');
 

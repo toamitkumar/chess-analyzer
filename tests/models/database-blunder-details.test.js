@@ -1,5 +1,5 @@
-const { getDatabase } = require('../src/models/database');
-const { TARGET_PLAYER } = require('../src/config/app-config');
+const { getDatabase } = require('../../src/models/database');
+const { TARGET_PLAYER } = require('../../src/config/app-config');
 
 describe('Database - Blunder Details', () => {
   let database;

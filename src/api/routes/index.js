@@ -15,20 +15,25 @@ const gameRoutes = require('./game.routes');
 const blunderRoutes = require('./blunder.routes');
 const healthRoutes = require('./health.routes');
 const dashboardRoutes = require('./dashboard.routes');
-const uploadController = require('../controllers/upload.controller');
+const UploadController = require('../controllers/upload.controller');
 // TODO: Add other routes as they're created
 // const puzzleRoutes = require('./puzzle.routes');
 // const learningPathRoutes = require('./learningPath.routes');
 
 /**
  * Configure all API routes
- * @param {Object} middleware - Required middleware for upload routes
+ * @param {Object} middleware - Required middleware and services for upload routes
  * @param {Function} middleware.uploadLimiter - Rate limiter for uploads
  * @param {Function} middleware.checkAccessCode - Access code validator
  * @param {Function} middleware.multerUpload - Multer file upload middleware
+ * @param {Function} middleware.sharedAnalyzer - Function that returns shared Stockfish analyzer instance
  */
 function configureRoutes(middleware = {}) {
   const router = express.Router();
+
+  // Create upload controller with shared analyzer (if available)
+  const sharedAnalyzer = middleware.sharedAnalyzer ? middleware.sharedAnalyzer() : null;
+  const uploadController = new UploadController(sharedAnalyzer);
 
   // Mount standard routes
   router.use('/tournaments', tournamentRoutes);

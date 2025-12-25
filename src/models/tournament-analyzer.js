@@ -17,29 +17,26 @@ class TournamentAnalyzer {
   }
 
   // Get performance metrics for a specific tournament
-  async getTournamentPerformance(tournamentId) {
+  async getTournamentPerformance(tournamentId, userId = 'default_user') {
     if (!this.db) await this.initialize();
 
     try {
-      // Get all games in tournament
+      // Get all games in tournament for this user
       const games = await this.db.all(`
-        SELECT id, white_player, black_player, result, date
-        FROM games 
+        SELECT id, white_player, black_player, result, date, user_color
+        FROM games
         WHERE tournament_id = ?
-      `, [tournamentId]);
+        AND user_id = ?
+      `, [tournamentId, userId]);
 
-      // Filter for player-specific games and calculate wins/losses/draws
-      const playerGames = games.filter(g => g.white_player === TARGET_PLAYER || g.black_player === TARGET_PLAYER);
-      
+      // Calculate wins/losses/draws using user_color
       let wins = 0, losses = 0, draws = 0;
-      playerGames.forEach(game => {
-        const isPlayerWhite = game.white_player === TARGET_PLAYER;
-        
+      games.forEach(game => {
         if (game.result === '1/2-1/2') {
           draws++;
         } else if (
-          (isPlayerWhite && game.result === '1-0') ||
-          (!isPlayerWhite && game.result === '0-1')
+          (game.user_color === 'white' && game.result === '1-0') ||
+          (game.user_color === 'black' && game.result === '0-1')
         ) {
           wins++;
         } else {
@@ -47,31 +44,32 @@ class TournamentAnalyzer {
         }
       });
 
-      // Get analysis metrics for player moves only
+      // Get analysis metrics for player moves only using user_color
       const analysisMetrics = await this.db.all(`
-        SELECT 
+        SELECT
           COUNT(*) as total_moves,
           COUNT(CASE WHEN is_blunder = TRUE THEN 1 END) as total_blunders,
           COALESCE(SUM(centipawn_loss), 0) as total_centipawn_loss
         FROM analysis a
         JOIN games g ON a.game_id = g.id
         WHERE g.tournament_id = ?
-          AND ((g.white_player = ? AND a.move_number % 2 = 1) OR 
-               (g.black_player = ? AND a.move_number % 2 = 0))
-      `, [tournamentId, TARGET_PLAYER, TARGET_PLAYER]);
+          AND g.user_id = ?
+          AND ((g.user_color = 'white' AND a.move_number % 2 = 1) OR
+               (g.user_color = 'black' AND a.move_number % 2 = 0))
+      `, [tournamentId, userId]);
 
       const analysis = analysisMetrics[0];
 
       // Fetch games with analysis data for accuracy calculation
       const gamesWithAnalysis = [];
-      for (const gameRecord of playerGames) {
+      for (const gameRecord of games) {
         const gameAnalysis = await this.db.all(`
           SELECT move_number, centipawn_loss
-          FROM analysis 
+          FROM analysis
           WHERE game_id = ?
           ORDER BY move_number
         `, [gameRecord.id]);
-        
+
         if (gameAnalysis.length > 0) {
           gamesWithAnalysis.push({
             ...gameRecord,
@@ -81,10 +79,10 @@ class TournamentAnalyzer {
       }
 
       // Calculate player-specific accuracy using centralized calculator
-      const avgAccuracy = AccuracyCalculator.calculateOverallAccuracy(gamesWithAnalysis, TARGET_PLAYER);
+      const avgAccuracy = AccuracyCalculator.calculateOverallAccuracy(gamesWithAnalysis, userId);
 
       // Calculate performance statistics
-      const totalPlayerGames = playerGames.length;
+      const totalPlayerGames = games.length;
       const whiteWinRate = totalPlayerGames > 0 ? Math.round((wins / totalPlayerGames) * 100) : 0;
       const drawRate = totalPlayerGames > 0 ? Math.round((draws / totalPlayerGames) * 100) : 0;
 
@@ -108,7 +106,7 @@ class TournamentAnalyzer {
   }
 
   // Compare performance across multiple tournaments
-  async compareTournaments(tournamentIds) {
+  async compareTournaments(tournamentIds, userId) {
     if (!this.db) await this.initialize();
 
     const comparisons = [];
@@ -116,7 +114,7 @@ class TournamentAnalyzer {
     for (const tournamentId of tournamentIds) {
       try {
         const tournament = await this.db.get('SELECT * FROM tournaments WHERE id = ?', [tournamentId]);
-        const performance = await this.getTournamentPerformance(tournamentId);
+        const performance = await this.getTournamentPerformance(tournamentId, userId);
         
         comparisons.push({
           tournament,
@@ -131,7 +129,7 @@ class TournamentAnalyzer {
   }
 
   // Get tournament-specific heatmap data
-  async getTournamentHeatmap(tournamentId) {
+  async getTournamentHeatmap(tournamentId, userId = 'default_user') {
     if (!this.db) await this.initialize();
 
     try {
@@ -174,23 +172,24 @@ class TournamentAnalyzer {
   }
 
   // Get tournament trends (improvement over time within tournament)
-  async getTournamentTrends(tournamentId) {
+  async getTournamentTrends(tournamentId, userId) {
     if (!this.db) await this.initialize();
 
     try {
-      // First get all games in the tournament
+      // First get all games in the tournament for this user
       const games = await this.db.all(`
         SELECT
           g.id,
           g.white_player,
           g.black_player,
           g.date,
-          g.created_at
+          g.created_at,
+          g.user_color
         FROM games g
         WHERE g.tournament_id = ?
-          AND (g.white_player = ? OR g.black_player = ?)
+          AND g.user_id = ?
         ORDER BY g.created_at ASC
-      `, [tournamentId, TARGET_PLAYER, TARGET_PLAYER]);
+      `, [tournamentId, userId]);
 
       // Fetch analysis data for each game
       const trends = [];
@@ -207,16 +206,15 @@ class TournamentAnalyzer {
         const blunders = gameAnalysis.filter(a => a.is_blunder === true).length;
         const accuracy = AccuracyCalculator.calculatePlayerAccuracy(
           gameAnalysis,
-          TARGET_PLAYER,
+          userId,
           game.white_player,
           game.black_player
         );
 
-        // Calculate average centipawn loss for player moves only
-        const isPlayerWhite = game.white_player === TARGET_PLAYER;
+        // Calculate average centipawn loss for player moves only using user_color
         const playerMoves = gameAnalysis.filter(move =>
-          (isPlayerWhite && move.move_number % 2 === 1) ||
-          (!isPlayerWhite && move.move_number % 2 === 0)
+          (game.user_color === 'white' && move.move_number % 2 === 1) ||
+          (game.user_color === 'black' && move.move_number % 2 === 0)
         );
         const totalCpl = playerMoves.reduce((sum, move) => sum + (move.centipawn_loss || 0), 0);
         const avgCentipawnLoss = playerMoves.length > 0 ? Math.round(totalCpl / playerMoves.length) : 0;
@@ -363,13 +361,13 @@ class TournamentAnalyzer {
   }
 
   // Get tournament summary with key insights
-  async getTournamentSummary(tournamentId) {
+  async getTournamentSummary(tournamentId, userId = 'default_user') {
     if (!this.db) await this.initialize();
 
     try {
       const tournament = await this.db.get('SELECT * FROM tournaments WHERE id = ?', [tournamentId]);
-      const performance = await this.getTournamentPerformance(tournamentId);
-      const trends = await this.getTournamentTrends(tournamentId);
+      const performance = await this.getTournamentPerformance(tournamentId, userId);
+      const trends = await this.getTournamentTrends(tournamentId, userId);
       
       // Calculate insights
       const insights = {

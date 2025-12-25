@@ -38,7 +38,8 @@ describe('GameController', () => {
     // Create mock request and response objects
     mockReq = {
       params: {},
-      query: {}
+      query: {},
+      userId: 'test-user-id'
     };
 
     mockRes = {
@@ -67,7 +68,10 @@ describe('GameController', () => {
 
       await gameController.list(mockReq, mockRes);
 
-      expect(mockDb.all).toHaveBeenCalledWith(expect.stringContaining('SELECT'));
+      expect(mockDb.all).toHaveBeenCalledWith(
+        expect.stringContaining('WHERE user_id = ?'),
+        ['test-user-id']
+      );
       expect(mockRes.json).toHaveBeenCalledWith(
         expect.arrayContaining([
           expect.objectContaining({
@@ -127,8 +131,8 @@ describe('GameController', () => {
       await gameController.getById(mockReq, mockRes);
 
       expect(mockDb.get).toHaveBeenCalledWith(
-        'SELECT * FROM games WHERE id = ?',
-        [1]
+        'SELECT * FROM games WHERE id = ? AND user_id = ?',
+        [1, 'test-user-id']
       );
       expect(mockRes.json).toHaveBeenCalledWith(
         expect.objectContaining({
@@ -174,7 +178,7 @@ describe('GameController', () => {
 
       await gameController.getAnalysis(mockReq, mockRes);
 
-      expect(mockDb.getGameAnalysis).toHaveBeenCalledWith(1);
+      expect(mockDb.getGameAnalysis).toHaveBeenCalledWith(1, 'test-user-id');
       expect(mockRes.json).toHaveBeenCalledWith(mockAnalysis);
     });
 
@@ -202,8 +206,8 @@ describe('GameController', () => {
 
       await gameController.getAlternatives(mockReq, mockRes);
 
-      expect(mockDb.getAlternativeMoves).toHaveBeenCalledWith(1, 10);
-      expect(mockDb.getPositionEvaluation).toHaveBeenCalledWith(1, 10);
+      expect(mockDb.getAlternativeMoves).toHaveBeenCalledWith(1, 10, 'test-user-id');
+      expect(mockDb.getPositionEvaluation).toHaveBeenCalledWith(1, 10, 'test-user-id');
       expect(mockRes.json).toHaveBeenCalledWith(expect.objectContaining({
         position: mockPosition,
         alternatives: expect.arrayContaining([
@@ -232,7 +236,7 @@ describe('GameController', () => {
 
       expect(mockDb.all).toHaveBeenCalledWith(
         expect.stringContaining('is_blunder = ?'),
-        [1, true]
+        [1, true, 'test-user-id']
       );
       expect(mockRes.json).toHaveBeenCalledWith(mockBlunders);
     });
@@ -293,10 +297,11 @@ describe('GameController', () => {
 
       const mockGame = {
         id: 1,
-        white_player: 'AdvaitKumar1213',
+        white_player: 'test-user-id',
         black_player: 'Opponent',
         result: '1-0',
-        pgn_content: '[ECO "B10"]'
+        pgn_content: '[ECO "B10"]',
+        user_color: 'white'
       };
 
       const mockBlunderCount = { count: 2 };
@@ -322,7 +327,10 @@ describe('GameController', () => {
           blunders: 2,
           accuracy: 85,
           playerColor: 'white',
-          opening: 'Caro-Kann Defense'
+          opening: 'Caro-Kann Defense',
+          gameId: 1,
+          moves: expect.any(Number),
+          totalMoves: 3
         })
       );
     });

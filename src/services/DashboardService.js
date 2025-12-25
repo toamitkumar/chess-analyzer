@@ -9,6 +9,7 @@
 const { getDatabase } = require('../models/database');
 const TrendCalculator = require('../models/trend-calculator');
 const HeatmapCalculator = require('../models/HeatmapCalculator');
+const AccuracyCalculator = require('../models/accuracy-calculator');
 const { TARGET_PLAYER } = require('../config/app-config');
 
 class DashboardService {
@@ -108,34 +109,52 @@ class DashboardService {
     const overallWinRate = totalGames > 0 ? Math.round((totalWins / totalGames) * 100) : 0;
     const whiteWinRate = whiteGames > 0 ? Math.round((whiteWins / whiteGames) * 100) : 0;
     const blackWinRate = blackGames > 0 ? Math.round((blackWins / blackGames) * 100) : 0;
-    const avgCentipawnLoss = totalMoves > 0 ? Math.round(totalCentipawnLoss / totalMoves) : 0;
+    // const avgCentipawnLoss = totalMoves > 0 ? Math.round(totalCentipawnLoss / totalMoves) : 0;
+
+    // Calculate accuracy using centralized calculator
+    const gamesWithAnalysis = [];
+    for (const game of games) {
+      const analysis = await this.database.all(`
+        SELECT centipawn_loss, move_number
+        FROM analysis 
+        WHERE game_id = ?
+        ORDER BY move_number
+      `, [game.id]);
+      
+      if (analysis.length > 0) {
+        gamesWithAnalysis.push({
+          ...game,
+          analysis
+        });
+      }
+    }
+
+    const avgAccuracy = AccuracyCalculator.calculateOverallAccuracy(gamesWithAnalysis, TARGET_PLAYER);
 
     return {
-      overallRecord: {
-        wins: totalWins,
-        losses: totalLosses,
-        draws: totalDraws,
-        winRate: overallWinRate
+      overall: {
+        overallWinRate,
+        avgAccuracy,
+        totalGames,
+        totalBlunders
       },
-      byColor: {
-        white: {
-          games: whiteGames,
-          wins: whiteWins,
-          losses: whiteLosses,
-          draws: whiteDraws,
-          winRate: whiteWinRate
-        },
-        black: {
-          games: blackGames,
-          wins: blackWins,
-          losses: blackLosses,
-          draws: blackDraws,
-          winRate: blackWinRate
-        }
+      white: {
+        games: whiteGames,
+        wins: whiteWins,
+        losses: whiteLosses,
+        draws: whiteDraws,
+        winRate: whiteWinRate,
+        avgAccuracy,
+        blunders: Math.round(totalBlunders * (whiteGames / totalGames))
       },
-      analysis: {
-        totalBlunders,
-        avgCentipawnLoss
+      black: {
+        games: blackGames,
+        wins: blackWins,
+        losses: blackLosses,
+        draws: blackDraws,
+        winRate: blackWinRate,
+        avgAccuracy,
+        blunders: Math.round(totalBlunders * (blackGames / totalGames))
       }
     };
   }

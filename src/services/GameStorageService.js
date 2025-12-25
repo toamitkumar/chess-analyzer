@@ -68,9 +68,10 @@ class GameStorageService {
    * @param {string} storedFilePath - File path where PGN is stored
    * @param {string} userId - User ID
    * @param {number} gameIndex - Index of the game (for logging)
+   * @param {string|null} userColor - Color the user played ('white' or 'black')
    * @returns {Promise<number>} Game ID
    */
-  async storeGame(game, analyzedGame, tournament, pgnContent, storedFilePath, userId, gameIndex) {
+  async storeGame(game, analyzedGame, tournament, pgnContent, storedFilePath, userId, gameIndex, userColor = null) {
     const gameData = {
       pgnFilePath: storedFilePath,
       whitePlayer: game.white || 'Unknown',
@@ -82,7 +83,8 @@ class GameStorageService {
       blackElo: game.blackElo ? parseInt(game.blackElo) : null,
       movesCount: game.moves ? game.moves.length : 0,
       tournamentId: tournament.id,
-      userId: userId
+      userId: userId,
+      userColor: userColor  // Add user_color
     };
 
     const gameResult = await this.database.insertGame(gameData, pgnContent);
@@ -142,7 +144,7 @@ class GameStorageService {
    * @param {string} userId - User ID
    * @returns {Promise<Array>} Array of stored game IDs
    */
-  async storeGames(games, analyzedGames, tournament, pgnContent, storedFilePath, userId) {
+  async storeGames(games, analyzedGames, tournament, pgnContent, storedFilePath, userId, userColor = null) {
     const storedGameIds = [];
 
     for (let i = 0; i < games.length; i++) {
@@ -157,7 +159,8 @@ class GameStorageService {
           pgnContent,
           storedFilePath,
           userId,
-          i
+          i,
+          userColor  // Pass userColor to storeGame
         );
         storedGameIds.push(gameId);
       } catch (dbError) {

@@ -221,7 +221,7 @@ class TournamentManager {
   }
 
   // Get tournament statistics
-  async getTournamentStats(tournamentId) {
+  async getTournamentStats(tournamentId, userId) {
     if (!this.db) {
       await this.initialize();
     }
@@ -236,7 +236,8 @@ class TournamentManager {
         AVG(black_elo) as avg_black_elo
       FROM games 
       WHERE tournament_id = ?
-    `, [tournamentId]);
+      AND user_id = ?
+    `, [tournamentId, userId]);
     
     return stats;
   }

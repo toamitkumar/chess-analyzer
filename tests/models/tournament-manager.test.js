@@ -287,7 +287,7 @@ describe('TournamentManager', () => {
         VALUES (?, ?, ?, ?, ?, ?, ?, ?)
       `, ['test_tournament_manager', 'P5', 'P6', '1/2-1/2', 1700, 1650, tournamentId, 'default_user']);
 
-      const stats = await tournamentManager.getTournamentStats(tournamentId);
+      const stats = await tournamentManager.getTournamentStats(tournamentId, 'default_user');
 
       expect(stats.total_games).toBe(3);
       expect(stats.white_wins).toBe(1);

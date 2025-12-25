@@ -3,15 +3,10 @@ const path = require('path');
 const fs = require('fs');
 const rateLimit = require('express-rate-limit');
 const multer = require('multer');
-const PerformanceCalculator = require('../models/performance-stats');
-const TrendCalculator = require('../models/trend-calculator');
 const HeatmapCalculator = require('../models/HeatmapCalculator');
-const PGNParser = require('../services/PGNParser');
-const ChessAnalyzer = require('../models/analyzer');
 const { getDatabase } = require('../models/database');
 const { getFileStorage } = require('../models/file-storage');
 const { getTournamentManager } = require('../models/tournament-manager');
-const AccuracyCalculator = require('../models/accuracy-calculator');
 const { getTournamentAnalyzer } = require('../models/tournament-analyzer');
 const { TARGET_PLAYER, API_CONFIG } = require('../config/app-config');
 const { checkAccessCode } = require('../middleware/access-code');
@@ -40,25 +35,51 @@ const multerUpload = multer({
   }
 });
 
-// Initialize database, file storage, tournament manager, and analyzer
+// Initialize database, file storage, tournament manager, analyzer, and shared Stockfish instance
 let database = null;
 let fileStorage = null;
 let tournamentManager = null;
 let tournamentAnalyzer = null;
+let sharedAnalyzer = null;
 
 async function initializeServices() {
   try {
     database = getDatabase();
     await database.initialize();
-    
+
     fileStorage = getFileStorage();
-    
+
     tournamentManager = getTournamentManager();
     await tournamentManager.initialize();
-    
+
     tournamentAnalyzer = getTournamentAnalyzer();
     await tournamentAnalyzer.initialize();
-    
+
+    // Initialize shared Stockfish analyzer (SINGLETON)
+    console.log('🔧 Initializing shared Stockfish engine...');
+    const ChessAnalyzer = require('../models/analyzer');
+    sharedAnalyzer = new ChessAnalyzer();
+
+    // Wait for Stockfish to be ready
+    await new Promise((resolve) => {
+      const checkReady = () => {
+        if (sharedAnalyzer.isReady) {
+          console.log('✅ Shared Stockfish engine ready');
+          resolve();
+        } else {
+          setTimeout(checkReady, 200);
+        }
+      };
+
+      // Timeout after 60 seconds (some machines need more time)
+      setTimeout(() => {
+        console.log('⚠️ Stockfish initialization timeout after 60s, server will continue but analysis may fail');
+        resolve();
+      }, 60000);
+
+      checkReady();
+    });
+
     console.log('✅ All services initialized');
   } catch (error) {
     console.error('❌ Service initialization failed:', error);
@@ -89,235 +110,21 @@ app.use(express.text({ limit: '10mb', type: 'text/plain' }));
 // Require authentication for all API endpoints
 // app.use('/api/*', requireAuth);
 
-// Configure and mount all API routes
-// Pass upload middleware to the route configuration
-const apiRoutes = configureRoutes({
-  uploadLimiter: uploadLimiter,
-  checkAccessCode: checkAccessCode,
-  multerUpload: multerUpload
+// Temporary middleware: Set default user when auth is disabled
+app.use('/api/*', (req, res, next) => {
+  if (!req.userId) {
+    req.userId = 'default_user';
+  }
+  next();
 });
-app.use('/api', apiRoutes);
+
+// NOTE: API routes are configured AFTER services initialize in startServer()
+// This ensures sharedAnalyzer is ready before routes are created
 
 // Performance data cache
 let performanceCache = null;
 let performanceCacheTimestamp = null;
-let trendsCache = null;
-let trendsCacheTimestamp = null;
-const CACHE_DURATION = 5 * 60 * 1000; // 5 minutes
 
-class PerformanceAPI {
-  constructor() {
-    this.calculator = new PerformanceCalculator();
-    this.trendCalculator = new TrendCalculator();
-  }
-
-  async getPerformanceData() {
-    // Check cache first
-    if (performanceCache && performanceCacheTimestamp && 
-        (Date.now() - performanceCacheTimestamp) < CACHE_DURATION) {
-      return performanceCache;
-    }
-
-    try {
-      // Get sample PGN files from Game-PGNs directory
-      const pgnDir = path.join(__dirname, '../Game-PGNs');
-      
-      if (!fs.existsSync(pgnDir)) {
-        // Return mock data if no PGN files available
-        return this.getMockData();
-      }
-
-      const pgnFiles = fs.readdirSync(pgnDir)
-        .filter(file => file.endsWith('.pgn'))
-        .slice(0, 5) // Limit to 5 files for performance
-        .map(file => fs.readFileSync(path.join(pgnDir, file), 'utf8'));
-
-      if (pgnFiles.length === 0) {
-        return this.getMockData();
-      }
-
-      // Parse games and calculate stats
-      const games = this.calculator.parseGameResults(pgnFiles);
-      const stats = this.calculator.calculatePerformanceStats(games);
-
-      // Cache the result
-      performanceCache = {
-        white: {
-          winRate: stats.white.winRate,
-          accuracy: stats.white.accuracy,
-          blunders: stats.white.blunders
-        },
-        black: {
-          winRate: stats.black.winRate,
-          accuracy: stats.black.accuracy,
-          blunders: stats.black.blunders
-        },
-        lastUpdated: new Date().toISOString()
-      };
-      
-      performanceCacheTimestamp = Date.now();
-      return performanceCache;
-
-    } catch (error) {
-      console.error('Error calculating performance data:', error);
-      return this.getMockData();
-    }
-  }
-
-  getMockData() {
-    return {
-      white: { winRate: 65, accuracy: 87, blunders: 12 },
-      black: { winRate: 58, accuracy: 84, blunders: 18 },
-      lastUpdated: new Date().toISOString()
-    };
-  }
-
-  async getTrendsData() {
-    // Check cache first
-    if (trendsCache && trendsCacheTimestamp && 
-        (Date.now() - trendsCacheTimestamp) < CACHE_DURATION) {
-      return trendsCache;
-    }
-
-    try {
-      // Get sample PGN files from Game-PGNs directory
-      const pgnDir = path.join(__dirname, '../../Game-PGNs');
-      
-      if (!fs.existsSync(pgnDir)) {
-        return this.getMockTrendsData();
-      }
-
-      const pgnFiles = fs.readdirSync(pgnDir)
-        .filter(file => file.endsWith('.pgn'))
-        .slice(0, 10) // Limit to 10 files for performance
-        .map(file => fs.readFileSync(path.join(pgnDir, file), 'utf8'));
-
-      if (pgnFiles.length === 0) {
-        return this.getMockTrendsData();
-      }
-
-      // Get games from database instead of files
-      const database = getDatabase();
-      await database.initialize();
-      
-      const games = await database.all(`
-        SELECT g.*, 
-               AVG(a.centipawn_loss) as avgCentipawnLoss,
-               COUNT(a.id) as moveCount
-        FROM games g 
-        LEFT JOIN analysis a ON g.id = a.game_id 
-        GROUP BY g.id 
-        ORDER BY g.date ASC
-      `);
-
-      if (games.length === 0) {
-        return this.getMockTrendsData();
-      }
-
-      // Convert database games to trend calculator format
-      const trendGames = games.map(game => {
-        // Determine which rating belongs to the target player
-        const isWhite = game.white_player?.toLowerCase() === TARGET_PLAYER.toLowerCase();
-        const isBlack = game.black_player?.toLowerCase() === TARGET_PLAYER.toLowerCase();
-        
-        let playerRating = null;
-        let opponentRating = null;
-        
-        if (isWhite) {
-          playerRating = game.white_elo;
-          opponentRating = game.black_elo;
-        } else if (isBlack) {
-          playerRating = game.black_elo;
-          opponentRating = game.white_elo;
-        }
-        
-        return {
-          date: new Date(game.date || game.created_at),
-          playerRating: playerRating,
-          opponentRating: opponentRating,
-          whiteElo: game.white_elo,
-          blackElo: game.black_elo,
-          result: game.result,
-          avgCentipawnLoss: game.avgCentipawnLoss || 0,
-          moveCount: game.moveCount || 0,
-          moves: [] // Placeholder for centipawn calculation
-        };
-      });
-
-      const ratingProgression = this.trendCalculator.calculateRatingProgression(trendGames);
-      const centipawnTrend = this.trendCalculator.calculateCentipawnLossTrend(trendGames);
-
-      // Cache the result
-      trendsCache = {
-        ratingProgression: ratingProgression,
-        centipawnTrend: centipawnTrend,
-        summary: this.trendCalculator.generateTrendSummary(ratingProgression, centipawnTrend),
-        lastUpdated: new Date().toISOString()
-      };
-      
-      trendsCacheTimestamp = Date.now();
-      return trendsCache;
-
-    } catch (error) {
-      console.error('Error calculating trends data:', error);
-      return this.getMockTrendsData();
-    }
-  }
-
-  getMockTrendsData() {
-    const mockRatingProgression = [
-      { date: new Date('2023-01-01'), rating: 1500, result: '1-0' },
-      { date: new Date('2023-01-15'), rating: 1520, result: '0-1' },
-      { date: new Date('2023-02-01'), rating: 1510, result: '1/2-1/2' },
-      { date: new Date('2023-02-15'), rating: 1540, result: '1-0' },
-      { date: new Date('2023-03-01'), rating: 1565, result: '1-0' }
-    ];
-
-    const mockCentipawnTrend = [
-      { date: new Date('2023-01-01'), avgCentipawnLoss: 85, moveCount: 42 },
-      { date: new Date('2023-01-15'), avgCentipawnLoss: 78, moveCount: 38 },
-      { date: new Date('2023-02-01'), avgCentipawnLoss: 72, moveCount: 45 },
-      { date: new Date('2023-02-15'), avgCentipawnLoss: 68, moveCount: 41 },
-      { date: new Date('2023-03-01'), avgCentipawnLoss: 65, moveCount: 39 }
-    ];
-
-    return {
-      ratingProgression: mockRatingProgression,
-      centipawnTrend: mockCentipawnTrend,
-      summary: {
-        ratingChange: 65,
-        averageCentipawnLoss: 74,
-        improvementTrend: 'improving',
-        totalGames: 5
-      },
-      lastUpdated: new Date().toISOString()
-    };
-  }
-}
-
-const performanceAPI = new PerformanceAPI();
-
-// API Routes (performance route moved below to use database)
-
-app.get('/api/trends', async (req, res) => {
-  const startTime = Date.now();
-  
-  try {
-    const data = await performanceAPI.getTrendsData();
-    const responseTime = Date.now() - startTime;
-    
-    res.json({
-      success: true,
-      data: data,
-      responseTime: responseTime
-    });
-  } catch (error) {
-    res.status(500).json({
-      success: false,
-      error: error.message
-    });
-  }
-});
 
 app.get('/api/heatmap', async (req, res) => {
   try {
@@ -453,142 +260,6 @@ function extractSquareFromMove(move) {
   return match ? match[0] : null;
 }
 
-// Overall player performance API
-app.get('/api/player-performance', async (req, res) => {
-  try {
-    console.log(`👤 Overall player performance requested for ${TARGET_PLAYER}`);
-    
-    if (!database) {
-      throw new Error('Database not initialized');
-    }
-    
-    // Get all games for the target player
-    const games = await database.all(`
-      SELECT id, white_player, black_player, result, white_elo, black_elo
-      FROM games 
-      WHERE white_player = ? OR black_player = ?
-      ORDER BY created_at ASC
-    `, [TARGET_PLAYER, TARGET_PLAYER]);
-    
-    let totalWins = 0, totalLosses = 0, totalDraws = 0;
-    let whiteWins = 0, whiteLosses = 0, whiteDraws = 0, whiteGames = 0;
-    let blackWins = 0, blackLosses = 0, blackDraws = 0, blackGames = 0;
-    let totalBlunders = 0, totalCentipawnLoss = 0, totalMoves = 0;
-    
-    for (const game of games) {
-      const isPlayerWhite = game.white_player === TARGET_PLAYER;
-      const isPlayerBlack = game.black_player === TARGET_PLAYER;
-      
-      // Count games by color
-      if (isPlayerWhite) whiteGames++;
-      if (isPlayerBlack) blackGames++;
-      
-      // Calculate results
-      if (game.result === '1/2-1/2') {
-        totalDraws++;
-        if (isPlayerWhite) whiteDraws++;
-        if (isPlayerBlack) blackDraws++;
-      } else if (
-        (isPlayerWhite && game.result === '1-0') ||
-        (isPlayerBlack && game.result === '0-1')
-      ) {
-        totalWins++;
-        if (isPlayerWhite) whiteWins++;
-        if (isPlayerBlack) blackWins++;
-      } else {
-        totalLosses++;
-        if (isPlayerWhite) whiteLosses++;
-        if (isPlayerBlack) blackLosses++;
-      }
-      
-      // Get analysis data for this game (for centipawn loss and move count)
-      const analysis = await database.all(`
-        SELECT centipawn_loss, move_number
-        FROM analysis
-        WHERE game_id = ?
-        ORDER BY move_number
-      `, [game.id]);
-
-      // Filter moves for the target player
-      const playerMoves = analysis.filter(move =>
-        (isPlayerWhite && move.move_number % 2 === 1) ||
-        (isPlayerBlack && move.move_number % 2 === 0)
-      );
-
-      // Count blunders from blunder_details table (only target player's blunders)
-      const blunderCount = await database.get(`
-        SELECT COUNT(*) as count
-        FROM blunder_details bd
-        JOIN games g ON bd.game_id = g.id
-        WHERE bd.game_id = ?
-          AND bd.is_blunder = ?
-          AND ((g.white_player = ? AND bd.player_color = 'white')
-            OR (g.black_player = ? AND bd.player_color = 'black'))
-      `, [game.id, true, TARGET_PLAYER, TARGET_PLAYER]);
-
-      totalBlunders += parseInt(blunderCount?.count) || 0;
-      totalCentipawnLoss += playerMoves.reduce((sum, move) => sum + (move.centipawn_loss || 0), 0);
-      totalMoves += playerMoves.length;
-    }
-    
-    const totalGames = games.length;
-    const overallWinRate = totalGames > 0 ? Math.round((totalWins / totalGames) * 100) : 0;
-    const whiteWinRate = whiteGames > 0 ? Math.round((whiteWins / whiteGames) * 100) : 0;
-    const blackWinRate = blackGames > 0 ? Math.round((blackWins / blackGames) * 100) : 0;
-    
-    // Calculate accuracy using centralized calculator
-    const gamesWithAnalysis = [];
-    for (const game of games) {
-      const analysis = await database.all(`
-        SELECT centipawn_loss, move_number
-        FROM analysis 
-        WHERE game_id = ?
-        ORDER BY move_number
-      `, [game.id]);
-      
-      if (analysis.length > 0) {
-        gamesWithAnalysis.push({
-          ...game,
-          analysis
-        });
-      }
-    }
-    
-    const avgAccuracy = AccuracyCalculator.calculateOverallAccuracy(gamesWithAnalysis, TARGET_PLAYER);
-    
-    res.json({
-      overall: {
-        overallWinRate,
-        avgAccuracy,
-        totalGames,
-        totalBlunders
-      },
-      white: {
-        games: whiteGames,
-        wins: whiteWins,
-        losses: whiteLosses,
-        draws: whiteDraws,
-        winRate: whiteWinRate,
-        avgAccuracy,
-        blunders: Math.round(totalBlunders * (whiteGames / totalGames))
-      },
-      black: {
-        games: blackGames,
-        wins: blackWins,
-        losses: blackLosses,
-        draws: blackDraws,
-        winRate: blackWinRate,
-        avgAccuracy,
-        blunders: Math.round(totalBlunders * (blackGames / totalGames))
-      }
-    });
-    
-  } catch (error) {
-    console.error('Player performance API error:', error);
-    res.status(500).json({ error: 'Failed to get player performance' });
-  }
-});
-
 // Enhanced performance API with tournament filtering (merged with performance-db)
 app.get('/api/performance', async (req, res) => {
   try {
@@ -614,164 +285,6 @@ app.get('/api/performance', async (req, res) => {
     res.json(fallbackData);
   }
 });
-
-// app.get('/api/tournaments/:id', async (req, res) => {
-//   try {
-//     const tournamentId = parseInt(req.params.id);
-//     console.log(`🏆 Tournament ${tournamentId} details requested`);
-    
-//     if (!tournamentManager) {
-//       throw new Error('Tournament manager not initialized');
-//     }
-    
-//     const tournament = await tournamentManager.getTournamentById(tournamentId);
-//     if (!tournament) {
-//       return res.status(404).json({ error: 'Tournament not found' });
-//     }
-    
-//     const stats = await tournamentManager.getTournamentStats(tournamentId);
-    
-//     res.json({
-//       ...tournament,
-//       stats
-//     });
-//   } catch (error) {
-//     console.error('Tournament details API error:', error);
-//     res.status(500).json({ error: 'Failed to get tournament details' });
-//   }
-// });
-
-// app.get('/api/tournaments/:id/files', async (req, res) => {
-//   try {
-//     const tournamentId = parseInt(req.params.id);
-//     console.log(`📁 Tournament ${tournamentId} files requested`);
-    
-//     if (!tournamentManager || !fileStorage) {
-//       throw new Error('Services not initialized');
-//     }
-    
-//     const tournament = await tournamentManager.getTournamentById(tournamentId);
-//     if (!tournament) {
-//       return res.status(404).json({ error: 'Tournament not found' });
-//     }
-    
-//     const files = fileStorage.listTournamentFiles(tournament.name);
-//     res.json(files);
-//   } catch (error) {
-//     console.error('Tournament files API error:', error);
-//     res.json([]);
-//   }
-// });
-
-// app.get('/api/tournament-folders', async (req, res) => {
-//   try {
-//     console.log('📁 Tournament folders list requested');
-    
-//     if (!fileStorage) {
-//       throw new Error('File storage not initialized');
-//     }
-    
-//     const folders = fileStorage.listTournamentFolders();
-//     res.json(folders);
-//   } catch (error) {
-//     console.error('Tournament folders API error:', error);
-//     res.json([]);
-//   }
-// });
-
-// app.get('/api/tournaments/:id/games', async (req, res) => {
-//   try {
-//     const tournamentId = parseInt(req.params.id);
-//     console.log(`🎮 Games for tournament ${tournamentId} requested`);
-    
-//     if (!database) {
-//       throw new Error('Database not initialized');
-//     }
-
-//     const games = await database.all(`
-//       SELECT 
-//         id, white_player, black_player, result, date, 
-//         white_elo, black_elo, moves_count, created_at, pgn_content
-//       FROM games 
-//       WHERE tournament_id = ?
-//       ORDER BY created_at DESC
-//     `, [tournamentId]);
-    
-//     // Add opening extraction and accuracy calculation to each game
-//     const gamesWithAnalysis = await Promise.all(games.map(async (game) => {
-//       let opening = null;
-//       if (game.pgn_content) {
-//         // Try to get ECO from PGN headers first
-//         const ecoMatch = game.pgn_content.match(/\[ECO "([^"]+)"\]/);
-//         if (ecoMatch) {
-//           const ecoCode = ecoMatch[1];
-//           opening = await getOpeningName(ecoCode);
-//         } else {
-//           // Fallback: Detect opening from moves
-//           const openingDetector = require('../models/opening-detector');
-//           const detected = openingDetector.detect(game.pgn_content);
-//           if (detected) {
-//             opening = detected.name;
-//           }
-//         }
-//       }
-      
-//       // Get analysis data for accuracy calculation
-//       const analysis = await database.all(`
-//         SELECT move_number, centipawn_loss
-//         FROM analysis
-//         WHERE game_id = ?
-//         ORDER BY move_number
-//       `, [game.id]);
-
-//       // Calculate player-specific accuracy and blunders using centralized calculator
-//       let playerAccuracy = 0;
-//       let playerBlunders = 0;
-
-//       if (analysis.length > 0) {
-//         const gameWithAnalysis = {
-//           ...game,
-//           analysis
-//         };
-
-//         // Calculate accuracy for AdvaitKumar1213 using centralized calculator
-//         playerAccuracy = AccuracyCalculator.calculatePlayerAccuracy(
-//           analysis,
-//           TARGET_PLAYER,
-//           game.white_player,
-//           game.black_player
-//         );
-//       }
-
-//       // Count blunders from blunder_details table (only target player's blunders)
-//       const blunderCount = await database.get(`
-//         SELECT COUNT(*) as count
-//         FROM blunder_details bd
-//         JOIN games g ON bd.game_id = g.id
-//         WHERE bd.game_id = ?
-//           AND bd.is_blunder = ?
-//           AND ((g.white_player = ? AND bd.player_color = 'white')
-//             OR (g.black_player = ? AND bd.player_color = 'black'))
-//       `, [game.id, true, TARGET_PLAYER, TARGET_PLAYER]);
-
-//       playerBlunders = parseInt(blunderCount?.count) || 0;
-      
-//       return {
-//         ...game,
-//         opening: opening || 'Unknown Opening',
-//         accuracy: playerAccuracy,
-//         blunders: playerBlunders,
-//         playerColor: game.white_player === TARGET_PLAYER ? 'white' : 'black'
-//       };
-//     }));
-    
-//     res.json(gamesWithAnalysis);
-//   } catch (error) {
-//     console.error('Tournament games API error:', error);
-//     res.json([]);
-//   }
-// });
-// END OF COMMENTED OUT TOURNAMENT ROUTES */
 
 // Database-integrated API routes (merged into /api/performance above)
 
@@ -830,66 +343,6 @@ app.get('/api/heatmap-db', async (req, res) => {
     }
     
     res.json(emptyHeatmap);
-  }
-});
-
-// Database-based function for ECO to opening name mapping
-async function getOpeningName(ecoCode) {
-  try {
-    const result = await database.get('SELECT opening_name FROM chess_openings WHERE eco_code = ?', [ecoCode]);
-    return result ? result.opening_name : `${ecoCode} Opening`;
-  } catch (error) {
-    console.error('Error fetching opening name:', error);
-    return `${ecoCode} Opening`;
-  }
-}
-
-app.get('/api/games', async (req, res) => {
-  try {
-    console.log('🎮 Games list requested');
-    
-    if (!database) {
-      throw new Error('Database not initialized');
-    }
-
-    const games = await database.all(`
-      SELECT 
-        id, white_player, black_player, result, date, event,
-        white_elo, black_elo, moves_count, created_at, pgn_content
-      FROM games 
-      ORDER BY created_at DESC 
-      LIMIT 50
-    `);
-    
-    // Add opening extraction to each game
-    const gamesWithOpenings = await Promise.all(games.map(async (game) => {
-      let opening = null;
-      if (game.pgn_content) {
-        // Try to get ECO from PGN headers first
-        const ecoMatch = game.pgn_content.match(/\[ECO "([^"]+)"\]/);
-        if (ecoMatch) {
-          const ecoCode = ecoMatch[1];
-          opening = await getOpeningName(ecoCode);
-        } else {
-          // Fallback: Detect opening from moves
-          const openingDetector = require('../models/opening-detector');
-          const detected = openingDetector.detect(game.pgn_content);
-          if (detected) {
-            opening = detected.name;
-          }
-        }
-      }
-
-      return {
-        ...game,
-        opening: opening || 'Unknown Opening'
-      };
-    }));
-    
-    res.json(gamesWithOpenings);
-  } catch (error) {
-    console.error('Games API error:', error);
-    res.json([]);
   }
 });
 
@@ -1281,20 +734,35 @@ app.get('/api/puzzle-statistics', async (req, res) => {
   }
 });
 
-// Serve Angular app for all non-API routes (MUST BE LAST)
-app.get('*', (req, res) => {
-  // Only serve Angular for non-API routes
-  if (req.path.startsWith('/api/')) {
-    return res.status(404).json({ error: 'API endpoint not found' });
-  }
-  res.sendFile(path.join(__dirname, '../../frontend/dist/chess-analyzer/index-angular.html'));
-});
+// NOTE: Catch-all route moved inside startServer() to ensure it's registered AFTER API routes
 
 // Initialize services and start server
 async function startServer() {
   try {
     await initializeServices();
-    
+
+    // Configure and mount API routes AFTER services are initialized
+    // This ensures sharedAnalyzer is ready when routes are created
+    console.log('🔧 Configuring API routes with shared analyzer...');
+    const apiRoutes = configureRoutes({
+      uploadLimiter: uploadLimiter,
+      checkAccessCode: checkAccessCode,
+      multerUpload: multerUpload,
+      sharedAnalyzer: () => sharedAnalyzer  // Now sharedAnalyzer is initialized!
+    });
+    app.use('/api', apiRoutes);
+    console.log('✅ API routes configured');
+
+    // Serve Angular app for all non-API routes (MUST BE LAST)
+    app.get('*', (req, res) => {
+      // Only serve Angular for non-API routes
+      if (req.path.startsWith('/api/')) {
+        return res.status(404).json({ error: 'API endpoint not found' });
+      }
+      res.sendFile(path.join(__dirname, '../../frontend/dist/chess-analyzer/index-angular.html'));
+    });
+    console.log('✅ Catch-all route configured');
+
     const server = app.listen(port, () => {
       console.log(`🚀 Chess Performance Dashboard running at http://localhost:${port}`);
       console.log(`📊 API available at http://localhost:${port}/api/performance`);
@@ -1317,6 +785,10 @@ async function startServer() {
     process.on('SIGINT', async () => {
       console.log('\n🛑 Shutting down server...');
       server.close(async () => {
+        if (sharedAnalyzer) {
+          console.log('🔒 Closing shared Stockfish engine...');
+          await sharedAnalyzer.close();
+        }
         if (database) {
           await database.close();
         }

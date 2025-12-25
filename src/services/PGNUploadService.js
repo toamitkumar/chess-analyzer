@@ -33,9 +33,10 @@ class PGNUploadService {
    * @param {string} options.originalFileName - Original file name
    * @param {number|null} options.assignedTournamentId - Optional tournament ID
    * @param {string} options.userId - User ID
+   * @param {string|null} options.userColor - Color user played ('white' or 'black')
    * @returns {Promise<Object>} Upload result
    */
-  async processPGNUpload({ pgnContent, originalFileName = 'uploaded.pgn', assignedTournamentId = null, userId }) {
+  async processPGNUpload({ pgnContent, originalFileName = 'uploaded.pgn', assignedTournamentId = null, userId, userColor = null }) {
     // 1. Validate input
     if (!pgnContent || typeof pgnContent !== 'string') {
       throw new Error('Invalid PGN content');
@@ -90,7 +91,8 @@ class PGNUploadService {
       tournament,
       pgnContent,
       storedFilePath,
-      userId
+      userId,
+      userColor  // Pass userColor to storage
     );
 
     // 10. Update tournament game count
@@ -200,7 +202,8 @@ class PGNUploadService {
       pgnContent,
       originalFileName: `manual-${Date.now()}.pgn`,
       assignedTournamentId: null,
-      userId
+      userId,
+      userColor: playerColor  // Pass playerColor from manual entry as userColor
     });
   }
 }

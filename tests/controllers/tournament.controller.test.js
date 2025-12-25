@@ -194,7 +194,7 @@ describe('TournamentController', () => {
       await tournamentController.getById(mockReq, mockRes);
 
       expect(mockTournamentManager.getTournamentById).toHaveBeenCalledWith(1);
-      expect(mockTournamentManager.getTournamentStats).toHaveBeenCalledWith(1);
+      expect(mockTournamentManager.getTournamentStats).toHaveBeenCalledWith(1, 'test-user-123');
       expect(mockRes.json).toHaveBeenCalledWith({
         ...mockTournament,
         stats: mockStats
@@ -230,7 +230,7 @@ describe('TournamentController', () => {
 
       await tournamentController.getPerformance(mockReq, mockRes);
 
-      expect(mockTournamentAnalyzer.getTournamentPerformance).toHaveBeenCalledWith(1);
+      expect(mockTournamentAnalyzer.getTournamentPerformance).toHaveBeenCalledWith(1, 'test-user-123');
       expect(mockRes.json).toHaveBeenCalledWith(mockPerformance);
     });
 
@@ -256,7 +256,7 @@ describe('TournamentController', () => {
 
       await tournamentController.getHeatmap(mockReq, mockRes);
 
-      expect(mockTournamentAnalyzer.getTournamentHeatmap).toHaveBeenCalledWith(1);
+      expect(mockTournamentAnalyzer.getTournamentHeatmap).toHaveBeenCalledWith(1, 'test-user-123');
       expect(mockRes.json).toHaveBeenCalledWith(mockHeatmap);
     });
 
@@ -281,7 +281,7 @@ describe('TournamentController', () => {
 
       await tournamentController.getTrends(mockReq, mockRes);
 
-      expect(mockTournamentAnalyzer.getTournamentTrends).toHaveBeenCalledWith(1);
+      expect(mockTournamentAnalyzer.getTournamentTrends).toHaveBeenCalledWith(1, 'test-user-123');
       expect(mockRes.json).toHaveBeenCalledWith(mockTrends);
     });
 
@@ -309,7 +309,7 @@ describe('TournamentController', () => {
 
       await tournamentController.getSummary(mockReq, mockRes);
 
-      expect(mockTournamentAnalyzer.getTournamentSummary).toHaveBeenCalledWith(1);
+      expect(mockTournamentAnalyzer.getTournamentSummary).toHaveBeenCalledWith(1, 'test-user-123');
       expect(mockRes.json).toHaveBeenCalledWith(mockSummary);
     });
 
@@ -336,7 +336,7 @@ describe('TournamentController', () => {
 
       await tournamentController.compare(mockReq, mockRes);
 
-      expect(mockTournamentAnalyzer.compareTournaments).toHaveBeenCalledWith([1, 2, 3]);
+      expect(mockTournamentAnalyzer.compareTournaments).toHaveBeenCalledWith([1, 2, 3], 'test-user-123');
       expect(mockRes.json).toHaveBeenCalledWith(mockComparison);
     });
 
@@ -451,7 +451,8 @@ describe('TournamentController', () => {
           black_player: 'Opponent1',
           result: '1-0',
           white_elo: 1800,
-          black_elo: 1750
+          black_elo: 1750,
+          user_color: 'white'
         },
         {
           id: 2,
@@ -459,7 +460,8 @@ describe('TournamentController', () => {
           black_player: 'AdvaitKumar1213',
           result: '0-1',
           white_elo: 1820,
-          black_elo: 1800
+          black_elo: 1800,
+          user_color: 'black'
         },
         {
           id: 3,
@@ -467,7 +469,8 @@ describe('TournamentController', () => {
           black_player: 'Opponent3',
           result: '1/2-1/2',
           white_elo: 1800,
-          black_elo: 1800
+          black_elo: 1800,
+          user_color: 'white'
         }
       ];
 
@@ -483,6 +486,12 @@ describe('TournamentController', () => {
         .mockResolvedValueOnce({ count: 2 }); // Blunders for game 3
 
       await tournamentController.getPlayerPerformance(mockReq, mockRes);
+
+      // Verify games query uses new user_color approach
+      expect(mockDatabase.all).toHaveBeenCalledWith(
+        expect.stringContaining('user_id = ?'),
+        [1, 'test-user-123']
+      );
 
       expect(mockRes.json).toHaveBeenCalledWith(expect.objectContaining({
         totalGames: 3,
@@ -521,7 +530,8 @@ describe('TournamentController', () => {
           black_elo: 1750,
           moves_count: 40,
           created_at: '2025-01-01T10:00:00Z',
-          pgn_content: '[Event "Test"]\n[ECO "C50"]\n\n1. e4 e5'
+          pgn_content: '[Event "Test"]\n[ECO "C50"]\n\n1. e4 e5',
+          user_color: 'white'
         }
       ];
 
@@ -537,7 +547,12 @@ describe('TournamentController', () => {
 
       await tournamentController.getGames(mockReq, mockRes);
 
-      expect(mockDatabase.all).toHaveBeenCalled();
+      // Verify games query includes userId filter
+      expect(mockDatabase.all).toHaveBeenCalledWith(
+        expect.stringContaining('user_id = ?'),
+        [1, 'test-user-123']
+      );
+
       expect(mockRes.json).toHaveBeenCalledWith(expect.arrayContaining([
         expect.objectContaining({
           id: 1,
@@ -571,7 +586,8 @@ describe('TournamentController', () => {
         black_elo: 1750,
         moves_count: 40,
         created_at: '2025-01-01T10:00:00Z',
-        pgn_content: null
+        pgn_content: null,
+        user_color: 'white'
       }];
 
       mockDatabase.all

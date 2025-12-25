@@ -5,20 +5,44 @@ async function cleanupData() {
   
   try {
     console.log('🧹 Cleaning up all data...');
-    
+
     // Initialize database first
     await db.initialize();
-    
-    // Delete in correct order to respect foreign key constraints
-    await db.run('DELETE FROM blunder_details');
-    await db.run('DELETE FROM analysis');
-    await db.run('DELETE FROM phase_analysis');
-    await db.run('DELETE FROM opening_analysis');
-    await db.run('DELETE FROM tactical_motifs');
-    await db.run('DELETE FROM phase_stats');
-    await db.run('DELETE FROM opening_stats');
-    await db.run('DELETE FROM games');
-    await db.run('DELETE FROM tournaments');
+
+    // Temporarily disable foreign key constraints for cleanup
+    await db.run('PRAGMA foreign_keys = OFF');
+
+    // Delete all data from tables (only tables that exist)
+    // Helper to safely delete from table if it exists
+    const safeDelete = async (tableName) => {
+      try {
+        await db.run(`DELETE FROM ${tableName}`);
+        console.log(`  ✓ Cleared ${tableName}`);
+      } catch (err) {
+        if (err.code === 'SQLITE_ERROR' && err.message.includes('no such table')) {
+          console.log(`  ⊘ Skipped ${tableName} (doesn't exist)`);
+        } else {
+          throw err;
+        }
+      }
+    };
+
+    await safeDelete('blunder_details');
+    await safeDelete('blunder_puzzle_links');
+    await safeDelete('puzzle_progress');
+    await safeDelete('user_puzzle_progress');
+    await safeDelete('puzzle_cache');
+    await safeDelete('analysis');
+    await safeDelete('phase_analysis');
+    await safeDelete('opening_analysis');
+    await safeDelete('tactical_motifs');
+    await safeDelete('phase_stats');
+    await safeDelete('opening_stats');
+    await safeDelete('games');
+    await safeDelete('tournaments');
+
+    // Re-enable foreign key constraints
+    await db.run('PRAGMA foreign_keys = ON');
     
     // Reset performance metrics
     await db.run(`UPDATE performance_metrics SET 

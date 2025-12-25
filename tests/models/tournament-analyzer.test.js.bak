@@ -13,15 +13,10 @@ describe('TournamentAnalyzer', () => {
     // Use shared test database
     testDb = new Database();
     await testDb.connect();
-
-    // Drop and recreate tables to ensure schema is up-to-date
-    await testDb.run(`DROP TABLE IF EXISTS analysis`);
-    await testDb.run(`DROP TABLE IF EXISTS games`);
-    await testDb.run(`DROP TABLE IF EXISTS tournaments`);
-
-    // Create base tables
+    
+    // Create base tables with IF NOT EXISTS
     await testDb.run(`
-      CREATE TABLE tournaments (
+      CREATE TABLE IF NOT EXISTS tournaments (
         id INTEGER PRIMARY KEY AUTOINCREMENT,
         name TEXT NOT NULL UNIQUE,
         event_type TEXT,
@@ -34,7 +29,7 @@ describe('TournamentAnalyzer', () => {
     `);
 
     await testDb.run(`
-      CREATE TABLE games (
+      CREATE TABLE IF NOT EXISTS games (
         id INTEGER PRIMARY KEY AUTOINCREMENT,
         pgn_file_path TEXT NOT NULL,
         white_player TEXT NOT NULL,
@@ -46,14 +41,12 @@ describe('TournamentAnalyzer', () => {
         black_elo INTEGER,
         moves_count INTEGER,
         tournament_id INTEGER,
-        user_id TEXT DEFAULT 'default_user',
-        user_color TEXT CHECK (user_color IN ('white', 'black')),
         created_at DATETIME DEFAULT CURRENT_TIMESTAMP
       )
     `);
 
     await testDb.run(`
-      CREATE TABLE analysis (
+      CREATE TABLE IF NOT EXISTS analysis (
         id INTEGER PRIMARY KEY AUTOINCREMENT,
         game_id INTEGER NOT NULL,
         move_number INTEGER NOT NULL,
@@ -66,16 +59,6 @@ describe('TournamentAnalyzer', () => {
       )
     `);
     
-    // Create or update test user with chess username mapping
-    try {
-      await testDb.run(`
-        INSERT OR REPLACE INTO users (id, email, username, chess_username)
-        VALUES (?, ?, ?, ?)
-      `, ['default_user', 'test@example.com', 'testuser', 'AdvaitKumar1213']);
-    } catch (err) {
-      // If users table doesn't exist, continue without it
-    }
-
     // Clean up any existing test data AFTER tables are created
     await testDb.run('DELETE FROM analysis WHERE game_id IN (SELECT id FROM games WHERE pgn_file_path = ?)', ['test_tournament_analyzer']);
     await testDb.run('DELETE FROM games WHERE pgn_file_path = ?', ['test_tournament_analyzer']);
@@ -112,19 +95,19 @@ describe('TournamentAnalyzer', () => {
       const TARGET_PLAYER = 'AdvaitKumar1213';
 
       const game1 = await testDb.run(`
-        INSERT INTO games (pgn_file_path, white_player, black_player, result, tournament_id, user_id, user_color)
-        VALUES (?, ?, ?, ?, ?, ?, ?)
-      `, ['test_tournament_analyzer', TARGET_PLAYER, 'Opponent1', '1-0', tournamentId, 'default_user', 'white']);
+        INSERT INTO games (pgn_file_path, white_player, black_player, result, tournament_id, user_id)
+        VALUES (?, ?, ?, ?, ?, ?)
+      `, ['test_tournament_analyzer', TARGET_PLAYER, 'Opponent1', '1-0', tournamentId, 'default_user']);
 
       const game2 = await testDb.run(`
-        INSERT INTO games (pgn_file_path, white_player, black_player, result, tournament_id, user_id, user_color)
-        VALUES (?, ?, ?, ?, ?, ?, ?)
-      `, ['test_tournament_analyzer', 'Opponent2', TARGET_PLAYER, '0-1', tournamentId, 'default_user', 'black']);
+        INSERT INTO games (pgn_file_path, white_player, black_player, result, tournament_id, user_id)
+        VALUES (?, ?, ?, ?, ?, ?)
+      `, ['test_tournament_analyzer', 'Opponent2', TARGET_PLAYER, '0-1', tournamentId, 'default_user']);
 
       const game3 = await testDb.run(`
-        INSERT INTO games (pgn_file_path, white_player, black_player, result, tournament_id, user_id, user_color)
-        VALUES (?, ?, ?, ?, ?, ?, ?)
-      `, ['test_tournament_analyzer', TARGET_PLAYER, 'Opponent3', '1/2-1/2', tournamentId, 'default_user', 'white']);
+        INSERT INTO games (pgn_file_path, white_player, black_player, result, tournament_id, user_id)
+        VALUES (?, ?, ?, ?, ?, ?)
+      `, ['test_tournament_analyzer', TARGET_PLAYER, 'Opponent3', '1/2-1/2', tournamentId, 'default_user']);
 
       // Add analysis data
       await testDb.run(`
@@ -173,14 +156,14 @@ describe('TournamentAnalyzer', () => {
 
       // Add games to both tournaments with target player
       await testDb.run(`
-        INSERT INTO games (pgn_file_path, white_player, black_player, result, tournament_id, user_id, user_color)
-        VALUES (?, ?, ?, ?, ?, ?, ?)
-      `, ['test_tournament_analyzer', TARGET_PLAYER, 'Opponent', '1-0', tournamentId, 'default_user', 'white']);
+        INSERT INTO games (pgn_file_path, white_player, black_player, result, tournament_id)
+        VALUES (?, ?, ?, ?, ?)
+      `, ['test_tournament_analyzer', TARGET_PLAYER, 'Opponent', '1-0', tournamentId]);
 
       await testDb.run(`
-        INSERT INTO games (pgn_file_path, white_player, black_player, result, tournament_id, user_id, user_color)
-        VALUES (?, ?, ?, ?, ?, ?, ?)
-      `, ['test_tournament_analyzer', TARGET_PLAYER, 'Opponent', '0-1', tournament2.id, 'default_user', 'white']);
+        INSERT INTO games (pgn_file_path, white_player, black_player, result, tournament_id)
+        VALUES (?, ?, ?, ?, ?)
+      `, ['test_tournament_analyzer', TARGET_PLAYER, 'Opponent', '0-1', tournament2.id]);
 
       const comparison = await tournamentAnalyzer.compareTournaments([tournamentId, tournament2.id]);
 
@@ -199,9 +182,9 @@ describe('TournamentAnalyzer', () => {
 
       // Add game with blunder analysis
       const game = await testDb.run(`
-        INSERT INTO games (pgn_file_path, white_player, black_player, result, tournament_id, user_id, user_color)
-        VALUES (?, ?, ?, ?, ?, ?, ?)
-      `, ['test_tournament_analyzer', TARGET_PLAYER, 'Opponent', '1-0', tournamentId, 'default_user', 'white']);
+        INSERT INTO games (pgn_file_path, white_player, black_player, result, tournament_id)
+        VALUES (?, ?, ?, ?, ?)
+      `, ['test_tournament_analyzer', TARGET_PLAYER, 'Opponent', '1-0', tournamentId]);
 
       await testDb.run(`
         INSERT INTO analysis (game_id, move_number, move, evaluation, centipawn_loss, best_move, is_blunder)
@@ -225,14 +208,14 @@ describe('TournamentAnalyzer', () => {
 
       // Add games with different accuracies
       const game1 = await testDb.run(`
-        INSERT INTO games (pgn_file_path, white_player, black_player, result, tournament_id, created_at, user_id, user_color)
-        VALUES (?, ?, ?, ?, ?, ?, ?, ?)
-      `, ['test_tournament_analyzer', TARGET_PLAYER, 'Opponent1', '1-0', tournamentId, '2024-01-01 10:00:00', 'default_user', 'white']);
+        INSERT INTO games (pgn_file_path, white_player, black_player, result, tournament_id, created_at)
+        VALUES (?, ?, ?, ?, ?, ?)
+      `, ['test_tournament_analyzer', TARGET_PLAYER, 'Opponent1', '1-0', tournamentId, '2024-01-01 10:00:00']);
 
       const game2 = await testDb.run(`
-        INSERT INTO games (pgn_file_path, white_player, black_player, result, tournament_id, created_at, user_id, user_color)
-        VALUES (?, ?, ?, ?, ?, ?, ?, ?)
-      `, ['test_tournament_analyzer', TARGET_PLAYER, 'Opponent2', '0-1', tournamentId, '2024-01-01 11:00:00', 'default_user', 'white']);
+        INSERT INTO games (pgn_file_path, white_player, black_player, result, tournament_id, created_at)
+        VALUES (?, ?, ?, ?, ?, ?)
+      `, ['test_tournament_analyzer', TARGET_PLAYER, 'Opponent2', '0-1', tournamentId, '2024-01-01 11:00:00']);
 
       // Add analysis with different centipawn losses
       await testDb.run(`
@@ -245,7 +228,7 @@ describe('TournamentAnalyzer', () => {
         VALUES (?, ?, ?, ?, ?)
       `, [game2.id, 1, 'e4', 20, 0]);
 
-      const trends = await tournamentAnalyzer.getTournamentTrends(tournamentId, 'default_user');
+      const trends = await tournamentAnalyzer.getTournamentTrends(tournamentId);
 
       expect(trends).toHaveLength(2);
       expect(trends[0].gameNumber).toBe(1);
@@ -271,14 +254,14 @@ describe('TournamentAnalyzer', () => {
 
       // Add games with different performance levels
       const game1 = await testDb.run(`
-        INSERT INTO games (pgn_file_path, white_player, black_player, result, tournament_id, user_id, user_color)
-        VALUES (?, ?, ?, ?, ?, ?, ?)
-      `, ['test_tournament_analyzer', TARGET_PLAYER, 'Opponent1', '1-0', tournamentId, 'default_user', 'white']);
+        INSERT INTO games (pgn_file_path, white_player, black_player, result, tournament_id)
+        VALUES (?, ?, ?, ?, ?)
+      `, ['test_tournament_analyzer', TARGET_PLAYER, 'Opponent1', '1-0', tournamentId]);
 
       const game2 = await testDb.run(`
-        INSERT INTO games (pgn_file_path, white_player, black_player, result, tournament_id, user_id, user_color)
-        VALUES (?, ?, ?, ?, ?, ?, ?)
-      `, ['test_tournament_analyzer', TARGET_PLAYER, 'Opponent2', '1-0', tournament2.id, 'default_user', 'white']);
+        INSERT INTO games (pgn_file_path, white_player, black_player, result, tournament_id)
+        VALUES (?, ?, ?, ?, ?)
+      `, ['test_tournament_analyzer', TARGET_PLAYER, 'Opponent2', '1-0', tournament2.id]);
 
       // Add analysis - tournament2 has better accuracy
       await testDb.run(`
@@ -305,9 +288,9 @@ describe('TournamentAnalyzer', () => {
 
       // Add test game
       const game = await testDb.run(`
-        INSERT INTO games (pgn_file_path, white_player, black_player, result, tournament_id, user_id, user_color)
-        VALUES (?, ?, ?, ?, ?, ?, ?)
-      `, ['test_tournament_analyzer', TARGET_PLAYER, 'Opponent', '1-0', tournamentId, 'default_user', 'white']);
+        INSERT INTO games (pgn_file_path, white_player, black_player, result, tournament_id)
+        VALUES (?, ?, ?, ?, ?)
+      `, ['test_tournament_analyzer', TARGET_PLAYER, 'Opponent', '1-0', tournamentId]);
 
       await testDb.run(`
         INSERT INTO analysis (game_id, move_number, move, centipawn_loss)
@@ -334,14 +317,14 @@ describe('TournamentAnalyzer', () => {
 
       // Add games to both tournaments
       await testDb.run(`
-        INSERT INTO games (pgn_file_path, white_player, black_player, result, tournament_id, user_id, user_color)
-        VALUES (?, ?, ?, ?, ?, ?, ?)
-      `, ['test_tournament_analyzer', TARGET_PLAYER, 'Opponent', '1-0', tournamentId, 'default_user', 'white']);
+        INSERT INTO games (pgn_file_path, white_player, black_player, result, tournament_id)
+        VALUES (?, ?, ?, ?, ?)
+      `, ['test_tournament_analyzer', TARGET_PLAYER, 'Opponent', '1-0', tournamentId]);
 
       await testDb.run(`
-        INSERT INTO games (pgn_file_path, white_player, black_player, result, tournament_id, user_id, user_color)
-        VALUES (?, ?, ?, ?, ?, ?, ?)
-      `, ['test_tournament_analyzer', TARGET_PLAYER, 'Opponent', '0-1', tournament2.id, 'default_user', 'white']);
+        INSERT INTO games (pgn_file_path, white_player, black_player, result, tournament_id)
+        VALUES (?, ?, ?, ?, ?)
+      `, ['test_tournament_analyzer', TARGET_PLAYER, 'Opponent', '0-1', tournament2.id]);
 
       const performance = await tournamentAnalyzer.getFilteredPerformance(tournamentId);
 
@@ -375,14 +358,14 @@ describe('TournamentAnalyzer', () => {
 
       // Add games with trends
       const game1 = await testDb.run(`
-        INSERT INTO games (pgn_file_path, white_player, black_player, result, tournament_id, created_at, user_id, user_color)
-        VALUES (?, ?, ?, ?, ?, ?, ?, ?)
-      `, ['test_tournament_analyzer', TARGET_PLAYER, 'Opponent1', '1-0', tournamentId, '2024-01-01 10:00:00', 'default_user', 'white']);
+        INSERT INTO games (pgn_file_path, white_player, black_player, result, tournament_id, created_at)
+        VALUES (?, ?, ?, ?, ?, ?)
+      `, ['test_tournament_analyzer', TARGET_PLAYER, 'Opponent1', '1-0', tournamentId, '2024-01-01 10:00:00']);
 
       const game2 = await testDb.run(`
-        INSERT INTO games (pgn_file_path, white_player, black_player, result, tournament_id, created_at, user_id, user_color)
-        VALUES (?, ?, ?, ?, ?, ?, ?, ?)
-      `, ['test_tournament_analyzer', TARGET_PLAYER, 'Opponent2', '0-1', tournamentId, '2024-01-01 11:00:00', 'default_user', 'white']);
+        INSERT INTO games (pgn_file_path, white_player, black_player, result, tournament_id, created_at)
+        VALUES (?, ?, ?, ?, ?, ?)
+      `, ['test_tournament_analyzer', TARGET_PLAYER, 'Opponent2', '0-1', tournamentId, '2024-01-01 11:00:00']);
 
       // Add analysis
       await testDb.run(`

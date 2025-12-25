@@ -71,7 +71,8 @@ describe('UploadController', () => {
           pgnContent,
           originalFileName: 'test-game.pgn',
           assignedTournamentId: 1,
-          userId: 'test-user-123'
+          userId: 'test-user-123',
+          userColor: null
         });
         expect(mockRes.json).toHaveBeenCalledWith(serviceResponse);
       });
@@ -92,7 +93,8 @@ describe('UploadController', () => {
           pgnContent,
           originalFileName: 'uploaded.pgn', // Default
           assignedTournamentId: null,
-          userId: 'test-user-123'
+          userId: 'test-user-123',
+          userColor: null
         });
       });
 
@@ -136,7 +138,8 @@ describe('UploadController', () => {
           pgnContent,
           originalFileName: 'uploaded.pgn',
           assignedTournamentId: 5,
-          userId: 'test-user-123'
+          userId: 'test-user-123',
+          userColor: null
         });
         expect(mockRes.json).toHaveBeenCalledWith(serviceResponse);
       });

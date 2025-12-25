@@ -7,7 +7,7 @@ class Database {
   constructor() {
     // Use different database for testing vs development
     const isTestEnvironment = process.env.NODE_ENV === 'test';
-    const dbFileName = isTestEnvironment ? 'chess_analysis_test.db' : 'chess_analysis.db';
+    const dbFileName = isTestEnvironment ? 'chess_analysis_test.db' : 'chess-analysis.db';
     this.dbPath = path.join(__dirname, '../../data', dbFileName);
     this.db = db; // Use the dual database layer
     this.usePostgres = !!process.env.DATABASE_URL;
@@ -218,8 +218,8 @@ class Database {
       require('crypto').createHash('sha256').update(pgnContent).digest('hex') : null;
 
     const sql = `
-      INSERT INTO games (pgn_file_path, white_player, black_player, result, date, event, white_elo, black_elo, moves_count, pgn_content, content_hash, tournament_id, user_id)
-      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+      INSERT INTO games (pgn_file_path, white_player, black_player, result, date, event, white_elo, black_elo, moves_count, pgn_content, content_hash, tournament_id, user_id, user_color)
+      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
     `;
 
     const params = [
@@ -235,7 +235,8 @@ class Database {
       pgnContent,
       contentHash,
       gameData.tournamentId || null,
-      gameData.userId || 'default_user'
+      gameData.userId || 'default_user',
+      gameData.userColor || null  // Add user_color, nullable for backward compatibility
     ];
 
     return await this.run(sql, params);

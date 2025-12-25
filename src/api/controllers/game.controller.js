@@ -12,7 +12,6 @@
  */
 
 const { getDatabase } = require('../../models/database');
-const { TARGET_PLAYER } = require('../../config/app-config');
 const AccuracyCalculator = require('../../models/accuracy-calculator');
 
 class GameController {
@@ -115,7 +114,7 @@ class GameController {
         opening: opening
       });
     } catch (error) {
-      console.error('[NEW CONTROLLER] Game details API error:', error);
+      console.error('[GAME CONTROLLER] Game details API error:', error);
       res.status(500).json({ error: 'Failed to retrieve game' });
     }
   }
@@ -133,9 +132,9 @@ class GameController {
         throw new Error('Database not initialized');
       }
 
-      const gameAnalysis = await database.getGameAnalysis(gameId);
+      const gameAnalysis = await database.getGameAnalysis(gameId, req.userId);
 
-      console.log('🎮 [NEW CONTROLLER] Game analysis requested');
+      console.log('🎮 [GAME CONTROLLER] Game analysis requested');
     
       if (!gameAnalysis) {
         return res.status(404).json({ error: 'Game not found' });
@@ -143,7 +142,7 @@ class GameController {
     
       res.json(gameAnalysis);
     } catch (error) {
-      console.error('[NEW CONTROLLER] Analysis retrieval error:', error);
+      console.error('[GAME CONTROLLER] Analysis retrieval error:', error);
       res.json([]);
     }
   }
@@ -164,8 +163,8 @@ class GameController {
         throw new Error('Database not initialized');
       }
       
-      const alternatives = await database.getAlternativeMoves(gameId, moveNumber);
-      const position = await database.getPositionEvaluation(gameId, moveNumber);
+      const alternatives = await database.getAlternativeMoves(gameId, moveNumber, req.userId);
+      const position = await database.getPositionEvaluation(gameId, moveNumber, req.userId);
       
       res.json({
         position: position || { moveNumber },
@@ -177,7 +176,7 @@ class GameController {
         }))
       });
     } catch (error) {
-      console.error('[NEW CONTROLLER] Alternatives retrieval error:', error);
+      console.error('[GAME CONTROLLER] Alternatives retrieval error:', error);
       res.json([]);
     }
   }
@@ -208,7 +207,7 @@ class GameController {
 
       res.json(blunders);
     } catch (error) {
-      console.error('[NEW CONTROLLER] Blunders retrieval error:', error);
+      console.error('[GAME CONTROLLER] Blunders retrieval error:', error);
       res.json([]);
     }
   }
@@ -240,17 +239,17 @@ class GameController {
         WHERE a.game_id = ? AND g.user_id = ?
         ORDER BY a.move_number
       `, [gameId, req.userId]);
-      
+
       const gameWithAnalysis = {
         ...game,
         analysis
       };
-      
+
       const whiteAccuracy = AccuracyCalculator.calculatePlayerAccuracy(analysis, game.white_player, game.white_player, game.black_player);
       const blackAccuracy = AccuracyCalculator.calculatePlayerAccuracy(analysis, game.black_player, game.white_player, game.black_player);
-      
-      const isPlayerWhite = game.white_player === TARGET_PLAYER;
-      
+
+      const isPlayerWhite = game.user_color === 'white';
+
       res.json({
         playerAccuracy: isPlayerWhite ? whiteAccuracy : blackAccuracy,
         opponentAccuracy: isPlayerWhite ? blackAccuracy : whiteAccuracy,
@@ -258,7 +257,7 @@ class GameController {
         blackAccuracy
       });
     } catch (error) {
-      console.error('[NEW CONTROLLER] Accuracy calculation error:', error);
+      console.error('[GAME CONTROLLER] Accuracy calculation error:', error);
       res.status(500).json({ error: 'Failed to calculate accuracy' });
     }
   }
@@ -309,8 +308,8 @@ class GameController {
         ORDER BY a.move_number
       `, [gameId, req.userId]);
 
-      // Calculate player-specific metrics using AccuracyCalculator
-      const isPlayerWhite = game.white_player === TARGET_PLAYER;
+      // Calculate player-specific metrics using user_color
+      const isPlayerWhite = game.user_color === 'white';
 
       // Filter player moves
       const playerMoves = analysis.filter(move =>
@@ -321,12 +320,12 @@ class GameController {
       // Calculate accuracy using AccuracyCalculator
       const playerAccuracy = AccuracyCalculator.calculatePlayerAccuracy(
         analysis,
-        TARGET_PLAYER,
+        req.userId,
         game.white_player,
         game.black_player
       );
 
-      // Count blunders from blunder_details table (only target player's blunders)
+      // Count blunders from blunder_details table using user_color
       const blunderCount = await database.get(`
         SELECT COUNT(*) as count
         FROM blunder_details bd
@@ -334,9 +333,8 @@ class GameController {
         WHERE bd.game_id = ?
           AND bd.is_blunder = ?
           AND g.user_id = ?
-          AND ((g.white_player = ? AND bd.player_color = 'white')
-            OR (g.black_player = ? AND bd.player_color = 'black'))
-      `, [gameId, true, req.userId, TARGET_PLAYER, TARGET_PLAYER]);
+          AND bd.player_color = g.user_color
+      `, [gameId, true, req.userId]);
 
       const playerBlunders = parseInt(blunderCount?.count) || 0;
       
@@ -398,10 +396,10 @@ class GameController {
       const openingMoves = analysis.slice(0, openingEnd);
       const middlegameMoves = analysis.slice(openingEnd, middlegameEnd);
       const endgameMoves = analysis.slice(middlegameEnd);
-      
-      const isPlayerWhite = game.white_player === TARGET_PLAYER;
-      
-      const getPlayerMoves = (moves) => moves.filter(move => 
+
+      const isPlayerWhite = game.user_color === 'white';
+
+      const getPlayerMoves = (moves) => moves.filter(move =>
         (isPlayerWhite && move.move_number % 2 === 1) ||
         (!isPlayerWhite && move.move_number % 2 === 0)
       );
@@ -428,7 +426,7 @@ class GameController {
         return `Room for improvement in this phase`;
       };
       
-      // Count blunders by phase from blunder_details table (only target player's blunders)
+      // Count blunders by phase from blunder_details table using user_color
       const openingBlunderCount = await database.get(`
         SELECT COUNT(*) as count
         FROM blunder_details bd
@@ -437,9 +435,8 @@ class GameController {
           AND bd.phase = 'opening'
           AND bd.is_blunder = ?
           AND g.user_id = ?
-          AND ((g.white_player = ? AND bd.player_color = 'white')
-            OR (g.black_player = ? AND bd.player_color = 'black'))
-      `, [gameId, true, req.userId, TARGET_PLAYER, TARGET_PLAYER]);
+          AND bd.player_color = g.user_color
+      `, [gameId, true, req.userId]);
 
       const middlegameBlunderCount = await database.get(`
         SELECT COUNT(*) as count
@@ -449,9 +446,8 @@ class GameController {
           AND bd.phase = 'middlegame'
           AND bd.is_blunder = ?
           AND g.user_id = ?
-          AND ((g.white_player = ? AND bd.player_color = 'white')
-            OR (g.black_player = ? AND bd.player_color = 'black'))
-      `, [gameId, true, req.userId, TARGET_PLAYER, TARGET_PLAYER]);
+          AND bd.player_color = g.user_color
+      `, [gameId, true, req.userId]);
 
       const endgameBlunderCount = await database.get(`
         SELECT COUNT(*) as count
@@ -461,9 +457,8 @@ class GameController {
           AND bd.phase = 'endgame'
           AND bd.is_blunder = ?
           AND g.user_id = ?
-          AND ((g.white_player = ? AND bd.player_color = 'white')
-            OR (g.black_player = ? AND bd.player_color = 'black'))
-      `, [gameId, true, req.userId, TARGET_PLAYER, TARGET_PLAYER]);
+          AND bd.player_color = g.user_color
+      `, [gameId, true, req.userId]);
 
       const openingBlunders = parseInt(openingBlunderCount?.count) || 0;
       const middlegameBlunders = parseInt(middlegameBlunderCount?.count) || 0;

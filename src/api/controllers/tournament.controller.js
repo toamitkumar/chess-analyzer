@@ -13,7 +13,6 @@ const { getTournamentManager } = require('../../models/tournament-manager');
 const { getTournamentAnalyzer } = require('../../models/tournament-analyzer');
 const { getFileStorage } = require('../../models/file-storage');
 const AccuracyCalculator = require('../../models/accuracy-calculator');
-const { TARGET_PLAYER } = require('../../config/app-config');
 
 class TournamentController {
   /**
@@ -90,7 +89,7 @@ class TournamentController {
         throw new Error('Tournament manager not initialized');
       }
 
-      const tournaments = await tournamentManager.getAllTournaments();
+      const tournaments = await tournamentManager.getAllTournaments(req.userId);
 
       res.json(tournaments);
     } catch (error) {
@@ -120,7 +119,7 @@ class TournamentController {
         return res.status(404).json({ error: 'Tournament not found' });
       }
 
-      const stats = await tournamentManager.getTournamentStats(tournamentId);
+      const stats = await tournamentManager.getTournamentStats(tournamentId, req.userId);
 
       res.json({
         ...tournament,
@@ -147,7 +146,7 @@ class TournamentController {
         throw new Error('Tournament manager not initialized');
       }
 
-      const performance = await tournamentAnalyzer.getTournamentPerformance(tournamentId);
+      const performance = await tournamentAnalyzer.getTournamentPerformance(tournamentId, req.userId);
 
       res.json(performance);
     } catch (error) {
@@ -171,7 +170,7 @@ class TournamentController {
         throw new Error('Tournament manager not initialized');
       }
 
-      const heatmap = await tournamentAnalyzer.getTournamentHeatmap(tournamentId);
+      const heatmap = await tournamentAnalyzer.getTournamentHeatmap(tournamentId, req.userId);
 
       res.json(heatmap);
     } catch (error) {
@@ -195,7 +194,7 @@ class TournamentController {
         throw new Error('Tournament manager not initialized');
       }
 
-      const trends = await tournamentAnalyzer.getTournamentTrends(tournamentId);
+      const trends = await tournamentAnalyzer.getTournamentTrends(tournamentId, req.userId);
 
       res.json(trends);
     } catch (error) {
@@ -219,7 +218,7 @@ class TournamentController {
         throw new Error('Tournament manager not initialized');
       }
 
-      const summary = await tournamentAnalyzer.getTournamentSummary(tournamentId);
+      const summary = await tournamentAnalyzer.getTournamentSummary(tournamentId, req.userId);
 
       res.json(summary);
     } catch (error) {
@@ -243,13 +242,13 @@ class TournamentController {
         throw new Error('Database not initialized');
       }
 
-      // Get games for this tournament involving the target player
+      // Get games for this tournament for this user
       const games = await database.all(`
-        SELECT id, white_player, black_player, result, white_elo, black_elo
+        SELECT id, white_player, black_player, result, white_elo, black_elo, user_color
         FROM games
-        WHERE tournament_id = ? AND (white_player = ? OR black_player = ?) AND user_id = ?
+        WHERE tournament_id = ? AND user_id = ?
         ORDER BY created_at ASC
-      `, [tournamentId, TARGET_PLAYER, TARGET_PLAYER, req.userId]);
+      `, [tournamentId, req.userId]);
 
       let wins = 0;
       let losses = 0;
@@ -259,15 +258,14 @@ class TournamentController {
       let totalMoves = 0;
 
       for (const game of games) {
-        const isPlayerWhite = game.white_player === TARGET_PLAYER;
-        const isPlayerBlack = game.black_player === TARGET_PLAYER;
+        const isPlayerWhite = game.user_color === 'white';
 
-        // Calculate win/loss/draw
+        // Calculate win/loss/draw using user_color
         if (game.result === '1/2-1/2') {
           draws++;
         } else if (
           (isPlayerWhite && game.result === '1-0') ||
-          (isPlayerBlack && game.result === '0-1')
+          (!isPlayerWhite && game.result === '0-1')
         ) {
           wins++;
         } else {
@@ -283,13 +281,13 @@ class TournamentController {
           ORDER BY a.move_number
         `, [game.id, req.userId]);
 
-        // Filter moves for the target player
+        // Filter moves for the user using user_color
         const playerMoves = analysis.filter(move =>
           (isPlayerWhite && move.move_number % 2 === 1) ||
-          (isPlayerBlack && move.move_number % 2 === 0)
+          (!isPlayerWhite && move.move_number % 2 === 0)
         );
 
-        // Count blunders
+        // Count blunders using user_color
         const blunderCount = await database.get(`
           SELECT COUNT(*) as count
           FROM blunder_details bd
@@ -297,9 +295,8 @@ class TournamentController {
           WHERE bd.game_id = ?
             AND bd.is_blunder = ?
             AND g.user_id = ?
-            AND ((g.white_player = ? AND bd.player_color = 'white')
-              OR (g.black_player = ? AND bd.player_color = 'black'))
-        `, [game.id, true, req.userId, TARGET_PLAYER, TARGET_PLAYER]);
+            AND bd.player_color = g.user_color
+        `, [game.id, true, req.userId]);
 
         totalBlunders += parseInt(blunderCount?.count) || 0;
         totalCentipawnLoss += playerMoves.reduce((sum, move) => sum + (move.centipawn_loss || 0), 0);
@@ -343,7 +340,7 @@ class TournamentController {
       }
 
       const tournamentAnalyzer = getTournamentAnalyzer();
-      const comparison = await tournamentAnalyzer.compareTournaments(tournamentIds);
+      const comparison = await tournamentAnalyzer.compareTournaments(tournamentIds, req.userId);
 
       res.json(comparison);
     } catch (error) {
@@ -431,11 +428,11 @@ class TournamentController {
       const games = await database.all(`
         SELECT
           id, white_player, black_player, result, date,
-          white_elo, black_elo, moves_count, created_at, pgn_content
+          white_elo, black_elo, moves_count, created_at, pgn_content, user_color
         FROM games
-        WHERE tournament_id = ?
+        WHERE tournament_id = ? AND user_id = ?
         ORDER BY created_at DESC
-      `, [tournamentId]);
+      `, [tournamentId, req.userId]);
 
       // Add opening extraction and accuracy calculation
       const gamesWithAnalysis = await Promise.all(games.map(async (game) => {
@@ -468,16 +465,16 @@ class TournamentController {
         let playerBlunders = 0;
 
         if (analysis.length > 0) {
-          // Calculate accuracy for target player
+          // Calculate accuracy for user
           playerAccuracy = AccuracyCalculator.calculatePlayerAccuracy(
             analysis,
-            TARGET_PLAYER,
+            req.userId,
             game.white_player,
             game.black_player
           );
         }
 
-        // Count blunders
+        // Count blunders using user_color
         const blunderCount = await database.get(`
           SELECT COUNT(*) as count
           FROM blunder_details bd
@@ -485,9 +482,8 @@ class TournamentController {
           WHERE bd.game_id = ?
             AND bd.is_blunder = ?
             AND g.user_id = ?
-            AND ((g.white_player = ? AND bd.player_color = 'white')
-              OR (g.black_player = ? AND bd.player_color = 'black'))
-        `, [game.id, true, req.userId, TARGET_PLAYER, TARGET_PLAYER]);
+            AND bd.player_color = g.user_color
+        `, [game.id, true, req.userId]);
 
         playerBlunders = parseInt(blunderCount?.count) || 0;
 
@@ -496,7 +492,7 @@ class TournamentController {
           opening: opening || 'Unknown Opening',
           accuracy: playerAccuracy,
           blunders: playerBlunders,
-          playerColor: game.white_player === TARGET_PLAYER ? 'white' : 'black'
+          playerColor: game.user_color || 'unknown'
         };
       }));
 

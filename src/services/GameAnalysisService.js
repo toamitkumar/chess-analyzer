@@ -14,6 +14,7 @@ class GameAnalysisService {
   constructor(analyzer = null) {
     this.analyzer = analyzer || new ChessAnalyzer();
     this.isInitialized = false;
+    this.isSharedAnalyzer = !!analyzer; // Track if using shared analyzer
   }
 
   /**
@@ -22,17 +23,20 @@ class GameAnalysisService {
    * @returns {Promise<void>}
    */
   async ensureReady(timeoutMs = 30000) {
+    console.log(`🔍 [GameAnalysisService] ensureReady called - isInitialized: ${this.isInitialized}, analyzer.isReady: ${this.analyzer?.isReady}`);
+
     if (this.isInitialized) {
+      console.log('✅ [GameAnalysisService] Already initialized, skipping');
       return;
     }
 
     if (!this.analyzer.isReady) {
-      console.log('⏳ Waiting for Stockfish engine to initialize...');
+      console.log('⏳ [GameAnalysisService] Waiting for Stockfish engine to initialize...');
 
       await new Promise((resolve) => {
         const checkReady = () => {
           if (this.analyzer.isReady) {
-            console.log('✅ Stockfish engine ready for analysis');
+            console.log('✅ [GameAnalysisService] Stockfish engine ready for analysis');
             this.isInitialized = true;
             resolve();
           } else {
@@ -42,7 +46,7 @@ class GameAnalysisService {
 
         // Timeout fallback
         setTimeout(() => {
-          console.log('⚠️ Stockfish engine timeout after 30 seconds, proceeding anyway');
+          console.log('⚠️ [GameAnalysisService] Stockfish engine timeout after 30 seconds, proceeding anyway');
           this.isInitialized = true;
           resolve();
         }, timeoutMs);
@@ -50,7 +54,7 @@ class GameAnalysisService {
         checkReady();
       });
     } else {
-      console.log('✅ Stockfish engine already ready');
+      console.log('✅ [GameAnalysisService] Stockfish engine already ready');
       this.isInitialized = true;
     }
   }
@@ -63,7 +67,8 @@ class GameAnalysisService {
    * @returns {Promise<Object>} Analyzed game with analysis data
    */
   async analyzeGame(game, gameIndex, totalGames) {
-    console.log(`🔍 Analyzing game ${gameIndex + 1}/${totalGames}: ${game.white} vs ${game.black}`);
+    console.log(`🔍 [GameAnalysisService] Analyzing game ${gameIndex + 1}/${totalGames}: ${game.white} vs ${game.black}`);
+    console.log(`🔍 [GameAnalysisService] Analyzer ready status: ${this.analyzer?.isReady}`);
 
     try {
       // Debug logging
@@ -76,6 +81,7 @@ class GameAnalysisService {
       }
 
       // Perform analysis
+      console.log(`⚙️ [GameAnalysisService] Calling analyzer.analyzeGame() - isReady: ${this.analyzer.isReady}`);
       const analysis = await this.analyzer.analyzeGame(game.moves);
 
       // Build analyzed game object
@@ -135,9 +141,15 @@ class GameAnalysisService {
 
   /**
    * Close the analyzer and clean up resources
+   * NOTE: Does NOT close shared analyzers (they're managed by the server lifecycle)
    * @returns {Promise<void>}
    */
   async close() {
+    if (this.isSharedAnalyzer) {
+      console.log('ℹ️ [GameAnalysisService] Skipping close - using shared analyzer');
+      return;
+    }
+
     if (this.analyzer) {
       await this.analyzer.close();
       this.isInitialized = false;

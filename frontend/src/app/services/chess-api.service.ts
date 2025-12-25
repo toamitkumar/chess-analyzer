@@ -62,9 +62,12 @@ export class ChessApiService {
     return this.http.get(`${this.baseUrl}/heatmap`);
   }
 
-  uploadPgnFile(file: File, tournamentId?: number): Observable<any> {
+  uploadPgnFile(file: File, userColor: 'white' | 'black' | null, tournamentId?: number): Observable<any> {
     const formData = new FormData();
     formData.append('pgn', file);
+    if (userColor) {
+      formData.append('userColor', userColor);
+    }
     if (tournamentId) {
       formData.append('tournamentId', tournamentId.toString());
     }

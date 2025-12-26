@@ -208,33 +208,36 @@ class ChessAnalyzer {
         throw new Error('Stockfish engine not ready');
       }
 
-      // Reset engine state before each game for deterministic results
-      // This clears the hash table and ensures consistent evaluations
-      console.log('🔄 [DETERMINISM] Sending ucinewgame to reset engine state...');
-      this.engine.stdin.write('ucinewgame\n');
-      console.log('🔄 [DETERMINISM] Explicitly clearing hash table...');
-      this.engine.stdin.write('setoption name Clear Hash\n');
-      this.engine.stdin.write('isready\n');
-      console.log('🔄 [DETERMINISM] Waiting for readyok response...');
+      // CRITICAL: Restart Stockfish engine for truly clean state
+      // This ensures 100% deterministic results by eliminating ALL internal caches
+      console.log('🔄 [DETERMINISM] Restarting Stockfish engine for clean state...');
 
-      // Wait for engine to be ready after reset
+      // Close existing engine
+      if (this.engine) {
+        this.engine.removeAllListeners();
+        this.engine.kill();
+      }
+
+      // Restart engine with deterministic settings
+      this.setupEngine();
+
+      // Wait for engine to be ready
       await new Promise((resolve) => {
-        const readyHandler = (data) => {
-          const output = data.toString();
-          if (output.includes('readyok')) {
-            console.log('✅ [DETERMINISM] Engine ready after ucinewgame reset');
-            this.engine.stdout.removeListener('data', readyHandler);
+        const checkReady = () => {
+          if (this.isReady) {
+            console.log('✅ [DETERMINISM] Fresh Stockfish engine ready');
             resolve();
+          } else {
+            setTimeout(checkReady, 100);
           }
         };
-        this.engine.stdout.on('data', readyHandler);
+        checkReady();
 
-        // Timeout after 2 seconds
+        // Timeout after 5 seconds
         setTimeout(() => {
-          console.log('⚠️ [DETERMINISM] Timeout waiting for readyok, proceeding anyway');
-          this.engine.stdout.removeListener('data', readyHandler);
+          console.log('⚠️ [DETERMINISM] Timeout waiting for engine, proceeding anyway');
           resolve();
-        }, 2000);
+        }, 5000);
       });
 
       console.log(`🔍 Analyzing game with ${moves.length} moves using real Stockfish...`);

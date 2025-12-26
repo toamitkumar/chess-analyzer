@@ -267,7 +267,7 @@ export class SignUpComponent implements OnInit {
 
     try {
       const result = await this.authService.signUp(email, password, {
-        full_name: name
+        displayName: name
       });
 
       if (result.success) {

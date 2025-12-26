@@ -90,7 +90,12 @@ export class AuthService {
         email,
         password,
         options: {
-          data: metadata
+          data: {
+            username: metadata?.username,
+            chess_username: metadata?.chessUsername,
+            full_name: metadata?.displayName,
+            display_name: metadata?.displayName
+          }
         }
       });
 

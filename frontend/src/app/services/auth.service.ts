@@ -27,6 +27,8 @@ export class AuthService {
   isLoading = signal<boolean>(true);
 
   constructor(private router: Router) {
+    // Create Supabase client with session storage to avoid Navigator lock conflicts
+    // sessionStorage is tab-scoped, preventing lock conflicts between tabs
     this.supabase = createClient(
       environment.supabaseUrl,
       environment.supabasePublishableKey,
@@ -35,7 +37,7 @@ export class AuthService {
           autoRefreshToken: true,
           persistSession: true,
           detectSessionInUrl: true,
-          // Increase lock timeout to prevent Navigator lock errors
+          storage: typeof window !== 'undefined' ? window.sessionStorage : undefined,
           storageKey: 'sb-auth-token',
           flowType: 'pkce'
         }

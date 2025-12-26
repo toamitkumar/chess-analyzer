@@ -1,18 +1,28 @@
 /**
  * Blunder Controller
  *
- * Handles all blunder-related business logic including:
- * - Blunder listing with filters
- * - Blunders by phase and theme
- * - Unlearned blunders tracking
- * - Review and learning status updates
- * - Dashboard statistics
- * - Timeline analysis
+ * Handles HTTP requests for blunder-related endpoints.
+ * Business logic delegated to BlunderService for consistency.
  */
 
 const { getDatabase } = require('../../models/database');
+const BlunderService = require('../../services/BlunderService');
 
 class BlunderController {
+  constructor() {
+    this.blunderService = null;
+  }
+
+  /**
+   * Get or initialize BlunderService instance
+   */
+  getBlunderService() {
+    if (!this.blunderService) {
+      const database = getDatabase();
+      this.blunderService = new BlunderService(database);
+    }
+    return this.blunderService;
+  }
   /**
    * List all blunders with optional filters
    * GET /api/blunders
@@ -23,52 +33,17 @@ class BlunderController {
 
       console.log('📝 [BLUNDER CONTROLLER] Blunders list requested');
 
-      const database = getDatabase();
-      if (!database) {
-        throw new Error('Database not initialized');
-      }
+      const service = this.getBlunderService();
+      const filters = {
+        phase,
+        theme,
+        learned: learned !== undefined ? learned === 'true' : undefined,
+        severity,
+        minDifficulty,
+        maxDifficulty
+      };
 
-      let query = `
-        SELECT bd.*, g.white_player, g.black_player, g.date, g.event, g.user_color
-        FROM blunder_details bd
-        JOIN games g ON bd.game_id = g.id
-        WHERE g.user_id = ? AND bd.player_color = g.user_color
-      `;
-      const params = [req.userId];
-
-      if (phase) {
-        query += ' AND bd.phase = ?';
-        params.push(phase);
-      }
-
-      if (theme) {
-        query += ' AND bd.tactical_theme = ?';
-        params.push(theme);
-      }
-
-      if (learned !== undefined) {
-        query += ' AND bd.learned = ?';
-        params.push(learned === 'true' ? 1 : 0);
-      }
-
-      if (severity) {
-        query += ' AND bd.blunder_severity = ?';
-        params.push(severity);
-      }
-
-      if (minDifficulty) {
-        query += ' AND bd.difficulty_level >= ?';
-        params.push(parseInt(minDifficulty));
-      }
-
-      if (maxDifficulty) {
-        query += ' AND bd.difficulty_level <= ?';
-        params.push(parseInt(maxDifficulty));
-      }
-
-      query += ' ORDER BY bd.created_at DESC';
-
-      const blunders = await database.all(query, params);
+      const blunders = await service.getBlundersForUser(req.userId, filters);
 
       res.json({
         count: blunders.length,

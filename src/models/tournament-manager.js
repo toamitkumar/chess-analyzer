@@ -186,12 +186,12 @@ class TournamentManager {
   }
 
   // Get all tournaments
-  async getAllTournaments() {
+  async getAllTournaments(userId) {
     if (!this.db) {
       await this.initialize();
     }
-    
-    return await this.db.getAllTournaments();
+
+    return await this.db.getAllTournaments(userId);
   }
 
   // Get tournament by ID

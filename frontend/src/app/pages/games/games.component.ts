@@ -250,10 +250,6 @@ export class GamesComponent implements OnInit {
 
   constructor(private chessApi: ChessApiService) {}
 
-  get targetPlayer(): string {
-    return this.chessApi.targetPlayer;
-  }
-
   ngOnInit() {
     this.loadGames();
   }
@@ -269,7 +265,7 @@ export class GamesComponent implements OnInit {
           games.map(async (game) => { // Show all games
             const gameWithColor = {
               ...game,
-              playerColor: (game.white_player === this.targetPlayer ? 'white' : 'black') as 'white' | 'black'
+              playerColor: game.user_color as 'white' | 'black'
             };
             
             try {

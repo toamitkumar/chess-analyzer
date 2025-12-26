@@ -274,10 +274,9 @@ export class TournamentDetailComponent implements OnInit {
       
       // Process games to add round numbers and opponent info (data already comes from BE)
       const processedGames = games.map((game: any, index: number) => {
-        const targetPlayer = this.chessApi.targetPlayer;
-        const isPlayerWhite = game.white_player === targetPlayer;
-        const opponent = isPlayerWhite ? game.black_player : game.white_player;
-        
+        // Use user_color to determine opponent
+        const opponent = game.user_color === 'white' ? game.black_player : game.white_player;
+
         return {
           ...game,
           opponent,

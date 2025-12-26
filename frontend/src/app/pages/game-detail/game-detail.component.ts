@@ -811,12 +811,16 @@ export class GameDetailComponent implements OnInit, AfterViewInit {
   getResultBadgeClass(): string {
     if (!this.gameData) return 'bg-gray-100 text-gray-800';
 
-    if (this.gameData.result === '1-0') {
-      return this.gameData.white_player === this.apiService.targetPlayer ?
-        'bg-green-100 text-green-800' : 'bg-red-100 text-red-800';
-    } else if (this.gameData.result === '0-1') {
-      return this.gameData.black_player === this.apiService.targetPlayer ?
-        'bg-green-100 text-green-800' : 'bg-red-100 text-red-800';
+    // Determine if the user won based on user_color and result
+    const userWon = (this.gameData.user_color === 'white' && this.gameData.result === '1-0') ||
+                    (this.gameData.user_color === 'black' && this.gameData.result === '0-1');
+    const userLost = (this.gameData.user_color === 'white' && this.gameData.result === '0-1') ||
+                     (this.gameData.user_color === 'black' && this.gameData.result === '1-0');
+
+    if (userWon) {
+      return 'bg-green-100 text-green-800';
+    } else if (userLost) {
+      return 'bg-red-100 text-red-800';
     }
     return 'bg-yellow-100 text-yellow-800';
   }
@@ -824,11 +828,14 @@ export class GameDetailComponent implements OnInit, AfterViewInit {
   getResultText(): string {
     if (!this.gameData) return '';
 
-    if (this.gameData.result === '1-0') {
-      return this.gameData.white_player === this.apiService.targetPlayer ? 'Win' : 'Loss';
-    } else if (this.gameData.result === '0-1') {
-      return this.gameData.black_player === this.apiService.targetPlayer ? 'Win' : 'Loss';
-    }
+    // Determine result from user's perspective based on user_color
+    const userWon = (this.gameData.user_color === 'white' && this.gameData.result === '1-0') ||
+                    (this.gameData.user_color === 'black' && this.gameData.result === '0-1');
+    const userLost = (this.gameData.user_color === 'white' && this.gameData.result === '0-1') ||
+                     (this.gameData.user_color === 'black' && this.gameData.result === '1-0');
+
+    if (userWon) return 'Win';
+    if (userLost) return 'Loss';
     return 'Draw';
   }
 

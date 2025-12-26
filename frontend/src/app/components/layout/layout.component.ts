@@ -215,22 +215,17 @@ export class LayoutComponent {
     const user = this.authService.user();
     if (!user) return '';
 
-    // Try full_name from metadata
-    if (user.full_name) {
-      return user.full_name;
-    }
-
-    // Fallback to email username
-    return user.email?.split('@')[0] || 'User';
+    // displayName is already set from full_name in AuthService
+    return user.displayName || user.email?.split('@')[0] || 'User';
   }
 
   getUserInitials(): string {
     const user = this.authService.user();
     if (!user) return '?';
 
-    // Try to get initials from full_name
-    if (user.full_name) {
-      const names = user.full_name.split(' ');
+    // Try to get initials from displayName
+    if (user.displayName) {
+      const names = user.displayName.split(' ');
       if (names.length >= 2) {
         return `${names[0][0]}${names[names.length - 1][0]}`.toUpperCase();
       }

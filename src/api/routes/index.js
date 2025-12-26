@@ -43,17 +43,16 @@ function configureRoutes(middleware = {}) {
   router.use('/', dashboardRoutes);  // Dashboard routes mounted at root /api/
 
   // Mount upload routes with required middleware
-  if (middleware.uploadLimiter && middleware.checkAccessCode && middleware.multerUpload) {
+  // Note: Authentication is handled by global requireAuth middleware in api-server.js
+  if (middleware.uploadLimiter && middleware.multerUpload) {
     // File upload endpoints (multipart/form-data)
     router.post('/upload',
       middleware.uploadLimiter,
-      middleware.checkAccessCode,
       middleware.multerUpload.single('pgn'),
       uploadController.upload.bind(uploadController)
     );
     router.post('/upload/pgn',
       middleware.uploadLimiter,
-      middleware.checkAccessCode,
       middleware.multerUpload.single('pgn'),
       uploadController.upload.bind(uploadController)
     );
@@ -61,7 +60,6 @@ function configureRoutes(middleware = {}) {
     // Manual PGN entry endpoint (JSON)
     router.post('/manual-pgn',
       middleware.uploadLimiter,
-      middleware.checkAccessCode,
       uploadController.manualEntry.bind(uploadController)
     );
   }

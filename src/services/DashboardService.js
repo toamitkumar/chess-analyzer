@@ -10,7 +10,6 @@ const { getDatabase } = require('../models/database');
 const TrendCalculator = require('../models/trend-calculator');
 const HeatmapCalculator = require('../models/HeatmapCalculator');
 const AccuracyCalculator = require('../models/accuracy-calculator');
-const { TARGET_PLAYER } = require('../config/app-config');
 
 class DashboardService {
   constructor({ database = null, trendCalculator = null, heatmapCalculator = null } = {}) {
@@ -172,9 +171,10 @@ class DashboardService {
              COUNT(a.id) as moveCount
       FROM games g
       LEFT JOIN analysis a ON g.id = a.game_id
+      WHERE g.user_id = ?
       GROUP BY g.id
       ORDER BY g.date ASC
-    `);
+    `, [userId]);
 
     if (games.length === 0) {
       return null;
@@ -182,9 +182,9 @@ class DashboardService {
 
     // Convert database games to trend calculator format
     const trendGames = games.map(game => {
-      // Determine which rating belongs to the target player
-      const isWhite = game.white_player?.toLowerCase() === TARGET_PLAYER.toLowerCase();
-      const isBlack = game.black_player?.toLowerCase() === TARGET_PLAYER.toLowerCase();
+      // Determine which rating belongs to the user based on their color
+      const isWhite = game.user_color === 'white';
+      const isBlack = game.user_color === 'black';
 
       let playerRating = null;
       let opponentRating = null;
@@ -228,25 +228,22 @@ class DashboardService {
    * @returns {Promise<Object>} Rating trend data
    */
   async getRatingTrends(tournamentId, userId) {
-    const tournamentFilter = tournamentId ? 'AND g.tournament_id = ?' : '';
-    const params = tournamentId ? [TARGET_PLAYER, TARGET_PLAYER, tournamentId] : [TARGET_PLAYER, TARGET_PLAYER];
-
     const games = await this.database.all(`
-      SELECT g.id, g.date, g.white_elo, g.black_elo, g.white_player, g.black_player
+      SELECT g.id, g.date, g.white_elo, g.black_elo, g.user_color
       FROM games g
-      WHERE (g.white_player = ? OR g.black_player = ?) ${tournamentFilter}
+      WHERE g.user_id = ? ${tournamentId ? 'AND g.tournament_id = ?' : ''}
       ORDER BY g.date ASC
-    `, params);
+    `, tournamentId ? [userId, tournamentId] : [userId]);
 
     // Filter games with actual ratings and track rating progression
     const ratedGames = games.filter(game => {
-      const playerRating = game.white_player === TARGET_PLAYER ? game.white_elo : game.black_elo;
+      const playerRating = game.user_color === 'white' ? game.white_elo : game.black_elo;
       return playerRating && playerRating > 0;
     });
 
     const data = ratedGames.map((game, index) => ({
       gameNumber: index + 1,
-      rating: game.white_player === TARGET_PLAYER ? game.white_elo : game.black_elo,
+      rating: game.user_color === 'white' ? game.white_elo : game.black_elo,
       date: game.date
     }));
 
@@ -260,17 +257,14 @@ class DashboardService {
    * @returns {Promise<Object>} Centipawn loss trend data
    */
   async getCentipawnLossTrends(tournamentId, userId) {
-    const tournamentFilter = tournamentId ? 'AND g.tournament_id = ?' : '';
-    const params = tournamentId ? [TARGET_PLAYER, TARGET_PLAYER, tournamentId] : [TARGET_PLAYER, TARGET_PLAYER];
-
     const games = await this.database.all(`
       SELECT g.id, AVG(a.centipawn_loss) as avg_centipawn_loss
       FROM games g
       JOIN analysis a ON g.id = a.game_id
-      WHERE (g.white_player = ? OR g.black_player = ?) ${tournamentFilter}
+      WHERE g.user_id = ? ${tournamentId ? 'AND g.tournament_id = ?' : ''}
       GROUP BY g.id
       ORDER BY g.date ASC
-    `, params);
+    `, tournamentId ? [userId, tournamentId] : [userId]);
 
     const data = games.map((game, index) => ({
       gameNumber: index + 1,
@@ -288,16 +282,13 @@ class DashboardService {
    */
   async generateHeatmap(userId, tournamentId = null) {
     // Get blunder details from database
-    const tournamentFilter = tournamentId ? 'AND g.tournament_id = ?' : '';
-    const params = tournamentId ? [TARGET_PLAYER, TARGET_PLAYER, tournamentId] : [TARGET_PLAYER, TARGET_PLAYER];
-
     const blunders = await this.database.all(`
       SELECT bd.square, bd.severity, bd.move_san
       FROM blunder_details bd
       JOIN games g ON bd.game_id = g.id
-      WHERE (g.white_player = ? OR g.black_player = ?) ${tournamentFilter}
+      WHERE g.user_id = ? ${tournamentId ? 'AND g.tournament_id = ?' : ''}
         AND bd.is_blunder = 1
-    `, params);
+    `, tournamentId ? [userId, tournamentId] : [userId]);
 
     if (blunders.length === 0) {
       return { heatmap: [], problematicSquares: [] };

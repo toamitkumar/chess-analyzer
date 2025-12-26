@@ -1,7 +1,7 @@
 import { Component, inject, signal } from '@angular/core';
 import { CommonModule } from '@angular/common';
-import { RouterModule } from '@angular/router';
-import { ClerkService } from '../../services/clerk.service';
+import { RouterModule, Router } from '@angular/router';
+import { AuthService } from '../../services/auth.service';
 
 @Component({
   selector: 'app-layout',
@@ -66,15 +66,14 @@ import { ClerkService } from '../../services/clerk.service';
               </a>
 
               <!-- User Menu -->
-              @if (clerkService.isAuthenticated()) {
+              @if (authService.isAuthenticated()) {
                 <div class="relative ml-3">
                   <button
                     (click)="toggleUserMenu()"
                     class="flex items-center gap-2 rounded-lg px-3 py-2 text-sm font-medium transition-all duration-300 hover:bg-primary/5 border border-transparent hover:border-primary/30">
-                    <img
-                      [src]="clerkService.user()?.imageUrl"
-                      alt="User avatar"
-                      class="h-8 w-8 rounded-full border-2 border-primary/20">
+                    <div class="h-8 w-8 rounded-full bg-gradient-to-br from-orange-500 to-orange-600 flex items-center justify-center text-white font-bold text-sm border-2 border-primary/20">
+                      {{ getUserInitials() }}
+                    </div>
                     <span class="text-muted-foreground">{{ getUserDisplayName() }}</span>
                     <svg class="h-4 w-4 text-muted-foreground" [class.rotate-180]="showUserMenu()" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
                       <polyline points="6 9 12 15 18 9"></polyline>
@@ -86,13 +85,8 @@ import { ClerkService } from '../../services/clerk.service';
                     <div class="absolute right-0 mt-2 w-48 rounded-lg bg-card border border-border shadow-lg py-1">
                       <div class="px-4 py-2 border-b border-border">
                         <p class="text-sm font-medium text-foreground">{{ getUserDisplayName() }}</p>
-                        <p class="text-xs text-muted-foreground">{{ clerkService.user()?.emailAddress }}</p>
+                        <p class="text-xs text-muted-foreground">{{ authService.user()?.email }}</p>
                       </div>
-                      <button
-                        (click)="openUserProfile()"
-                        class="w-full text-left px-4 py-2 text-sm text-foreground hover:bg-primary/5 transition-colors">
-                        Profile Settings
-                      </button>
                       <button
                         (click)="handleSignOut()"
                         class="w-full text-left px-4 py-2 text-sm text-destructive hover:bg-destructive/5 transition-colors">
@@ -164,14 +158,13 @@ import { ClerkService } from '../../services/clerk.service';
           </a>
 
           <!-- User Menu / Sign In -->
-          @if (clerkService.isAuthenticated()) {
+          @if (authService.isAuthenticated()) {
             <button
               (click)="toggleUserMenu()"
               class="flex flex-col items-center justify-center gap-1 text-muted-foreground hover:text-primary transition-all duration-300 active:scale-95">
-              <img
-                [src]="clerkService.user()?.imageUrl"
-                alt="User"
-                class="h-6 w-6 rounded-full border-2 border-primary/20">
+              <div class="h-6 w-6 rounded-full bg-gradient-to-br from-orange-500 to-orange-600 flex items-center justify-center text-white font-bold text-xs border-2 border-primary/20">
+                {{ getUserInitials() }}
+              </div>
               <span class="text-xs font-medium">Profile</span>
             </button>
           } @else {
@@ -188,17 +181,12 @@ import { ClerkService } from '../../services/clerk.service';
         </div>
 
         <!-- Mobile User Menu Dropdown -->
-        @if (clerkService.isAuthenticated() && showUserMenu()) {
+        @if (authService.isAuthenticated() && showUserMenu()) {
           <div class="absolute bottom-20 right-4 w-56 rounded-lg bg-card border border-border shadow-lg py-1 z-50">
             <div class="px-4 py-2 border-b border-border">
               <p class="text-sm font-medium text-foreground">{{ getUserDisplayName() }}</p>
-              <p class="text-xs text-muted-foreground">{{ clerkService.user()?.emailAddress }}</p>
+              <p class="text-xs text-muted-foreground">{{ authService.user()?.email }}</p>
             </div>
-            <button
-              (click)="openUserProfile()"
-              class="w-full text-left px-4 py-2 text-sm text-foreground hover:bg-primary/5 transition-colors">
-              Profile Settings
-            </button>
             <button
               (click)="handleSignOut()"
               class="w-full text-left px-4 py-2 text-sm text-destructive hover:bg-destructive/5 transition-colors">
@@ -215,7 +203,8 @@ import { ClerkService } from '../../services/clerk.service';
   `
 })
 export class LayoutComponent {
-  clerkService = inject(ClerkService);
+  authService = inject(AuthService);
+  router = inject(Router);
   showUserMenu = signal(false);
 
   toggleUserMenu(): void {
@@ -223,30 +212,40 @@ export class LayoutComponent {
   }
 
   getUserDisplayName(): string {
-    const user = this.clerkService.user();
+    const user = this.authService.user();
     if (!user) return '';
 
-    if (user.firstName && user.lastName) {
-      return `${user.firstName} ${user.lastName}`;
+    // Try full_name from metadata
+    if (user.full_name) {
+      return user.full_name;
     }
-    if (user.firstName) {
-      return user.firstName;
-    }
-    if (user.username) {
-      return user.username;
-    }
-    return user.emailAddress?.split('@')[0] || 'User';
+
+    // Fallback to email username
+    return user.email?.split('@')[0] || 'User';
   }
 
-  openUserProfile(): void {
-    this.clerkService.openUserProfile();
-    this.showUserMenu.set(false);
+  getUserInitials(): string {
+    const user = this.authService.user();
+    if (!user) return '?';
+
+    // Try to get initials from full_name
+    if (user.full_name) {
+      const names = user.full_name.split(' ');
+      if (names.length >= 2) {
+        return `${names[0][0]}${names[names.length - 1][0]}`.toUpperCase();
+      }
+      return names[0][0].toUpperCase();
+    }
+
+    // Fallback to first letter of email
+    return user.email?.[0].toUpperCase() || '?';
   }
 
   async handleSignOut(): Promise<void> {
     try {
-      await this.clerkService.signOut();
+      await this.authService.signOut();
       this.showUserMenu.set(false);
+      this.router.navigate(['/sign-in']);
     } catch (error) {
       console.error('Sign out failed:', error);
     }

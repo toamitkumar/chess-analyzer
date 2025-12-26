@@ -108,8 +108,10 @@ class ChessAnalyzer {
         if (output.includes('uciok')) {
           // Engine acknowledged UCI protocol
           // Set Threads to 1 for deterministic analysis results
+          console.log('🔧 [DETERMINISM] Setting Threads=1 for deterministic analysis');
           this.engine.stdin.write('setoption name Threads value 1\n');
           // Set Hash to a fixed size for consistency
+          console.log('🔧 [DETERMINISM] Setting Hash=128MB for consistency');
           this.engine.stdin.write('setoption name Hash value 128\n');
           // Now check if ready
           this.engine.stdin.write('isready\n');
@@ -161,13 +163,17 @@ class ChessAnalyzer {
 
       // Reset engine state before each game for deterministic results
       // This clears the hash table and ensures consistent evaluations
+      console.log('🔄 [DETERMINISM] Sending ucinewgame to reset engine state...');
       this.engine.stdin.write('ucinewgame\n');
       this.engine.stdin.write('isready\n');
+      console.log('🔄 [DETERMINISM] Waiting for readyok response...');
 
       // Wait for engine to be ready after reset
       await new Promise((resolve) => {
         const readyHandler = (data) => {
-          if (data.toString().includes('readyok')) {
+          const output = data.toString();
+          if (output.includes('readyok')) {
+            console.log('✅ [DETERMINISM] Engine ready after ucinewgame reset');
             this.engine.stdout.removeListener('data', readyHandler);
             resolve();
           }
@@ -176,6 +182,7 @@ class ChessAnalyzer {
 
         // Timeout after 2 seconds
         setTimeout(() => {
+          console.log('⚠️ [DETERMINISM] Timeout waiting for readyok, proceeding anyway');
           this.engine.stdout.removeListener('data', readyHandler);
           resolve();
         }, 2000);

@@ -36,13 +36,13 @@ class DashboardService {
    * @returns {Promise<Object>} Overall player performance stats
    */
   async getPlayerPerformance(userId) {
-    // Get all games for the target player
+    // Get all games for the user
     const games = await this.database.all(`
-      SELECT id, white_player, black_player, result, white_elo, black_elo
+      SELECT id, user_color, result, white_elo, black_elo, created_at
       FROM games
-      WHERE white_player = ? OR black_player = ?
+      WHERE user_id = ?
       ORDER BY created_at ASC
-    `, [TARGET_PLAYER, TARGET_PLAYER]);
+    `, [userId]);
 
     let totalWins = 0, totalLosses = 0, totalDraws = 0;
     let whiteWins = 0, whiteLosses = 0, whiteDraws = 0, whiteGames = 0;
@@ -50,8 +50,8 @@ class DashboardService {
     let totalBlunders = 0, totalCentipawnLoss = 0, totalMoves = 0;
 
     for (const game of games) {
-      const isPlayerWhite = game.white_player === TARGET_PLAYER;
-      const isPlayerBlack = game.black_player === TARGET_PLAYER;
+      const isPlayerWhite = game.user_color === 'white';
+      const isPlayerBlack = game.user_color === 'black';
 
       // Count games by color
       if (isPlayerWhite) whiteGames++;
@@ -83,7 +83,7 @@ class DashboardService {
         ORDER BY move_number
       `, [game.id]);
 
-      // Filter moves for the target player
+      // Filter moves for the user (based on their color in this game)
       const playerMoves = analysis.filter(move =>
         (isPlayerWhite && move.move_number % 2 === 1) ||
         (isPlayerBlack && move.move_number % 2 === 0)
@@ -93,12 +93,10 @@ class DashboardService {
       const blunderCount = await this.database.get(`
         SELECT COUNT(*) as count
         FROM blunder_details bd
-        JOIN games g ON bd.game_id = g.id
         WHERE bd.game_id = ?
           AND bd.is_blunder = ?
-          AND ((g.white_player = ? AND bd.player_color = 'white')
-            OR (g.black_player = ? AND bd.player_color = 'black'))
-      `, [game.id, true, TARGET_PLAYER, TARGET_PLAYER]);
+          AND bd.player_color = ?
+      `, [game.id, true, game.user_color]);
 
       totalBlunders += parseInt(blunderCount?.count) || 0;
       totalCentipawnLoss += playerMoves.reduce((sum, move) => sum + (move.centipawn_loss || 0), 0);
@@ -116,20 +114,23 @@ class DashboardService {
     for (const game of games) {
       const analysis = await this.database.all(`
         SELECT centipawn_loss, move_number
-        FROM analysis 
+        FROM analysis
         WHERE game_id = ?
         ORDER BY move_number
       `, [game.id]);
-      
+
       if (analysis.length > 0) {
         gamesWithAnalysis.push({
           ...game,
-          analysis
+          analysis,
+          // For AccuracyCalculator compatibility
+          white_player: game.user_color === 'white' ? 'user' : 'opponent',
+          black_player: game.user_color === 'black' ? 'user' : 'opponent'
         });
       }
     }
 
-    const avgAccuracy = AccuracyCalculator.calculateOverallAccuracy(gamesWithAnalysis, TARGET_PLAYER);
+    const avgAccuracy = AccuracyCalculator.calculateOverallAccuracy(gamesWithAnalysis, 'user');
 
     return {
       overall: {

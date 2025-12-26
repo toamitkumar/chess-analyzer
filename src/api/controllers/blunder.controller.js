@@ -11,7 +11,6 @@
  */
 
 const { getDatabase } = require('../../models/database');
-const { TARGET_PLAYER } = require('../../config/app-config');
 
 class BlunderController {
   /**
@@ -33,9 +32,9 @@ class BlunderController {
         SELECT bd.*, g.white_player, g.black_player, g.date, g.event
         FROM blunder_details bd
         JOIN games g ON bd.game_id = g.id
-        WHERE 1=1
+        WHERE g.user_id = ?
       `;
-      const params = [];
+      const params = [req.userId];
 
       if (phase) {
         query += ' AND bd.phase = ?';
@@ -104,9 +103,9 @@ class BlunderController {
         SELECT bd.*, g.white_player, g.black_player, g.date, g.event
         FROM blunder_details bd
         JOIN games g ON bd.game_id = g.id
-        WHERE bd.phase = ?
+        WHERE g.user_id = ? AND bd.phase = ?
         ORDER BY bd.centipawn_loss DESC
-      `, [phase]);
+      `, [req.userId, phase]);
 
       // Calculate statistics for this phase
       const stats = {
@@ -154,9 +153,9 @@ class BlunderController {
         SELECT bd.*, g.white_player, g.black_player, g.date, g.event
         FROM blunder_details bd
         JOIN games g ON bd.game_id = g.id
-        WHERE bd.tactical_theme = ?
+        WHERE g.user_id = ? AND bd.tactical_theme = ?
         ORDER BY bd.centipawn_loss DESC
-      `, [theme]);
+      `, [req.userId, theme]);
 
       // Calculate statistics for this theme
       const stats = {
@@ -205,9 +204,9 @@ class BlunderController {
         SELECT bd.*, g.white_player, g.black_player, g.date, g.event
         FROM blunder_details bd
         JOIN games g ON bd.game_id = g.id
-        WHERE bd.learned = 0 OR bd.mastery_score < ?
+        WHERE g.user_id = ? AND (bd.learned = 0 OR bd.mastery_score < ?)
         ORDER BY bd.difficulty_level DESC, bd.centipawn_loss DESC
-      `, [minMastery]);
+      `, [req.userId, minMastery]);
 
       // Group by tactical theme for learning prioritization
       const byTheme = {};
@@ -245,12 +244,12 @@ class BlunderController {
         throw new Error('Database not initialized');
       }
 
-      // Check if blunder exists
+      // Check if blunder exists and belongs to the authenticated user
       const blunder = await database.get(`
         SELECT bd.* FROM blunder_details bd
         JOIN games g ON bd.game_id = g.id
-        WHERE bd.id = ?
-      `, [blunderId]);
+        WHERE bd.id = ? AND g.user_id = ?
+      `, [blunderId, req.userId]);
 
       if (!blunder) {
         return res.status(404).json({ error: 'Blunder not found' });
@@ -306,12 +305,12 @@ class BlunderController {
         throw new Error('Database not initialized');
       }
 
-      // Check if blunder exists
+      // Check if blunder exists and belongs to the authenticated user
       const blunder = await database.get(`
         SELECT bd.* FROM blunder_details bd
         JOIN games g ON bd.game_id = g.id
-        WHERE bd.id = ?
-      `, [blunderId]);
+        WHERE bd.id = ? AND g.user_id = ?
+      `, [blunderId, req.userId]);
 
       if (!blunder) {
         return res.status(404).json({ error: 'Blunder not found' });
@@ -370,16 +369,14 @@ class BlunderController {
         throw new Error('Database not initialized');
       }
 
-      // Get all blunders with game info (only actual blunders by the target player, not mistakes or inaccuracies)
+      // Get all blunders with game info (only actual blunders by the authenticated user, not mistakes or inaccuracies)
       const allBlunders = await database.all(`
         SELECT bd.*, g.white_player, g.black_player, g.date, g.event
         FROM blunder_details bd
         JOIN games g ON bd.game_id = g.id
-        WHERE bd.is_blunder = TRUE
-          AND ((g.white_player = ? AND bd.player_color = 'white')
-            OR (g.black_player = ? AND bd.player_color = 'black'))
+        WHERE g.user_id = ? AND bd.is_blunder = TRUE
         ORDER BY bd.created_at DESC
-      `, [TARGET_PLAYER, TARGET_PLAYER]);
+      `, [req.userId]);
 
       // Calculate overview statistics
       const totalBlunders = allBlunders.length;
@@ -531,20 +528,27 @@ class BlunderController {
         .slice(0, 3);
 
       // Recent blunders (last 20)
-      const recentBlundersList = allBlunders.slice(0, 20).map(b => ({
-        id: b.id,
-        gameId: b.game_id,
-        moveNumber: b.move_number,
-        phase: b.phase,
-        theme: b.tactical_theme,
-        playerMove: b.player_move,
-        bestMove: b.best_move,
-        centipawnLoss: b.centipawn_loss,
-        date: b.date,
-        opponent: b.white_player === TARGET_PLAYER ? b.black_player : b.white_player,
-        event: b.event,
-        learned: b.learned
-      }));
+      // Determine opponent based on user_color from games table
+      const recentBlundersWithColor = await Promise.all(
+        allBlunders.slice(0, 20).map(async b => {
+          const game = await database.get('SELECT user_color FROM games WHERE id = ?', [b.game_id]);
+          const opponent = game?.user_color === 'white' ? b.black_player : b.white_player;
+          return {
+            id: b.id,
+            gameId: b.game_id,
+            moveNumber: b.move_number,
+            phase: b.phase,
+            theme: b.tactical_theme,
+            playerMove: b.player_move,
+            bestMove: b.best_move,
+            centipawnLoss: b.centipawn_loss,
+            date: b.date,
+            opponent,
+            event: b.event,
+            learned: b.learned
+          };
+        })
+      );
 
       res.json({
         overview: {
@@ -569,7 +573,7 @@ class BlunderController {
           masteredThemes,
           recommendations: unlearnedThemes
         },
-        recentBlunders: recentBlundersList
+        recentBlunders: recentBlundersWithColor
       });
     } catch (error) {
       console.error('[BLUNDER CONTROLLER] Dashboard error:', error);
@@ -599,11 +603,9 @@ class BlunderController {
           AVG(bd.centipawn_loss) as avgLoss
         FROM blunder_details bd
         JOIN games g ON bd.game_id = g.id
-        WHERE bd.is_blunder = TRUE
-          AND ((g.white_player = ? AND bd.player_color = 'white')
-            OR (g.black_player = ? AND bd.player_color = 'black'))
+        WHERE g.user_id = ? AND bd.is_blunder = TRUE
       `;
-      const params = [TARGET_PLAYER, TARGET_PLAYER];
+      const params = [req.userId];
 
       if (startDate) {
         query += ' AND DATE(bd.created_at) >= ?';

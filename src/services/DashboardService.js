@@ -2,7 +2,7 @@
  * Dashboard Service
  *
  * Orchestrates dashboard data retrieval and aggregation.
- * Uses existing calculator classes (TrendCalculator, HeatmapCalculator) from models/
+ * Uses centralized services (BlunderService) and calculator classes for consistency.
  * Handles database queries and data transformation for dashboard endpoints.
  */
 
@@ -10,12 +10,14 @@ const { getDatabase } = require('../models/database');
 const TrendCalculator = require('../models/trend-calculator');
 const HeatmapCalculator = require('../models/HeatmapCalculator');
 const AccuracyCalculator = require('../models/accuracy-calculator');
+const BlunderService = require('./BlunderService');
 
 class DashboardService {
-  constructor({ database = null, trendCalculator = null, heatmapCalculator = null } = {}) {
+  constructor({ database = null, trendCalculator = null, heatmapCalculator = null, blunderService = null } = {}) {
     this.database = database || getDatabase();
     this.trendCalculator = trendCalculator || new TrendCalculator();
     this.heatmapCalculator = heatmapCalculator || new HeatmapCalculator();
+    this.blunderService = blunderService || new BlunderService(this.database);
   }
 
   /**
@@ -88,16 +90,10 @@ class DashboardService {
         (isPlayerBlack && move.move_number % 2 === 0)
       );
 
-      // Count blunders from blunder_details table
-      const blunderCount = await this.database.get(`
-        SELECT COUNT(*) as count
-        FROM blunder_details bd
-        WHERE bd.game_id = ?
-          AND bd.is_blunder = ?
-          AND bd.player_color = ?
-      `, [game.id, true, game.user_color]);
+      // Count blunders using centralized BlunderService
+      const blunderCount = await this.blunderService.getBlunderCountForGame(game.id, game.user_color);
 
-      totalBlunders += parseInt(blunderCount?.count) || 0;
+      totalBlunders += blunderCount;
       totalCentipawnLoss += playerMoves.reduce((sum, move) => sum + (move.centipawn_loss || 0), 0);
       totalMoves += playerMoves.length;
     }

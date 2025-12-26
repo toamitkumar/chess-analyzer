@@ -23,6 +23,7 @@
   },
   "dependencies": {
     "@clerk/clerk-sdk-node": "^4.13.23",
+    "@supabase/supabase-js": "^2.89.0",
     "axios": "^1.13.2",
     "chess.js": "^1.0.0-beta.6",
     "cli-progress": "^3.12.0",

@@ -10,7 +10,7 @@ const { getTournamentManager } = require('../models/tournament-manager');
 const { getTournamentAnalyzer } = require('../models/tournament-analyzer');
 const { TARGET_PLAYER, API_CONFIG } = require('../config/app-config');
 const { checkAccessCode } = require('../middleware/access-code');
-const { requireAuth } = require('../middleware/clerk-auth');
+const { requireAuth, optionalAuth, useDefaultUser } = require('../middleware/supabase-auth');
 
 // Import route configuration function
 const configureRoutes = require('./routes');

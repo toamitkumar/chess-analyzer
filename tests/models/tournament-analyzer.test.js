@@ -1,0 +1,408 @@
+const { TournamentAnalyzer } = require('../../src/models/tournament-analyzer');
+const { Database } = require('../../src/models/database');
+const fs = require('fs');
+const path = require('path');
+
+describe('TournamentAnalyzer', () => {
+  let tournamentAnalyzer;
+  let testDb;
+  let testDbPath;
+  let tournamentId;
+
+  beforeEach(async () => {
+    // Use shared test database
+    testDb = new Database();
+    await testDb.connect();
+
+    // Drop and recreate tables to ensure schema is up-to-date
+    await testDb.run(`DROP TABLE IF EXISTS analysis`);
+    await testDb.run(`DROP TABLE IF EXISTS games`);
+    await testDb.run(`DROP TABLE IF EXISTS tournaments`);
+
+    // Create base tables
+    await testDb.run(`
+      CREATE TABLE tournaments (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        name TEXT NOT NULL UNIQUE,
+        event_type TEXT,
+        location TEXT,
+        start_date TEXT,
+        end_date TEXT,
+        total_games INTEGER DEFAULT 0,
+        created_at DATETIME DEFAULT CURRENT_TIMESTAMP
+      )
+    `);
+
+    await testDb.run(`
+      CREATE TABLE games (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        pgn_file_path TEXT NOT NULL,
+        white_player TEXT NOT NULL,
+        black_player TEXT NOT NULL,
+        result TEXT NOT NULL,
+        date TEXT,
+        event TEXT,
+        white_elo INTEGER,
+        black_elo INTEGER,
+        moves_count INTEGER,
+        tournament_id INTEGER,
+        user_id TEXT DEFAULT 'default_user',
+        user_color TEXT CHECK (user_color IN ('white', 'black')),
+        created_at DATETIME DEFAULT CURRENT_TIMESTAMP
+      )
+    `);
+
+    await testDb.run(`
+      CREATE TABLE analysis (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        game_id INTEGER NOT NULL,
+        move_number INTEGER NOT NULL,
+        move TEXT NOT NULL,
+        evaluation REAL,
+        centipawn_loss INTEGER,
+        best_move TEXT,
+        alternatives TEXT,
+        is_blunder BOOLEAN DEFAULT FALSE
+      )
+    `);
+    
+    // Create or update test user with chess username mapping
+    try {
+      await testDb.run(`
+        INSERT OR REPLACE INTO users (id, email, username, chess_username)
+        VALUES (?, ?, ?, ?)
+      `, ['default_user', 'test@example.com', 'testuser', 'AdvaitKumar1213']);
+    } catch (err) {
+      // If users table doesn't exist, continue without it
+    }
+
+    // Clean up any existing test data AFTER tables are created
+    await testDb.run('DELETE FROM analysis WHERE game_id IN (SELECT id FROM games WHERE pgn_file_path = ?)', ['test_tournament_analyzer']);
+    await testDb.run('DELETE FROM games WHERE pgn_file_path = ?', ['test_tournament_analyzer']);
+    await testDb.run(`DELETE FROM tournaments WHERE name LIKE 'Test Tournament%' OR name = 'Tournament 2' OR name = 'Better Tournament'`);
+
+    // Create test tournament with unique name
+    const uniqueName = `Test Tournament ${Date.now()}`;
+    const tournamentResult = await testDb.run(`
+      INSERT INTO tournaments (name, event_type, location)
+      VALUES (?, ?, ?)
+    `, [uniqueName, 'blitz', 'Online']);
+    
+    tournamentId = tournamentResult.id;
+
+    // Create tournament analyzer with test database
+    tournamentAnalyzer = new TournamentAnalyzer();
+    tournamentAnalyzer.db = testDb;
+  });
+
+  afterEach(async () => {
+    // Clean up test data but don't close shared database connection
+    try {
+      await testDb.run('DELETE FROM analysis WHERE game_id IN (SELECT id FROM games WHERE pgn_file_path = ?)', ['test_tournament_analyzer']);
+      await testDb.run('DELETE FROM games WHERE pgn_file_path = ?', ['test_tournament_analyzer']);
+      await testDb.run(`DELETE FROM tournaments WHERE name LIKE 'Test Tournament%' OR name = 'Tournament 2' OR name = 'Better Tournament'`);
+    } catch (err) {
+      // Ignore errors during cleanup
+    }
+  });
+
+  describe('getTournamentPerformance', () => {
+    test('should calculate tournament performance metrics', async () => {
+      // Add test games with target player (AdvaitKumar1213)
+      const TARGET_PLAYER = 'AdvaitKumar1213';
+
+      const game1 = await testDb.run(`
+        INSERT INTO games (pgn_file_path, white_player, black_player, result, tournament_id, user_id, user_color)
+        VALUES (?, ?, ?, ?, ?, ?, ?)
+      `, ['test_tournament_analyzer', TARGET_PLAYER, 'Opponent1', '1-0', tournamentId, 'default_user', 'white']);
+
+      const game2 = await testDb.run(`
+        INSERT INTO games (pgn_file_path, white_player, black_player, result, tournament_id, user_id, user_color)
+        VALUES (?, ?, ?, ?, ?, ?, ?)
+      `, ['test_tournament_analyzer', 'Opponent2', TARGET_PLAYER, '0-1', tournamentId, 'default_user', 'black']);
+
+      const game3 = await testDb.run(`
+        INSERT INTO games (pgn_file_path, white_player, black_player, result, tournament_id, user_id, user_color)
+        VALUES (?, ?, ?, ?, ?, ?, ?)
+      `, ['test_tournament_analyzer', TARGET_PLAYER, 'Opponent3', '1/2-1/2', tournamentId, 'default_user', 'white']);
+
+      // Add analysis data
+      await testDb.run(`
+        INSERT INTO analysis (game_id, move_number, move, evaluation, centipawn_loss, best_move, is_blunder)
+        VALUES (?, ?, ?, ?, ?, ?, ?)
+      `, [game1.id, 1, 'e4', 0.2, 20, 'e4', 0]);
+
+      await testDb.run(`
+        INSERT INTO analysis (game_id, move_number, move, evaluation, centipawn_loss, best_move, is_blunder)
+        VALUES (?, ?, ?, ?, ?, ?, ?)
+      `, [game1.id, 2, 'e5', -0.1, 150, 'd4', 1]);
+
+      const performance = await tournamentAnalyzer.getTournamentPerformance(tournamentId);
+
+      expect(performance.totalGames).toBe(3);
+      expect(performance.whiteWins).toBe(2); // Actually total player wins (2 wins: 1 as white, 1 as black)
+      expect(performance.blackWins).toBe(0); // Not used in new logic
+      expect(performance.draws).toBe(1);
+      expect(performance.whiteWinRate).toBe(67); // Math.round(2/3 * 100) = 67 (actually overall win rate)
+      expect(performance.blackWinRate).toBe(0); // Not used in new logic
+      expect(performance.drawRate).toBe(33);
+      expect(performance.totalMoves).toBe(1); // Only TARGET_PLAYER's moves (move 1 by white)
+      expect(performance.totalBlunders).toBe(0); // Move 2 blunder is by Opponent1, not TARGET_PLAYER
+    });
+
+    test('should handle tournament with no games', async () => {
+      const performance = await tournamentAnalyzer.getTournamentPerformance(tournamentId);
+
+      expect(performance.totalGames).toBe(0);
+      expect(performance.whiteWinRate).toBe(0);
+      expect(performance.blackWinRate).toBe(0);
+      expect(performance.avgAccuracy).toBe(0);
+      expect(performance.totalBlunders).toBe(0);
+    });
+  });
+
+  describe('compareTournaments', () => {
+    test('should compare multiple tournaments', async () => {
+      const TARGET_PLAYER = 'AdvaitKumar1213';
+
+      // Create second tournament
+      const tournament2 = await testDb.run(`
+        INSERT INTO tournaments (name, event_type)
+        VALUES (?, ?)
+      `, ['Tournament 2', 'rapid']);
+
+      // Add games to both tournaments with target player
+      await testDb.run(`
+        INSERT INTO games (pgn_file_path, white_player, black_player, result, tournament_id, user_id, user_color)
+        VALUES (?, ?, ?, ?, ?, ?, ?)
+      `, ['test_tournament_analyzer', TARGET_PLAYER, 'Opponent', '1-0', tournamentId, 'default_user', 'white']);
+
+      await testDb.run(`
+        INSERT INTO games (pgn_file_path, white_player, black_player, result, tournament_id, user_id, user_color)
+        VALUES (?, ?, ?, ?, ?, ?, ?)
+      `, ['test_tournament_analyzer', TARGET_PLAYER, 'Opponent', '0-1', tournament2.id, 'default_user', 'white']);
+
+      const comparison = await tournamentAnalyzer.compareTournaments([tournamentId, tournament2.id]);
+
+      expect(comparison).toHaveLength(2);
+      // Check that both tournaments are in the comparison (names are dynamic)
+      expect(comparison[0].tournament.name).toBeTruthy();
+      expect(comparison[1].tournament.name).toBe('Tournament 2');
+      expect(comparison[0].performance.totalGames).toBe(1);
+      expect(comparison[1].performance.totalGames).toBe(1);
+    });
+  });
+
+  describe('getTournamentHeatmap', () => {
+    test('should generate tournament-specific heatmap', async () => {
+      const TARGET_PLAYER = 'AdvaitKumar1213';
+
+      // Add game with blunder analysis
+      const game = await testDb.run(`
+        INSERT INTO games (pgn_file_path, white_player, black_player, result, tournament_id, user_id, user_color)
+        VALUES (?, ?, ?, ?, ?, ?, ?)
+      `, ['test_tournament_analyzer', TARGET_PLAYER, 'Opponent', '1-0', tournamentId, 'default_user', 'white']);
+
+      await testDb.run(`
+        INSERT INTO analysis (game_id, move_number, move, evaluation, centipawn_loss, best_move, is_blunder)
+        VALUES (?, ?, ?, ?, ?, ?, ?)
+      `, [game.id, 1, 'Qh5', -0.5, 120, 'e4', 1]);
+
+      const heatmap = await tournamentAnalyzer.getTournamentHeatmap(tournamentId);
+
+      expect(heatmap).toHaveLength(64); // 8x8 board
+      
+      const h5Square = heatmap.find(square => square.square === 'h5');
+      expect(h5Square.count).toBe(1);
+      expect(h5Square.severity).toBe(120);
+      expect(h5Square.intensity).toBeGreaterThan(0);
+    });
+  });
+
+  describe('getTournamentTrends', () => {
+    test('should calculate tournament trends over time', async () => {
+      const TARGET_PLAYER = 'AdvaitKumar1213';
+
+      // Add games with different accuracies
+      const game1 = await testDb.run(`
+        INSERT INTO games (pgn_file_path, white_player, black_player, result, tournament_id, created_at, user_id, user_color)
+        VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+      `, ['test_tournament_analyzer', TARGET_PLAYER, 'Opponent1', '1-0', tournamentId, '2024-01-01 10:00:00', 'default_user', 'white']);
+
+      const game2 = await testDb.run(`
+        INSERT INTO games (pgn_file_path, white_player, black_player, result, tournament_id, created_at, user_id, user_color)
+        VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+      `, ['test_tournament_analyzer', TARGET_PLAYER, 'Opponent2', '0-1', tournamentId, '2024-01-01 11:00:00', 'default_user', 'white']);
+
+      // Add analysis with different centipawn losses
+      await testDb.run(`
+        INSERT INTO analysis (game_id, move_number, move, centipawn_loss, is_blunder)
+        VALUES (?, ?, ?, ?, ?)
+      `, [game1.id, 1, 'e4', 50, 0]);
+
+      await testDb.run(`
+        INSERT INTO analysis (game_id, move_number, move, centipawn_loss, is_blunder)
+        VALUES (?, ?, ?, ?, ?)
+      `, [game2.id, 1, 'e4', 20, 0]);
+
+      const trends = await tournamentAnalyzer.getTournamentTrends(tournamentId, 'default_user');
+
+      expect(trends).toHaveLength(2);
+      expect(trends[0].gameNumber).toBe(1);
+      expect(trends[1].gameNumber).toBe(2);
+      expect(trends[0].gameId).toBe(game1.id);
+      expect(trends[1].gameId).toBe(game2.id);
+      expect(trends[1].accuracy).toBeGreaterThan(trends[0].accuracy); // Better accuracy in game 2
+    });
+  });
+
+  describe('rankTournaments', () => {
+    test('should rank tournaments by performance', async () => {
+      const TARGET_PLAYER = 'AdvaitKumar1213';
+
+      // Create second tournament
+      const tournament2 = await testDb.run(`
+        INSERT INTO tournaments (name, event_type, total_games)
+        VALUES (?, ?, ?)
+      `, ['Better Tournament', 'rapid', 1]);
+
+      // Update first tournament game count
+      await testDb.run('UPDATE tournaments SET total_games = 1 WHERE id = ?', [tournamentId]);
+
+      // Add games with different performance levels
+      const game1 = await testDb.run(`
+        INSERT INTO games (pgn_file_path, white_player, black_player, result, tournament_id, user_id, user_color)
+        VALUES (?, ?, ?, ?, ?, ?, ?)
+      `, ['test_tournament_analyzer', TARGET_PLAYER, 'Opponent1', '1-0', tournamentId, 'default_user', 'white']);
+
+      const game2 = await testDb.run(`
+        INSERT INTO games (pgn_file_path, white_player, black_player, result, tournament_id, user_id, user_color)
+        VALUES (?, ?, ?, ?, ?, ?, ?)
+      `, ['test_tournament_analyzer', TARGET_PLAYER, 'Opponent2', '1-0', tournament2.id, 'default_user', 'white']);
+
+      // Add analysis - tournament2 has better accuracy
+      await testDb.run(`
+        INSERT INTO analysis (game_id, move_number, move, centipawn_loss)
+        VALUES (?, ?, ?, ?)
+      `, [game1.id, 1, 'e4', 80]); // Lower accuracy
+
+      await testDb.run(`
+        INSERT INTO analysis (game_id, move_number, move, centipawn_loss)
+        VALUES (?, ?, ?, ?)
+      `, [game2.id, 1, 'e4', 20]); // Higher accuracy
+
+      const rankings = await tournamentAnalyzer.rankTournaments();
+
+      expect(rankings).toHaveLength(2);
+      expect(rankings[0].tournament.name).toBe('Better Tournament'); // Should rank higher
+      expect(rankings[0].score).toBeGreaterThan(rankings[1].score);
+    });
+  });
+
+  describe('getFilteredPerformance', () => {
+    test('should get overall performance when no tournament specified', async () => {
+      const TARGET_PLAYER = 'AdvaitKumar1213';
+
+      // Add test game
+      const game = await testDb.run(`
+        INSERT INTO games (pgn_file_path, white_player, black_player, result, tournament_id, user_id, user_color)
+        VALUES (?, ?, ?, ?, ?, ?, ?)
+      `, ['test_tournament_analyzer', TARGET_PLAYER, 'Opponent', '1-0', tournamentId, 'default_user', 'white']);
+
+      await testDb.run(`
+        INSERT INTO analysis (game_id, move_number, move, centipawn_loss)
+        VALUES (?, ?, ?, ?)
+      `, [game.id, 1, 'e4', 30]);
+
+      const performance = await tournamentAnalyzer.getFilteredPerformance();
+
+      // Check that we have at least the test game (may have more from other tests)
+      expect(performance.white.games).toBeGreaterThanOrEqual(1);
+      expect(performance.white.winRate).toBeGreaterThanOrEqual(0);
+      expect(performance.black.games).toBeGreaterThanOrEqual(1);
+      expect(performance.black.winRate).toBeGreaterThanOrEqual(0);
+    });
+
+    test('should get tournament-filtered performance', async () => {
+      const TARGET_PLAYER = 'AdvaitKumar1213';
+
+      // Create second tournament
+      const tournament2 = await testDb.run(`
+        INSERT INTO tournaments (name, event_type)
+        VALUES (?, ?)
+      `, ['Tournament 2', 'rapid']);
+
+      // Add games to both tournaments
+      await testDb.run(`
+        INSERT INTO games (pgn_file_path, white_player, black_player, result, tournament_id, user_id, user_color)
+        VALUES (?, ?, ?, ?, ?, ?, ?)
+      `, ['test_tournament_analyzer', TARGET_PLAYER, 'Opponent', '1-0', tournamentId, 'default_user', 'white']);
+
+      await testDb.run(`
+        INSERT INTO games (pgn_file_path, white_player, black_player, result, tournament_id, user_id, user_color)
+        VALUES (?, ?, ?, ?, ?, ?, ?)
+      `, ['test_tournament_analyzer', TARGET_PLAYER, 'Opponent', '0-1', tournament2.id, 'default_user', 'white']);
+
+      const performance = await tournamentAnalyzer.getFilteredPerformance(tournamentId);
+
+      expect(performance.white.games).toBe(1);
+      expect(performance.white.winRate).toBe(100); // Only tournament 1 game counted
+    });
+  });
+
+  describe('calculateConsistency', () => {
+    test('should calculate consistency score', () => {
+      const consistentAccuracies = [85, 87, 86, 88, 85]; // Low variance
+      const inconsistentAccuracies = [60, 95, 70, 90, 65]; // High variance
+
+      const consistentScore = tournamentAnalyzer.calculateConsistency(consistentAccuracies);
+      const inconsistentScore = tournamentAnalyzer.calculateConsistency(inconsistentAccuracies);
+
+      expect(consistentScore).toBeGreaterThan(inconsistentScore);
+      expect(consistentScore).toBeGreaterThan(90); // Should be high
+      expect(inconsistentScore).toBeLessThan(90); // Should be lower
+    });
+
+    test('should handle edge cases', () => {
+      expect(tournamentAnalyzer.calculateConsistency([])).toBe(100);
+      expect(tournamentAnalyzer.calculateConsistency([85])).toBe(100);
+    });
+  });
+
+  describe('getTournamentSummary', () => {
+    test('should generate comprehensive tournament summary', async () => {
+      const TARGET_PLAYER = 'AdvaitKumar1213';
+
+      // Add games with trends
+      const game1 = await testDb.run(`
+        INSERT INTO games (pgn_file_path, white_player, black_player, result, tournament_id, created_at, user_id, user_color)
+        VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+      `, ['test_tournament_analyzer', TARGET_PLAYER, 'Opponent1', '1-0', tournamentId, '2024-01-01 10:00:00', 'default_user', 'white']);
+
+      const game2 = await testDb.run(`
+        INSERT INTO games (pgn_file_path, white_player, black_player, result, tournament_id, created_at, user_id, user_color)
+        VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+      `, ['test_tournament_analyzer', TARGET_PLAYER, 'Opponent2', '0-1', tournamentId, '2024-01-01 11:00:00', 'default_user', 'white']);
+
+      // Add analysis
+      await testDb.run(`
+        INSERT INTO analysis (game_id, move_number, move, centipawn_loss)
+        VALUES (?, ?, ?, ?)
+      `, [game1.id, 1, 'e4', 60]);
+
+      await testDb.run(`
+        INSERT INTO analysis (game_id, move_number, move, centipawn_loss)
+        VALUES (?, ?, ?, ?)
+      `, [game2.id, 1, 'e4', 20]);
+
+      const summary = await tournamentAnalyzer.getTournamentSummary(tournamentId);
+
+      expect(summary.tournament.name).toBeTruthy(); // Name is dynamic
+      expect(summary.performance.totalGames).toBe(2);
+      expect(summary.trends).toHaveLength(2);
+      expect(summary.insights.bestGame).toBeTruthy();
+      expect(summary.insights.worstGame).toBeTruthy();
+      expect(summary.insights.improvement).toBeGreaterThan(0); // Should show improvement
+    });
+  });
+});

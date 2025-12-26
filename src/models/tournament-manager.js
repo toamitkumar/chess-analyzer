@@ -65,15 +65,15 @@ class TournamentManager {
   }
 
   // Find or create tournament in database
-  async findOrCreateTournament(tournamentInfo) {
+  async findOrCreateTournament(tournamentInfo, userId = 'default_user') {
     if (!this.db) {
       await this.initialize();
     }
 
     try {
       // Try to find existing tournament by name
-      let tournament = await this.db.findTournamentByName(tournamentInfo.name);
-      
+      let tournament = await this.db.findTournamentByName(tournamentInfo.name, userId);
+
       if (!tournament) {
         // Create new tournament
         const result = await this.db.insertTournament({
@@ -81,7 +81,8 @@ class TournamentManager {
           eventType: tournamentInfo.eventType,
           location: tournamentInfo.location,
           startDate: tournamentInfo.date,
-          endDate: null // Will be updated as we see more games
+          endDate: null, // Will be updated as we see more games
+          userId: userId
         });
         
         tournament = {
@@ -144,17 +145,17 @@ class TournamentManager {
   }
 
   // Process PGN content and extract tournament info
-  async processPGNForTournament(pgnContent) {
+  async processPGNForTournament(pgnContent, userId = 'default_user') {
     try {
       // Extract headers from PGN
       const headers = this.extractPGNHeaders(pgnContent);
-      
+
       // Detect tournament information
       const tournamentInfo = this.detectTournament(headers);
-      
+
       // Find or create tournament
-      const tournament = await this.findOrCreateTournament(tournamentInfo);
-      
+      const tournament = await this.findOrCreateTournament(tournamentInfo, userId);
+
       return {
         tournament,
         headers,
@@ -185,12 +186,12 @@ class TournamentManager {
   }
 
   // Get all tournaments
-  async getAllTournaments() {
+  async getAllTournaments(userId) {
     if (!this.db) {
       await this.initialize();
     }
-    
-    return await this.db.getAllTournaments();
+
+    return await this.db.getAllTournaments(userId);
   }
 
   // Get tournament by ID
@@ -220,7 +221,7 @@ class TournamentManager {
   }
 
   // Get tournament statistics
-  async getTournamentStats(tournamentId) {
+  async getTournamentStats(tournamentId, userId) {
     if (!this.db) {
       await this.initialize();
     }
@@ -235,7 +236,8 @@ class TournamentManager {
         AVG(black_elo) as avg_black_elo
       FROM games 
       WHERE tournament_id = ?
-    `, [tournamentId]);
+      AND user_id = ?
+    `, [tournamentId, userId]);
     
     return stats;
   }

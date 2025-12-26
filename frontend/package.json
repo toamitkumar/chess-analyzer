@@ -3,7 +3,7 @@
   "version": "1.0.0",
   "scripts": {
     "ng": "ng",
-    "start": "NODE_OPTIONS='--no-deprecation' ng serve",
+    "start": "NODE_OPTIONS='--no-deprecation' ng serve --proxy-config proxy.conf.json",
     "build": "ng build",
     "watch": "ng build --watch --configuration development",
     "test": "ng test"
@@ -18,7 +18,9 @@
     "@angular/platform-browser": "^17.0.0",
     "@angular/platform-browser-dynamic": "^17.0.0",
     "@angular/router": "^17.0.0",
+    "@clerk/clerk-js": "^5.117.0",
     "@lichess-org/chessground": "^9.8.4",
+    "@supabase/supabase-js": "^2.89.0",
     "chess.js": "^1.4.0",
     "chessboardjs": "^0.0.1",
     "lucide-angular": "^0.555.0",

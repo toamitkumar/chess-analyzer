@@ -9,6 +9,8 @@ class ChessAnalyzer {
     this.engine = null;
     this.isReady = false;
     this.blunderCategorizer = new BlunderCategorizer();
+    this.analysisQueue = [];
+    this.isAnalyzing = false;
     this.setupEngine();
   }
 
@@ -106,12 +108,19 @@ class ChessAnalyzer {
       this.engine.stdout.on('data', (data) => {
         const output = data.toString();
         if (output.includes('uciok')) {
-          // Engine acknowledged UCI protocol, now check if ready
+          // Engine acknowledged UCI protocol
+          // Set Threads to 1 for deterministic analysis results
+          console.log('🔧 [DETERMINISM] Setting Threads=1 for deterministic analysis');
+          this.engine.stdin.write('setoption name Threads value 1\n');
+          // Set Hash to a fixed size for consistency
+          console.log('🔧 [DETERMINISM] Setting Hash=128MB for consistency');
+          this.engine.stdin.write('setoption name Hash value 128\n');
+          // Now check if ready
           this.engine.stdin.write('isready\n');
         }
         if (output.includes('readyok')) {
           this.isReady = true;
-          console.log('✅ Real Stockfish engine ready');
+          console.log('✅ Real Stockfish engine ready (deterministic mode: Threads=1)');
         }
       });
 
@@ -144,7 +153,52 @@ class ChessAnalyzer {
     }
   }
 
+  /**
+   * Queue-based wrapper for game analysis
+   * Ensures only one game is analyzed at a time (prevents concurrent access issues)
+   */
   async analyzeGame(moves, fetchAlternatives = true) {
+    return new Promise((resolve, reject) => {
+      // Add to queue
+      this.analysisQueue.push({ moves, fetchAlternatives, resolve, reject });
+      console.log(`📥 [QUEUE] Added analysis to queue. Queue length: ${this.analysisQueue.length}`);
+
+      // Process queue if not already processing
+      if (!this.isAnalyzing) {
+        this._processQueue();
+      }
+    });
+  }
+
+  /**
+   * Process analysis queue one at a time
+   */
+  async _processQueue() {
+    if (this.analysisQueue.length === 0) {
+      this.isAnalyzing = false;
+      console.log('✅ [QUEUE] Queue empty, analysis complete');
+      return;
+    }
+
+    this.isAnalyzing = true;
+    const { moves, fetchAlternatives, resolve, reject } = this.analysisQueue.shift();
+    console.log(`⚙️ [QUEUE] Processing analysis. Remaining in queue: ${this.analysisQueue.length}`);
+
+    try {
+      const result = await this._analyzeGameInternal(moves, fetchAlternatives);
+      resolve(result);
+    } catch (error) {
+      reject(error);
+    }
+
+    // Process next item in queue
+    setImmediate(() => this._processQueue());
+  }
+
+  /**
+   * Internal analysis method (should not be called directly)
+   */
+  async _analyzeGameInternal(moves, fetchAlternatives = true) {
     try {
       if (!moves || !Array.isArray(moves) || moves.length === 0) {
         throw new Error('No moves provided for analysis');
@@ -153,6 +207,38 @@ class ChessAnalyzer {
       if (!this.isReady) {
         throw new Error('Stockfish engine not ready');
       }
+
+      // CRITICAL: Restart Stockfish engine for truly clean state
+      // This ensures 100% deterministic results by eliminating ALL internal caches
+      console.log('🔄 [DETERMINISM] Restarting Stockfish engine for clean state...');
+
+      // Close existing engine
+      if (this.engine) {
+        this.engine.removeAllListeners();
+        this.engine.kill();
+      }
+
+      // Restart engine with deterministic settings
+      this.setupEngine();
+
+      // Wait for engine to be ready
+      await new Promise((resolve) => {
+        const checkReady = () => {
+          if (this.isReady) {
+            console.log('✅ [DETERMINISM] Fresh Stockfish engine ready');
+            resolve();
+          } else {
+            setTimeout(checkReady, 100);
+          }
+        };
+        checkReady();
+
+        // Timeout after 5 seconds
+        setTimeout(() => {
+          console.log('⚠️ [DETERMINISM] Timeout waiting for engine, proceeding anyway');
+          resolve();
+        }, 5000);
+      });
 
       console.log(`🔍 Analyzing game with ${moves.length} moves using real Stockfish...`);
       if (fetchAlternatives) {

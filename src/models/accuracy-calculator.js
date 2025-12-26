@@ -57,30 +57,38 @@ class AccuracyCalculator {
    */
   static calculateOverallAccuracy(games, targetPlayer) {
     if (!games || games.length === 0) return 0;
-    
+
     let totalCentipawnLoss = 0;
     let totalMoves = 0;
-    
+
     for (const game of games) {
       if (!game.analysis || !Array.isArray(game.analysis)) continue;
-      
-      const isPlayerWhite = game.white_player === targetPlayer;
-      const isPlayerBlack = game.black_player === targetPlayer;
-      
+
+      // Use user_color if available (new logic), otherwise fall back to player name comparison
+      let isPlayerWhite, isPlayerBlack;
+      if (game.user_color) {
+        isPlayerWhite = game.user_color === 'white';
+        isPlayerBlack = game.user_color === 'black';
+      } else {
+        // Fallback for old data without user_color
+        isPlayerWhite = game.white_player === targetPlayer;
+        isPlayerBlack = game.black_player === targetPlayer;
+      }
+
       if (!isPlayerWhite && !isPlayerBlack) continue;
-      
+
       // Filter moves for the target player
-      const playerMoves = game.analysis.filter(move => 
+      const playerMoves = game.analysis.filter(move =>
         (isPlayerWhite && move.move_number % 2 === 1) ||
         (isPlayerBlack && move.move_number % 2 === 0)
       );
-      
+
       totalCentipawnLoss += playerMoves.reduce((sum, move) => sum + (move.centipawn_loss || 0), 0);
       totalMoves += playerMoves.length;
     }
-    
+
     if (totalMoves === 0) return 0;
-    
+
     const avgCentipawnLoss = totalCentipawnLoss / totalMoves;
     return this.calculateAccuracy(avgCentipawnLoss);
   }

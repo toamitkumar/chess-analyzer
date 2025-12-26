@@ -4,7 +4,6 @@ import { HttpClientModule } from '@angular/common/http';
 import { FormsModule } from '@angular/forms';
 import { LayoutComponent } from '../../components/layout/layout.component';
 import { ChessApiService } from '../../services/chess-api.service';
-import { AccessCodeService } from '../../services/access-code.service';
 import { Chess } from 'chess.js';
 import { Chessground } from '@lichess-org/chessground';
 import type { Api } from '@lichess-org/chessground/api';
@@ -15,6 +14,7 @@ interface UploadFile {
   size: number;
   file: File;
   status: 'pending' | 'uploading' | 'success' | 'error';
+  userColor: 'white' | 'black' | null;
   result?: any;
   error?: string;
 }
@@ -142,58 +142,73 @@ interface ManualPGNForm {
 
               <div class="space-y-2">
                 <div *ngFor="let file of files; let i = index"
-                     class="flex items-center justify-between rounded-lg border border-border bg-card p-3">
-                  <div class="flex items-center gap-3">
-                    <div [ngSwitch]="file.status">
-                      <svg *ngSwitchCase="'success'" class="h-5 w-5 text-green-500" xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-                        <path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"/>
-                        <polyline points="22,4 12,14.01 9,11.01"/>
-                      </svg>
-                      <svg *ngSwitchCase="'error'" class="h-5 w-5 text-red-500" xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                     class="rounded-lg border border-border bg-card p-3 space-y-2">
+                  <div class="flex items-center justify-between">
+                    <div class="flex items-center gap-3">
+                      <div [ngSwitch]="file.status">
+                        <svg *ngSwitchCase="'success'" class="h-5 w-5 text-green-500" xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                          <path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"/>
+                          <polyline points="22,4 12,14.01 9,11.01"/>
+                        </svg>
+                        <svg *ngSwitchCase="'error'" class="h-5 w-5 text-red-500" xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                          <circle cx="12" cy="12" r="10"/>
+                          <path d="m15 9-6 6"/>
+                          <path d="m9 9 6 6"/>
+                        </svg>
+                        <svg *ngSwitchCase="'uploading'" class="h-5 w-5 text-blue-500 animate-spin" xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                          <path d="M21 12a9 9 0 11-6.219-8.56"/>
+                        </svg>
+                        <svg *ngSwitchDefault class="h-5 w-5 text-accent" xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                          <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/>
+                          <polyline points="14,2 14,8 20,8"/>
+                          <line x1="16" x2="8" y1="13" y2="13"/>
+                          <line x1="16" x2="8" y1="17" y2="17"/>
+                          <polyline points="10,9 9,9 8,9"/>
+                        </svg>
+                      </div>
+                      <div>
+                        <p class="text-sm font-medium text-foreground">{{ file.name }}</p>
+                        <p class="text-xs text-muted-foreground">
+                          {{ (file.size / 1024).toFixed(2) }} KB
+                          <span *ngIf="file.status === 'success' && file.result?.gamesProcessed" class="ml-2">
+                            • {{ file.result.gamesProcessed }} games processed
+                          </span>
+                          <span *ngIf="file.status === 'error'" class="ml-2 text-red-500">
+                            • {{ file.error }}
+                          </span>
+                        </p>
+                      </div>
+                    </div>
+                    <button
+                      (click)="removeFile(i); $event.stopPropagation()"
+                      class="inline-flex items-center justify-center rounded-md text-sm font-medium ring-offset-background transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:pointer-events-none disabled:opacity-50 hover:bg-accent hover:text-accent-foreground h-9 px-3">
+                      <svg class="h-4 w-4" xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
                         <circle cx="12" cy="12" r="10"/>
                         <path d="m15 9-6 6"/>
                         <path d="m9 9 6 6"/>
                       </svg>
-                      <svg *ngSwitchCase="'uploading'" class="h-5 w-5 text-blue-500 animate-spin" xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-                        <path d="M21 12a9 9 0 11-6.219-8.56"/>
-                      </svg>
-                      <svg *ngSwitchDefault class="h-5 w-5 text-accent" xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-                        <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/>
-                        <polyline points="14,2 14,8 20,8"/>
-                        <line x1="16" x2="8" y1="13" y2="13"/>
-                        <line x1="16" x2="8" y1="17" y2="17"/>
-                        <polyline points="10,9 9,9 8,9"/>
-                      </svg>
-                    </div>
-                    <div>
-                      <p class="text-sm font-medium text-foreground">{{ file.name }}</p>
-                      <p class="text-xs text-muted-foreground">
-                        {{ (file.size / 1024).toFixed(2) }} KB
-                        <span *ngIf="file.status === 'success' && file.result?.gamesProcessed" class="ml-2">
-                          • {{ file.result.gamesProcessed }} games processed
-                        </span>
-                        <span *ngIf="file.status === 'error'" class="ml-2 text-red-500">
-                          • {{ file.error }}
-                        </span>
-                      </p>
-                    </div>
+                    </button>
                   </div>
-                  <button
-                    (click)="removeFile(i); $event.stopPropagation()"
-                    class="inline-flex items-center justify-center rounded-md text-sm font-medium ring-offset-background transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:pointer-events-none disabled:opacity-50 hover:bg-accent hover:text-accent-foreground h-9 px-3">
-                    <svg class="h-4 w-4" xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-                      <circle cx="12" cy="12" r="10"/>
-                      <path d="m15 9-6 6"/>
-                      <path d="m9 9 6 6"/>
-                    </svg>
-                  </button>
+                  <!-- Color Selection for each file -->
+                  <div class="flex items-center gap-2 ml-8">
+                    <label class="text-xs font-medium text-muted-foreground">You played as:</label>
+                    <select
+                      [(ngModel)]="file.userColor"
+                      [disabled]="file.status === 'uploading' || file.status === 'success'"
+                      [class]="'flex h-8 rounded-md border px-2 py-1 text-xs focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50 ' +
+                        (!file.userColor ? 'border-red-500 bg-red-50 dark:bg-red-900/10' : 'border-input bg-background')">
+                      <option [ngValue]="null">Select color *</option>
+                      <option value="white">⚪ White</option>
+                      <option value="black">⚫ Black</option>
+                    </select>
+                  </div>
                 </div>
               </div>
             </div>
 
             <button
               (click)="handleUpload()"
-              [disabled]="files.length === 0 || uploadStatus === 'uploading'"
+              [disabled]="files.length === 0 || uploadStatus === 'uploading' || hasFilesWithoutColor()"
               class="w-full inline-flex items-center justify-center rounded-xl text-sm sm:text-base font-bold transition-all duration-300 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-2 disabled:pointer-events-none disabled:opacity-50 bg-gradient-to-r from-primary to-primary/80 text-primary-foreground hover:shadow-glow-primary hover:scale-[1.02] h-12 sm:h-14 px-8 shadow-lg">
               <ng-container [ngSwitch]="uploadStatus">
                 <span *ngSwitchCase="'uploading'" class="flex items-center gap-2">
@@ -579,46 +594,6 @@ interface ManualPGNForm {
           </div>
         </div>
       </div>
-
-      <!-- Access Code Modal -->
-      <div *ngIf="showAccessCodePrompt" class="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
-        <div class="bg-card rounded-2xl shadow-2xl max-w-md w-full p-6 sm:p-8 animate-scale-in">
-          <div class="text-center mb-6">
-            <div class="text-5xl mb-4">🔒</div>
-            <h2 class="text-2xl font-bold text-foreground mb-2">Access Code Required</h2>
-            <p class="text-muted-foreground text-sm">Enter the access code to upload games</p>
-          </div>
-
-          <div class="space-y-4">
-            <div>
-              <input
-                type="password"
-                [(ngModel)]="accessCode"
-                (keyup.enter)="verifyAndSetAccessCode()"
-                placeholder="Enter access code"
-                class="w-full px-4 py-3 border-2 border-border rounded-xl focus:outline-none focus:ring-2 focus:ring-primary focus:border-transparent text-center font-mono text-lg"
-                [class.border-red-500]="accessCodeError"
-                autofocus
-              />
-              <p *ngIf="accessCodeError" class="text-red-500 text-sm mt-2 text-center">{{ accessCodeError }}</p>
-            </div>
-
-            <div class="flex gap-3">
-              <button
-                (click)="cancelAccessCodePrompt()"
-                class="flex-1 px-4 py-3 border-2 border-border rounded-xl font-semibold text-foreground hover:bg-muted transition-colors">
-                Cancel
-              </button>
-              <button
-                (click)="verifyAndSetAccessCode()"
-                [disabled]="!accessCode.trim()"
-                class="flex-1 px-4 py-3 bg-gradient-to-r from-primary to-primary/80 text-primary-foreground rounded-xl font-semibold hover:shadow-lg transition-all disabled:opacity-50 disabled:cursor-not-allowed">
-                Verify & Upload
-              </button>
-            </div>
-          </div>
-        </div>
-      </div>
     </app-layout>
   `
 })
@@ -652,14 +627,8 @@ export class UploadComponent implements AfterViewInit, OnDestroy {
   manualSubmitStatus: 'idle' | 'uploading' | 'success' | 'error' = 'idle';
   manualSubmitError: string = '';
 
-  // Access code properties
-  showAccessCodePrompt = false;
-  accessCode = '';
-  accessCodeError = '';
-
   constructor(
-    private chessApi: ChessApiService,
-    private accessCodeService: AccessCodeService
+    private chessApi: ChessApiService
   ) {}
 
   ngAfterViewInit() {
@@ -1045,7 +1014,8 @@ export class UploadComponent implements AfterViewInit, OnDestroy {
         name: f.name,
         size: f.size,
         file: f,
-        status: 'pending' as const
+        status: 'pending' as const,
+        userColor: null
       }))];
       console.log(`${droppedFiles.length} PGN file(s) added`);
     } else {
@@ -1064,7 +1034,8 @@ export class UploadComponent implements AfterViewInit, OnDestroy {
           name: f.name,
           size: f.size,
           file: f,
-          status: 'pending' as const
+          status: 'pending' as const,
+          userColor: null
         }))];
         console.log(`${selectedFiles.length} PGN file(s) added`);
       } else {
@@ -1073,18 +1044,17 @@ export class UploadComponent implements AfterViewInit, OnDestroy {
     }
   }
 
+  hasFilesWithoutColor(): boolean {
+    return this.files.some(f => f.userColor === null && f.status === 'pending');
+  }
+
   async handleUpload() {
     if (this.files.length === 0) {
       console.error('Please select files to upload');
       return;
     }
 
-    // Check if access code is set, if not prompt for it
-    if (!this.accessCodeService.hasCode()) {
-      this.showAccessCodePrompt = true;
-      return;
-    }
-
+    // Authentication is handled by Supabase JWT token (authInterceptor)
     this.uploadStatus = 'uploading';
 
     try {
@@ -1094,10 +1064,10 @@ export class UploadComponent implements AfterViewInit, OnDestroy {
         fileItem.status = 'uploading';
 
         try {
-          const result = await this.chessApi.uploadPgnFile(fileItem.file).toPromise();
+          const result = await this.chessApi.uploadPgnFile(fileItem.file, fileItem.userColor).toPromise();
           fileItem.status = 'success';
           fileItem.result = result;
-          console.log(`Successfully uploaded ${fileItem.name}:`, result);
+          console.log(`Successfully uploaded ${fileItem.name} (color: ${fileItem.userColor}):`, result);
         } catch (error: any) {
           fileItem.status = 'error';
           fileItem.error = error.message || 'Upload failed';
@@ -1229,35 +1199,5 @@ export class UploadComponent implements AfterViewInit, OnDestroy {
       this.manualSubmitError = error.error?.error || error.message || 'Failed to submit game';
       console.error('Failed to submit manual game:', error);
     }
-  }
-
-  // Access code methods
-  async verifyAndSetAccessCode() {
-    if (!this.accessCode.trim()) {
-      this.accessCodeError = 'Please enter an access code';
-      return;
-    }
-
-    // Set the code temporarily
-    this.accessCodeService.setCode(this.accessCode);
-
-    try {
-      // Try to upload with the code
-      this.showAccessCodePrompt = false;
-      this.accessCodeError = '';
-      await this.handleUpload();
-    } catch (error: any) {
-      if (error.status === 403) {
-        this.accessCodeError = 'Invalid access code';
-        this.accessCodeService.clearCode();
-        this.showAccessCodePrompt = true;
-      }
-    }
-  }
-
-  cancelAccessCodePrompt() {
-    this.showAccessCodePrompt = false;
-    this.accessCode = '';
-    this.accessCodeError = '';
   }
 }

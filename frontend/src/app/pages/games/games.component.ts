@@ -13,6 +13,7 @@ interface Game {
   result: string;
   date: string;
   event: string;
+  user_color: 'white' | 'black';
   white_elo?: number;
   black_elo?: number;
   moves_count: number;

@@ -34,6 +34,7 @@ interface GameData {
   black_player: string;
   result: string;
   date: string;
+  user_color: 'white' | 'black';
   event?: string;
   opening?: string;
   pgn_content?: string;

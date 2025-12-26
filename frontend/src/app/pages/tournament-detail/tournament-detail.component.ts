@@ -9,6 +9,7 @@ interface TournamentGame {
   id: number;
   opponent: string;
   result: string;
+  user_color: 'white' | 'black';
   playerColor: 'white' | 'black';
   accuracy?: number;
   blunders?: number;

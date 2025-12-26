@@ -14,15 +14,15 @@ const { getDatabase } = require('../models/database');
 // Initialize Supabase client
 // These environment variables should be set in .env:
 // - SUPABASE_URL: Your Supabase project URL
-// - SUPABASE_ANON_KEY: Your Supabase anonymous key (for client-side)
-// - SUPABASE_SERVICE_KEY: Your Supabase service role key (for server-side, optional)
+// - SUPABASE_PUBLISHABLE_KEY: Your Supabase publishable key (for client-side)
+// - SUPABASE_API_SECRET_KEY: Your Supabase API secret key (for server-side)
 const supabaseUrl = process.env.SUPABASE_URL;
-const supabaseServiceKey = process.env.SUPABASE_SERVICE_KEY || process.env.SUPABASE_ANON_KEY;
+const supabaseApiKey = process.env.SUPABASE_API_SECRET_KEY || process.env.SUPABASE_PUBLISHABLE_KEY;
 
 let supabase = null;
 
-if (supabaseUrl && supabaseServiceKey) {
-  supabase = createClient(supabaseUrl, supabaseServiceKey);
+if (supabaseUrl && supabaseApiKey) {
+  supabase = createClient(supabaseUrl, supabaseApiKey);
 } else {
   console.warn('⚠️  Supabase credentials not configured. Authentication will be disabled.');
 }

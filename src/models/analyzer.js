@@ -159,6 +159,28 @@ class ChessAnalyzer {
         throw new Error('Stockfish engine not ready');
       }
 
+      // Reset engine state before each game for deterministic results
+      // This clears the hash table and ensures consistent evaluations
+      this.engine.stdin.write('ucinewgame\n');
+      this.engine.stdin.write('isready\n');
+
+      // Wait for engine to be ready after reset
+      await new Promise((resolve) => {
+        const readyHandler = (data) => {
+          if (data.toString().includes('readyok')) {
+            this.engine.stdout.removeListener('data', readyHandler);
+            resolve();
+          }
+        };
+        this.engine.stdout.on('data', readyHandler);
+
+        // Timeout after 2 seconds
+        setTimeout(() => {
+          this.engine.stdout.removeListener('data', readyHandler);
+          resolve();
+        }, 2000);
+      });
+
       console.log(`🔍 Analyzing game with ${moves.length} moves using real Stockfish...`);
       if (fetchAlternatives) {
         console.log(`🔄 Fetching up to 10 alternative moves for each position`);

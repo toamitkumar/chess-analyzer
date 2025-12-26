@@ -1,6 +1,7 @@
 import { Injectable } from '@angular/core';
 import { HttpClient } from '@angular/common/http';
 import { Observable } from 'rxjs';
+import { AuthService } from './auth.service';
 
 export interface PerformanceData {
   overall?: {
@@ -42,9 +43,18 @@ export interface PerformanceData {
 export class ChessApiService {
   // Use relative URL - works in both development (with proxy) and production
   private baseUrl = '/api';
-  public readonly targetPlayer = 'AdvaitKumar1213'; // Centralized target player
 
-  constructor(private http: HttpClient) {}
+  constructor(
+    private http: HttpClient,
+    private authService: AuthService
+  ) {}
+
+  /**
+   * Get the current user's chess username (target player for analysis)
+   */
+  get targetPlayer(): string {
+    return this.authService.user()?.chessUsername || '';
+  }
 
   getPerformanceData(): Observable<PerformanceData> {
     return this.http.get<PerformanceData>(`${this.baseUrl}/performance`);

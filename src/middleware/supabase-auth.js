@@ -15,9 +15,9 @@ const { getDatabase } = require('../models/database');
 // These environment variables should be set in .env:
 // - SUPABASE_URL: Your Supabase project URL
 // - SUPABASE_PUBLISHABLE_KEY: Your Supabase publishable key (for client-side)
-// - SUPABASE_API_SECRET_KEY: Your Supabase API secret key (for server-side)
+// - SUPABASE_SECRET_KEY: Your Supabase API secret key (for server-side)
 const supabaseUrl = process.env.SUPABASE_URL;
-const supabaseApiKey = process.env.SUPABASE_API_SECRET_KEY || process.env.SUPABASE_PUBLISHABLE_KEY;
+const supabaseApiKey = process.env.SUPABASE_SECRET_KEY || process.env.SUPABASE_PUBLISHABLE_KEY;
 
 let supabase = null;
 

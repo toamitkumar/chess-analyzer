@@ -1,22 +1,32 @@
 import { Routes } from '@angular/router';
-import { authGuard, publicGuard } from './guards/auth.guard';
+import { authGuard, guestGuard } from './guards/auth.guard';
 
 export const routes: Routes = [
   // Public routes (auth pages)
   {
     path: 'sign-in',
     loadComponent: () => import('./pages/sign-in/sign-in.component').then(m => m.SignInComponent),
-    canActivate: [publicGuard]
+    canActivate: [guestGuard]
   },
   {
     path: 'sign-up',
     loadComponent: () => import('./pages/sign-up/sign-up.component').then(m => m.SignUpComponent),
-    canActivate: [publicGuard]
+    canActivate: [guestGuard]
+  },
+  {
+    path: 'auth/login',
+    redirectTo: 'sign-in',
+    pathMatch: 'full'
   },
 
   // Protected routes (require authentication)
   {
     path: '',
+    redirectTo: 'dashboard',
+    pathMatch: 'full'
+  },
+  {
+    path: 'dashboard',
     loadComponent: () => import('./pages/dashboard/dashboard.component').then(m => m.DashboardComponent),
     canActivate: [authGuard]
   },

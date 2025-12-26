@@ -8,9 +8,9 @@ const { getDatabase } = require('../models/database');
 const { getFileStorage } = require('../models/file-storage');
 const { getTournamentManager } = require('../models/tournament-manager');
 const { getTournamentAnalyzer } = require('../models/tournament-analyzer');
-const { TARGET_PLAYER, API_CONFIG } = require('../config/app-config');
+const { API_CONFIG } = require('../config/app-config');
 const { checkAccessCode } = require('../middleware/access-code');
-const { requireAuth, optionalAuth, useDefaultUser } = require('../middleware/supabase-auth');
+const { requireAuth } = require('../middleware/supabase-auth');
 
 // Import route configuration function
 const configureRoutes = require('./routes');
@@ -106,17 +106,9 @@ app.use(express.json({ limit: '10mb' }));
 app.use(express.text({ limit: '10mb', type: 'text/plain' }));
 
 // Authentication middleware
-// TEMPORARILY DISABLED FOR TESTING - RE-ENABLE AFTER ROUTE VERIFICATION
-// Require authentication for all API endpoints
-// app.use('/api/*', requireAuth);
-
-// Temporary middleware: Set default user when auth is disabled
-app.use('/api/*', (req, res, next) => {
-  if (!req.userId) {
-    req.userId = 'default_user';
-  }
-  next();
-});
+// Require authentication for all API endpoints except health check
+app.use('/api/health', (req, res, next) => next()); // Skip auth for health check
+app.use('/api/*', requireAuth);
 
 // NOTE: API routes are configured AFTER services initialize in startServer()
 // This ensures sharedAnalyzer is ready before routes are created
@@ -350,28 +342,27 @@ app.get('/api/heatmap-db', async (req, res) => {
 app.get('/api/trends/rating', async (req, res) => {
   try {
     const tournamentId = req.query.tournament ? parseInt(req.query.tournament) : null;
-    const tournamentFilter = tournamentId ? 'AND g.tournament_id = ?' : '';
-    const params = tournamentId ? [TARGET_PLAYER, TARGET_PLAYER, tournamentId] : [TARGET_PLAYER, TARGET_PLAYER];
-    
+    const userId = req.userId;
+
     const games = await database.all(`
-      SELECT g.id, g.date, g.white_elo, g.black_elo, g.white_player, g.black_player
+      SELECT g.id, g.date, g.white_elo, g.black_elo, g.user_color
       FROM games g
-      WHERE (g.white_player = ? OR g.black_player = ?) ${tournamentFilter}
+      WHERE g.user_id = ? ${tournamentId ? 'AND g.tournament_id = ?' : ''}
       ORDER BY g.date ASC
-    `, params);
-    
+    `, tournamentId ? [userId, tournamentId] : [userId]);
+
     // Filter games with actual ratings and track rating progression
     const ratedGames = games.filter(game => {
-      const playerRating = game.white_player === TARGET_PLAYER ? game.white_elo : game.black_elo;
+      const playerRating = game.user_color === 'white' ? game.white_elo : game.black_elo;
       return playerRating && playerRating > 0;
     });
-    
+
     const data = ratedGames.map((game, index) => ({
       gameNumber: index + 1,
-      rating: game.white_player === TARGET_PLAYER ? game.white_elo : game.black_elo,
+      rating: game.user_color === 'white' ? game.white_elo : game.black_elo,
       date: game.date
     }));
-    
+
     res.json({ data });
   } catch (error) {
     console.error('Rating trends API error:', error);
@@ -382,23 +373,22 @@ app.get('/api/trends/rating', async (req, res) => {
 app.get('/api/trends/centipawn-loss', async (req, res) => {
   try {
     const tournamentId = req.query.tournament ? parseInt(req.query.tournament) : null;
-    const tournamentFilter = tournamentId ? 'AND g.tournament_id = ?' : '';
-    const params = tournamentId ? [TARGET_PLAYER, TARGET_PLAYER, tournamentId] : [TARGET_PLAYER, TARGET_PLAYER];
-    
+    const userId = req.userId;
+
     const games = await database.all(`
       SELECT g.id, AVG(a.centipawn_loss) as avg_centipawn_loss
       FROM games g
       JOIN analysis a ON g.id = a.game_id
-      WHERE (g.white_player = ? OR g.black_player = ?) ${tournamentFilter}
+      WHERE g.user_id = ? ${tournamentId ? 'AND g.tournament_id = ?' : ''}
       GROUP BY g.id
       ORDER BY g.date ASC
-    `, params);
-    
+    `, tournamentId ? [userId, tournamentId] : [userId]);
+
     const data = games.map((game, index) => ({
       gameNumber: index + 1,
       avgCentipawnLoss: Math.round(game.avg_centipawn_loss || 0)
     }));
-    
+
     res.json({ data });
   } catch (error) {
     console.error('Centipawn trends API error:', error);

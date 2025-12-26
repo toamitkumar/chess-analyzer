@@ -165,6 +165,8 @@ class ChessAnalyzer {
       // This clears the hash table and ensures consistent evaluations
       console.log('🔄 [DETERMINISM] Sending ucinewgame to reset engine state...');
       this.engine.stdin.write('ucinewgame\n');
+      console.log('🔄 [DETERMINISM] Explicitly clearing hash table...');
+      this.engine.stdin.write('setoption name Clear Hash\n');
       this.engine.stdin.write('isready\n');
       console.log('🔄 [DETERMINISM] Waiting for readyok response...');
 

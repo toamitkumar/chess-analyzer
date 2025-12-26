@@ -1,75 +1,49 @@
 import { inject } from '@angular/core';
 import { Router, CanActivateFn } from '@angular/router';
-import { ClerkService } from '../services/clerk.service';
+import { AuthService } from '../services/auth.service';
 
 /**
- * Auth Guard
- *
- * Protects routes that require authentication.
- * If user is not authenticated, redirects to sign-in page.
- *
- * Usage in routes:
- * {
- *   path: 'dashboard',
- *   component: DashboardComponent,
- *   canActivate: [authGuard]
- * }
+ * Auth Guard to protect routes that require authentication
  */
 export const authGuard: CanActivateFn = async (route, state) => {
-  const clerkService = inject(ClerkService);
+  const authService = inject(AuthService);
   const router = inject(Router);
 
-  // Wait for Clerk to initialize
-  let attempts = 0;
-  while (!clerkService.isReady() && attempts < 50) {
+  // Wait for auth to initialize
+  while (authService.isLoading()) {
     await new Promise(resolve => setTimeout(resolve, 100));
-    attempts++;
   }
 
-  if (clerkService.isAuthenticated()) {
+  // Check if user is authenticated
+  if (authService.isAuthenticated()) {
     return true;
   }
 
-  // Store the attempted URL for redirecting after login
-  const returnUrl = state.url;
-
-  // Redirect to sign-in
-  router.navigate(['/sign-in'], {
-    queryParams: { returnUrl }
+  // Redirect to login page with return URL
+  router.navigate(['/auth/login'], {
+    queryParams: { returnUrl: state.url }
   });
 
   return false;
 };
 
 /**
- * Public Guard
- *
- * Redirects authenticated users away from public pages (sign-in, sign-up)
- * to the dashboard or specified page.
- *
- * Usage in routes:
- * {
- *   path: 'sign-in',
- *   component: SignInComponent,
- *   canActivate: [publicGuard]
- * }
+ * Guest Guard to redirect authenticated users away from auth pages
  */
-export const publicGuard: CanActivateFn = async (route, state) => {
-  const clerkService = inject(ClerkService);
+export const guestGuard: CanActivateFn = async (route, state) => {
+  const authService = inject(AuthService);
   const router = inject(Router);
 
-  // Wait for Clerk to initialize
-  let attempts = 0;
-  while (!clerkService.isReady() && attempts < 50) {
+  // Wait for auth to initialize
+  while (authService.isLoading()) {
     await new Promise(resolve => setTimeout(resolve, 100));
-    attempts++;
   }
 
-  if (!clerkService.isAuthenticated()) {
-    return true;
+  // If user is authenticated, redirect to dashboard
+  if (authService.isAuthenticated()) {
+    router.navigate(['/dashboard']);
+    return false;
   }
 
-  // User is already authenticated, redirect to home (dashboard)
-  router.navigate(['/']);
-  return false;
+  return true;
 };

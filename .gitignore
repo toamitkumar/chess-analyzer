@@ -5,6 +5,11 @@ coverage/
 test_output.txt
 *_analysis.json
 
+# Environment variables (contains sensitive credentials)
+.env
+.env.local
+.env.*.local
+
 # Database files
 *.db
 *.db-journal

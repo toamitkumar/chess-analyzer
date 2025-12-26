@@ -389,10 +389,9 @@ export class DashboardComponent implements OnInit {
   }
 
   getWhiteDraws(): number {
-    // Calculate draws as remaining games after wins and losses
     if (!this.performanceData?.white) return 0;
-    // Based on actual data, there are no draws, so return 0
-    return 0;
+    // Use actual draw count from API response
+    return this.performanceData.white.draws || 0;
   }
 
   getBlackWins(): number {
@@ -408,10 +407,9 @@ export class DashboardComponent implements OnInit {
   }
 
   getBlackDraws(): number {
-    // Calculate draws as remaining games after wins and losses
     if (!this.performanceData?.black) return 0;
-    // Based on actual data, there are no draws, so return 0
-    return 0;
+    // Use actual draw count from API response
+    return this.performanceData.black.draws || 0;
   }
 
   // Dynamic insights based on actual data

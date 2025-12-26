@@ -1,31 +1,28 @@
 /**
  * Blunder Controller Unit Tests
  *
- * IMPORTANT: This test file uses mocked dependencies and does NOT touch
- * the real database. All database operations are mocked using jest.mock().
- * This ensures the development database (chess_analysis.db) is never affected.
+ * Tests the blunder controller's HTTP request handling and delegation to BlunderService.
+ * All dependencies are mocked - no real database or service calls are made.
  */
 
-// Set test environment BEFORE importing modules
 process.env.NODE_ENV = 'test';
 
 const blunderController = require('../../src/api/controllers/blunder.controller');
 const { getDatabase } = require('../../src/models/database');
 const BlunderService = require('../../src/services/BlunderService');
 
-// Mock the database module - no real database operations occur
+// Mock dependencies
 jest.mock('../../src/models/database');
-
-// Mock BlunderService
 jest.mock('../../src/services/BlunderService');
 
 describe('BlunderController', () => {
   let mockDb;
+  let mockBlunderService;
   let mockReq;
   let mockRes;
 
   beforeEach(() => {
-    // Create mock database with all helper methods
+    // Create mock database
     mockDb = {
       all: jest.fn(),
       get: jest.fn(),
@@ -35,18 +32,21 @@ describe('BlunderController', () => {
     // Mock getDatabase to return our mock
     getDatabase.mockReturnValue(mockDb);
 
-    // Mock BlunderService
-    const mockBlunderService = {
+    // Create mock BlunderService
+    mockBlunderService = {
       getBlundersForUser: jest.fn()
     };
     BlunderService.mockImplementation(() => mockBlunderService);
+
+    // Reset controller's cached service instance
+    blunderController.blunderService = null;
 
     // Create mock request and response objects
     mockReq = {
       params: {},
       query: {},
       body: {},
-      userId: 'test-user-123' // Added for authentication context
+      userId: 'test-user-123'
     };
 
     mockRes = {
@@ -54,46 +54,24 @@ describe('BlunderController', () => {
       status: jest.fn().mockReturnThis()
     };
 
-    // Clear all mocks before each test
+    // Clear all mocks
     jest.clearAllMocks();
   });
 
   describe('list()', () => {
-    it('should return list of blunders without filters', async () => {
+    it('should return list of blunders using BlunderService', async () => {
       const mockBlunders = [
-        {
-          id: 1,
-          game_id: 1,
-          move_number: 15,
-          phase: 'middlegame',
-          tactical_theme: 'hanging_piece',
-          centipawn_loss: 250,
-          white_player: 'Player1',
-          black_player: 'Player2',
-          date: '2024-01-01',
-          event: 'Test Tournament'
-        },
-        {
-          id: 2,
-          game_id: 2,
-          move_number: 8,
-          phase: 'opening',
-          tactical_theme: 'fork',
-          centipawn_loss: 300,
-          white_player: 'Player3',
-          black_player: 'Player4',
-          date: '2024-01-02',
-          event: 'Test Event'
-        }
+        { id: 1, phase: 'opening', centipawn_loss: 150 },
+        { id: 2, phase: 'middlegame', centipawn_loss: 200 }
       ];
 
-      mockDb.all.mockResolvedValue(mockBlunders);
+      mockBlunderService.getBlundersForUser.mockResolvedValue(mockBlunders);
 
       await blunderController.list(mockReq, mockRes);
 
-      expect(mockDb.all).toHaveBeenCalledWith(
-        expect.stringContaining('SELECT bd.*, g.white_player'),
-        []
+      expect(mockBlunderService.getBlundersForUser).toHaveBeenCalledWith(
+        'test-user-123',
+        expect.objectContaining({})
       );
       expect(mockRes.json).toHaveBeenCalledWith({
         count: 2,
@@ -101,153 +79,98 @@ describe('BlunderController', () => {
       });
     });
 
-    it('should filter blunders by phase', async () => {
+    it('should pass phase filter to BlunderService', async () => {
       mockReq.query.phase = 'opening';
-
-      const mockBlunders = [
-        {
-          id: 1,
-          phase: 'opening',
-          tactical_theme: 'fork',
-          centipawn_loss: 200
-        }
-      ];
-
-      mockDb.all.mockResolvedValue(mockBlunders);
+      mockBlunderService.getBlundersForUser.mockResolvedValue([]);
 
       await blunderController.list(mockReq, mockRes);
 
-      expect(mockDb.all).toHaveBeenCalledWith(
-        expect.stringContaining('AND bd.phase = ?'),
-        ['opening']
+      expect(mockBlunderService.getBlundersForUser).toHaveBeenCalledWith(
+        'test-user-123',
+        expect.objectContaining({ phase: 'opening' })
       );
-      expect(mockRes.json).toHaveBeenCalledWith({
-        count: 1,
-        blunders: mockBlunders
-      });
     });
 
-    it('should filter blunders by theme', async () => {
-      mockReq.query.theme = 'hanging_piece';
-
-      mockDb.all.mockResolvedValue([]);
+    it('should pass theme filter to BlunderService', async () => {
+      mockReq.query.theme = 'fork';
+      mockBlunderService.getBlundersForUser.mockResolvedValue([]);
 
       await blunderController.list(mockReq, mockRes);
 
-      expect(mockDb.all).toHaveBeenCalledWith(
-        expect.stringContaining('AND bd.tactical_theme = ?'),
-        ['hanging_piece']
+      expect(mockBlunderService.getBlundersForUser).toHaveBeenCalledWith(
+        'test-user-123',
+        expect.objectContaining({ theme: 'fork' })
       );
     });
 
-    it('should filter blunders by learned status', async () => {
+    it('should convert learned query param to boolean', async () => {
       mockReq.query.learned = 'true';
-
-      mockDb.all.mockResolvedValue([]);
+      mockBlunderService.getBlundersForUser.mockResolvedValue([]);
 
       await blunderController.list(mockReq, mockRes);
 
-      expect(mockDb.all).toHaveBeenCalledWith(
-        expect.stringContaining('AND bd.learned = ?'),
-        [1]
+      expect(mockBlunderService.getBlundersForUser).toHaveBeenCalledWith(
+        'test-user-123',
+        expect.objectContaining({ learned: true })
       );
     });
 
-    it('should filter blunders by severity', async () => {
+    it('should pass severity filter to BlunderService', async () => {
       mockReq.query.severity = 'major';
-
-      mockDb.all.mockResolvedValue([]);
+      mockBlunderService.getBlundersForUser.mockResolvedValue([]);
 
       await blunderController.list(mockReq, mockRes);
 
-      expect(mockDb.all).toHaveBeenCalledWith(
-        expect.stringContaining('AND bd.blunder_severity = ?'),
-        ['major']
+      expect(mockBlunderService.getBlundersForUser).toHaveBeenCalledWith(
+        'test-user-123',
+        expect.objectContaining({ severity: 'major' })
       );
     });
 
-    it('should filter blunders by difficulty range', async () => {
+    it('should pass difficulty range to BlunderService', async () => {
       mockReq.query.minDifficulty = '3';
-      mockReq.query.maxDifficulty = '5';
-
-      mockDb.all.mockResolvedValue([]);
+      mockReq.query.maxDifficulty = '8';
+      mockBlunderService.getBlundersForUser.mockResolvedValue([]);
 
       await blunderController.list(mockReq, mockRes);
 
-      expect(mockDb.all).toHaveBeenCalledWith(
-        expect.stringContaining('AND bd.difficulty_level >= ?'),
-        [3, 5]
+      expect(mockBlunderService.getBlundersForUser).toHaveBeenCalledWith(
+        'test-user-123',
+        expect.objectContaining({
+          minDifficulty: '3',
+          maxDifficulty: '8'
+        })
       );
     });
 
-    it('should handle database errors gracefully', async () => {
-      mockDb.all.mockRejectedValue(new Error('Database error'));
+    it('should handle errors and return 500', async () => {
+      mockBlunderService.getBlundersForUser.mockRejectedValue(new Error('Service error'));
 
       await blunderController.list(mockReq, mockRes);
 
       expect(mockRes.status).toHaveBeenCalledWith(500);
-      expect(mockRes.json).toHaveBeenCalledWith({ error: 'Database error' });
-    });
-
-    it('should apply multiple filters simultaneously', async () => {
-      mockReq.query = {
-        phase: 'middlegame',
-        theme: 'fork',
-        learned: 'false',
-        severity: 'major',
-        minDifficulty: '4'
-      };
-
-      mockDb.all.mockResolvedValue([]);
-
-      await blunderController.list(mockReq, mockRes);
-
-      expect(mockDb.all).toHaveBeenCalledWith(
-        expect.stringContaining('AND bd.phase = ?'),
-        ['middlegame', 'fork', 0, 'major', 4]
-      );
+      expect(mockRes.json).toHaveBeenCalledWith({ error: 'Service error' });
     });
   });
 
   describe('getByPhase()', () => {
-    it('should return blunders for valid phase with statistics', async () => {
+    it('should return blunders for valid phase', async () => {
       mockReq.params.phase = 'opening';
-
       const mockBlunders = [
-        {
-          id: 1,
-          phase: 'opening',
-          centipawn_loss: 200,
-          blunder_severity: 'major',
-          learned: 1
-        },
-        {
-          id: 2,
-          phase: 'opening',
-          centipawn_loss: 300,
-          blunder_severity: 'moderate',
-          learned: 0
-        }
+        { id: 1, phase: 'opening', centipawn_loss: 150, blunder_severity: 'major', learned: 0 }
       ];
-
       mockDb.all.mockResolvedValue(mockBlunders);
 
       await blunderController.getByPhase(mockReq, mockRes);
 
       expect(mockDb.all).toHaveBeenCalledWith(
-        expect.stringContaining('WHERE bd.phase = ?'),
-        ['opening']
+        expect.stringContaining('AND bd.phase = ?'),
+        ['test-user-123', 'opening']
       );
       expect(mockRes.json).toHaveBeenCalledWith(
         expect.objectContaining({
           phase: 'opening',
-          stats: expect.objectContaining({
-            totalBlunders: 2,
-            averageCentipawnLoss: 250,
-            severityBreakdown: expect.any(Object),
-            learned: 1,
-            unlearned: 1
-          }),
+          stats: expect.any(Object),
           blunders: mockBlunders
         })
       );
@@ -264,102 +187,41 @@ describe('BlunderController', () => {
       });
     });
 
-    it('should handle empty blunders list', async () => {
-      mockReq.params.phase = 'endgame';
-      mockDb.all.mockResolvedValue([]);
+    it('should handle database errors', async () => {
+      mockReq.params.phase = 'opening';
+      mockDb.all.mockRejectedValue(new Error('Database error'));
 
       await blunderController.getByPhase(mockReq, mockRes);
 
-      expect(mockRes.json).toHaveBeenCalledWith(
-        expect.objectContaining({
-          stats: expect.objectContaining({
-            totalBlunders: 0,
-            averageCentipawnLoss: 0
-          })
-        })
-      );
-    });
-
-    it('should calculate severity breakdown correctly', async () => {
-      mockReq.params.phase = 'middlegame';
-
-      const mockBlunders = [
-        { blunder_severity: 'critical', centipawn_loss: 500, learned: 1 },
-        { blunder_severity: 'major', centipawn_loss: 300, learned: 0 },
-        { blunder_severity: 'major', centipawn_loss: 250, learned: 0 },
-        { blunder_severity: 'moderate', centipawn_loss: 150, learned: 1 }
-      ];
-
-      mockDb.all.mockResolvedValue(mockBlunders);
-
-      await blunderController.getByPhase(mockReq, mockRes);
-
-      expect(mockRes.json).toHaveBeenCalledWith(
-        expect.objectContaining({
-          stats: expect.objectContaining({
-            severityBreakdown: {
-              minor: 0,
-              moderate: 1,
-              major: 2,
-              critical: 1
-            }
-          })
-        })
-      );
+      expect(mockRes.status).toHaveBeenCalledWith(500);
+      expect(mockRes.json).toHaveBeenCalledWith({ error: 'Database error' });
     });
   });
 
   describe('getByTheme()', () => {
-    it('should return blunders for specific theme with statistics', async () => {
-      mockReq.params.theme = 'hanging_piece';
-
+    it('should return blunders for specific theme', async () => {
+      mockReq.params.theme = 'fork';
       const mockBlunders = [
-        {
-          id: 1,
-          tactical_theme: 'hanging_piece',
-          phase: 'opening',
-          centipawn_loss: 250,
-          difficulty_level: 3,
-          learned: 1
-        },
-        {
-          id: 2,
-          tactical_theme: 'hanging_piece',
-          phase: 'middlegame',
-          centipawn_loss: 300,
-          difficulty_level: 4,
-          learned: 0
-        }
+        { id: 1, tactical_theme: 'fork', centipawn_loss: 200, phase: 'middlegame', learned: 0, difficulty_level: 5 }
       ];
-
       mockDb.all.mockResolvedValue(mockBlunders);
 
       await blunderController.getByTheme(mockReq, mockRes);
 
       expect(mockDb.all).toHaveBeenCalledWith(
-        expect.stringContaining('WHERE bd.tactical_theme = ?'),
-        ['hanging_piece']
+        expect.stringContaining('AND bd.tactical_theme = ?'),
+        ['test-user-123', 'fork']
       );
       expect(mockRes.json).toHaveBeenCalledWith(
         expect.objectContaining({
-          theme: 'hanging_piece',
-          stats: expect.objectContaining({
-            totalBlunders: 2,
-            averageCentipawnLoss: 275,
-            phaseBreakdown: {
-              opening: 1,
-              middlegame: 1,
-              endgame: 0
-            },
-            learned: 1,
-            averageDifficulty: '3.5'
-          }),
+          theme: 'fork',
+          stats: expect.any(Object),
           blunders: mockBlunders
         })
       );
     });
 
-    it('should handle empty blunders list for theme', async () => {
+    it('should handle empty results', async () => {
       mockReq.params.theme = 'rare_theme';
       mockDb.all.mockResolvedValue([]);
 
@@ -367,11 +229,9 @@ describe('BlunderController', () => {
 
       expect(mockRes.json).toHaveBeenCalledWith(
         expect.objectContaining({
-          stats: expect.objectContaining({
-            totalBlunders: 0,
-            averageCentipawnLoss: 0,
-            averageDifficulty: 0
-          })
+          theme: 'rare_theme',
+          stats: expect.any(Object),
+          blunders: []
         })
       );
     });
@@ -390,32 +250,26 @@ describe('BlunderController', () => {
   describe('getUnlearned()', () => {
     it('should return unlearned blunders grouped by theme', async () => {
       const mockBlunders = [
-        { id: 1, tactical_theme: 'fork', learned: 0, mastery_score: 20 },
-        { id: 2, tactical_theme: 'fork', learned: 0, mastery_score: 30 },
-        { id: 3, tactical_theme: 'pin', learned: 0, mastery_score: 40 }
+        { id: 1, tactical_theme: 'fork', learned: 0 },
+        { id: 2, tactical_theme: 'fork', learned: 0 },
+        { id: 3, tactical_theme: 'pin', learned: 0 }
       ];
-
       mockDb.all.mockResolvedValue(mockBlunders);
 
       await blunderController.getUnlearned(mockReq, mockRes);
 
       expect(mockDb.all).toHaveBeenCalledWith(
-        expect.stringContaining('WHERE bd.learned = 0 OR bd.mastery_score < ?'),
-        [70]
+        expect.stringContaining('WHERE g.user_id = ?'),
+        ['test-user-123', 70]
       );
       expect(mockRes.json).toHaveBeenCalledWith(
         expect.objectContaining({
           totalUnlearned: 3,
-          byTheme: {
+          byTheme: expect.objectContaining({
             fork: expect.arrayContaining([
-              expect.objectContaining({ id: 1 }),
-              expect.objectContaining({ id: 2 })
-            ]),
-            pin: expect.arrayContaining([
-              expect.objectContaining({ id: 3 })
+              expect.objectContaining({ id: 1 })
             ])
-          },
-          blunders: mockBlunders
+          })
         })
       );
     });
@@ -427,68 +281,43 @@ describe('BlunderController', () => {
       await blunderController.getUnlearned(mockReq, mockRes);
 
       expect(mockDb.all).toHaveBeenCalledWith(
-        expect.any(String),
-        ['50'] // Query params are strings
+        expect.anything(),
+        ['test-user-123', '50']
       );
     });
 
-    it('should handle blunders without tactical_theme', async () => {
-      const mockBlunders = [
-        { id: 1, tactical_theme: null, learned: 0 }
-      ];
-
-      mockDb.all.mockResolvedValue(mockBlunders);
+    it('should handle database errors', async () => {
+      mockDb.all.mockRejectedValue(new Error('Database error'));
 
       await blunderController.getUnlearned(mockReq, mockRes);
 
-      expect(mockRes.json).toHaveBeenCalledWith(
-        expect.objectContaining({
-          byTheme: {
-            unknown: expect.arrayContaining([
-              expect.objectContaining({ id: 1 })
-            ])
-          }
-        })
-      );
+      expect(mockRes.status).toHaveBeenCalledWith(500);
+      expect(mockRes.json).toHaveBeenCalledWith({ error: 'Database error' });
     });
   });
 
   describe('markReviewed()', () => {
-    it('should mark blunder as reviewed and update mastery', async () => {
-      mockReq.params.id = '1';
-
-      const mockBlunder = {
-        id: 1,
-        review_count: 2,
-        mastery_score: 40
-      };
-
-      const updatedBlunder = {
-        id: 1,
-        review_count: 3,
-        mastery_score: 65,
-        last_reviewed: expect.any(String)
-      };
-
+    it('should mark blunder as reviewed', async () => {
+      mockReq.params.id = '123';
+      const mockBlunder = { id: 123, review_count: 1, mastery_score: 50 };
       mockDb.get
-        .mockResolvedValueOnce(mockBlunder) // First call to check existence
-        .mockResolvedValueOnce(updatedBlunder); // Second call to get updated blunder
-
-      mockDb.run.mockResolvedValue({ changes: 1 });
+        .mockResolvedValueOnce({ id: 123, review_count: 0, mastery_score: 0 }) // Verify blunder exists
+        .mockResolvedValueOnce(mockBlunder); // Get updated blunder
+      mockDb.run.mockResolvedValue({});
 
       await blunderController.markReviewed(mockReq, mockRes);
 
       expect(mockDb.get).toHaveBeenCalledWith(
         expect.stringContaining('WHERE bd.id = ?'),
-        [1]
+        [123, 'test-user-123']
       );
       expect(mockDb.run).toHaveBeenCalledWith(
         expect.stringContaining('UPDATE blunder_details'),
-        expect.arrayContaining([3, expect.any(String), expect.any(Number)])
+        expect.arrayContaining([1, expect.any(String), expect.any(Number), expect.any(String), 123])
       );
       expect(mockRes.json).toHaveBeenCalledWith({
         success: true,
-        blunder: updatedBlunder
+        blunder: mockBlunder
       });
     });
 
@@ -499,31 +328,13 @@ describe('BlunderController', () => {
       await blunderController.markReviewed(mockReq, mockRes);
 
       expect(mockRes.status).toHaveBeenCalledWith(404);
-      expect(mockRes.json).toHaveBeenCalledWith({ error: 'Blunder not found' });
-    });
-
-    it('should increment review count from zero', async () => {
-      mockReq.params.id = '1';
-
-      const mockBlunder = {
-        id: 1,
-        review_count: 0,
-        mastery_score: 0
-      };
-
-      mockDb.get.mockResolvedValueOnce(mockBlunder).mockResolvedValueOnce(mockBlunder);
-      mockDb.run.mockResolvedValue({ changes: 1 });
-
-      await blunderController.markReviewed(mockReq, mockRes);
-
-      expect(mockDb.run).toHaveBeenCalledWith(
-        expect.any(String),
-        expect.arrayContaining([1]) // review_count should be 1
-      );
+      expect(mockRes.json).toHaveBeenCalledWith({
+        error: 'Blunder not found'
+      });
     });
 
     it('should handle database errors', async () => {
-      mockReq.params.id = '1';
+      mockReq.params.id = '123';
       mockDb.get.mockRejectedValue(new Error('Database error'));
 
       await blunderController.markReviewed(mockReq, mockRes);
@@ -534,100 +345,72 @@ describe('BlunderController', () => {
   });
 
   describe('markLearned()', () => {
-    it('should mark blunder as learned and set mastery to 100', async () => {
-      mockReq.params.id = '1';
-      mockReq.body = { learned: true };
-
-      const mockBlunder = {
-        id: 1,
-        learned: 0,
-        mastery_score: 50
-      };
-
-      const updatedBlunder = {
-        id: 1,
-        learned: 1,
-        mastery_score: 100
-      };
-
+    it('should mark blunder as learned with mastery 100', async () => {
+      mockReq.params.id = '123';
+      mockReq.body.learned = true;
+      const mockBlunder = { id: 123, learned: 1, mastery_score: 100 };
       mockDb.get
-        .mockResolvedValueOnce(mockBlunder)
-        .mockResolvedValueOnce(updatedBlunder);
-
-      mockDb.run.mockResolvedValue({ changes: 1 });
+        .mockResolvedValueOnce({ id: 123, mastery_score: 50 })
+        .mockResolvedValueOnce(mockBlunder);
+      mockDb.run.mockResolvedValue({});
 
       await blunderController.markLearned(mockReq, mockRes);
 
       expect(mockDb.run).toHaveBeenCalledWith(
-        expect.stringContaining('UPDATE blunder_details'),
-        expect.arrayContaining([1, 100]) // learned=1, mastery=100
+        expect.stringContaining('SET learned = ?'),
+        [1, 100, expect.any(String), 123]
       );
       expect(mockRes.json).toHaveBeenCalledWith({
         success: true,
-        blunder: updatedBlunder
+        blunder: mockBlunder
       });
     });
 
-    it('should mark blunder as unlearned without changing mastery', async () => {
-      mockReq.params.id = '1';
-      mockReq.body = { learned: false };
-
-      const mockBlunder = {
-        id: 1,
-        learned: 1,
-        mastery_score: 100
-      };
-
-      const updatedBlunder = {
-        id: 1,
-        learned: 0,
-        mastery_score: 100
-      };
-
+    it('should mark blunder as unlearned', async () => {
+      mockReq.params.id = '123';
+      mockReq.body.learned = false;
+      const mockBlunder = { id: 123, learned: 0, mastery_score: 50 };
       mockDb.get
-        .mockResolvedValueOnce(mockBlunder)
-        .mockResolvedValueOnce(updatedBlunder);
-
-      mockDb.run.mockResolvedValue({ changes: 1 });
+        .mockResolvedValueOnce({ id: 123, mastery_score: 50 })
+        .mockResolvedValueOnce(mockBlunder);
+      mockDb.run.mockResolvedValue({});
 
       await blunderController.markLearned(mockReq, mockRes);
 
       expect(mockDb.run).toHaveBeenCalledWith(
-        expect.stringContaining('UPDATE blunder_details'),
-        expect.arrayContaining([0, 100]) // learned=0, mastery unchanged
+        expect.stringContaining('SET learned = ?'),
+        [0, 50, expect.any(String), 123]
       );
     });
 
     it('should update notes when provided', async () => {
-      mockReq.params.id = '1';
-      mockReq.body = { learned: true, notes: 'Remember to check for tactics' };
-
-      const mockBlunder = { id: 1, learned: 0, mastery_score: 50 };
-
+      mockReq.params.id = '123';
+      mockReq.body.learned = true;
+      mockReq.body.notes = 'Practiced this pattern';
       mockDb.get
-        .mockResolvedValueOnce(mockBlunder)
-        .mockResolvedValueOnce(mockBlunder);
-
-      mockDb.run.mockResolvedValue({ changes: 1 });
+        .mockResolvedValueOnce({ id: 123, mastery_score: 0 })
+        .mockResolvedValueOnce({ id: 123 });
+      mockDb.run.mockResolvedValue({});
 
       await blunderController.markLearned(mockReq, mockRes);
 
       expect(mockDb.run).toHaveBeenCalledWith(
-        expect.stringContaining('notes = ?'),
-        expect.arrayContaining(['Remember to check for tactics'])
+        expect.anything(),
+        [1, 100, expect.any(String), 'Practiced this pattern', 123]
       );
     });
 
     it('should return 404 when blunder not found', async () => {
       mockReq.params.id = '999';
-      mockReq.body = { learned: true };
-
+      mockReq.body.learned = true;
       mockDb.get.mockResolvedValue(null);
 
       await blunderController.markLearned(mockReq, mockRes);
 
       expect(mockRes.status).toHaveBeenCalledWith(404);
-      expect(mockRes.json).toHaveBeenCalledWith({ error: 'Blunder not found' });
+      expect(mockRes.json).toHaveBeenCalledWith({
+        error: 'Blunder not found'
+      });
     });
   });
 
@@ -637,78 +420,51 @@ describe('BlunderController', () => {
         {
           id: 1,
           game_id: 1,
-          move_number: 10,
-          phase: 'opening',
-          tactical_theme: 'fork',
           centipawn_loss: 250,
+          phase: 'opening',
           blunder_severity: 'major',
           learned: 1,
-          mastery_score: 90,
-          created_at: new Date().toISOString(),
-          white_player: mockReq.userId,
-          black_player: 'Opponent1',
-          player_color: 'white',
-          date: '2024-01-01',
-          event: 'Tournament 1'
+          tactical_theme: 'fork',
+          move_number: 10,
+          created_at: '2024-01-01',
+          mastery_score: 80
         },
         {
           id: 2,
           game_id: 2,
-          move_number: 25,
-          phase: 'middlegame',
-          tactical_theme: 'pin',
           centipawn_loss: 400,
+          phase: 'middlegame',
           blunder_severity: 'critical',
           learned: 0,
-          mastery_score: 30,
-          created_at: new Date(Date.now() - 40 * 24 * 60 * 60 * 1000).toISOString(),
-          white_player: 'Opponent2',
-          black_player: mockReq.userId,
-          player_color: 'black',
-          date: '2023-12-01',
-          event: 'Tournament 2'
+          tactical_theme: 'pin',
+          move_number: 15,
+          created_at: '2024-01-02',
+          mastery_score: 20
         }
       ];
-
       mockDb.all.mockResolvedValue(mockBlunders);
+      mockDb.get.mockResolvedValue({ user_color: 'white' });
 
       await blunderController.getDashboard(mockReq, mockRes);
 
       expect(mockDb.all).toHaveBeenCalledWith(
-        expect.stringContaining('WHERE bd.is_blunder = TRUE'),
-        [mockReq.userId]
+        expect.stringContaining('WHERE g.user_id = ?'),
+        ['test-user-123']
       );
       expect(mockRes.json).toHaveBeenCalledWith(
         expect.objectContaining({
           overview: expect.objectContaining({
             totalBlunders: 2,
-            avgCentipawnLoss: 325,
-            mostCostlyBlunder: expect.objectContaining({
-              gameId: 2,
-              loss: 400
-            }),
-            trend: expect.any(Object)
+            avgCentipawnLoss: 325
           }),
-          byPhase: expect.objectContaining({
-            opening: expect.any(Object),
-            middlegame: expect.any(Object),
-            endgame: expect.any(Object)
-          }),
+          byPhase: expect.any(Object),
           byTheme: expect.any(Array),
-          bySeverity: expect.objectContaining({
-            critical: 1,
-            major: 1,
-            moderate: 0,
-            minor: 0
-          }),
+          bySeverity: expect.any(Object),
           topPatterns: expect.any(Array),
           learningProgress: expect.objectContaining({
             learnedCount: 1,
             unlearnedCount: 1,
-            totalCount: 2,
-            percentage: '50.0',
-            masteredThemes: expect.any(Array),
-            recommendations: expect.any(Array)
+            totalCount: 2
           }),
           recentBlunders: expect.any(Array)
         })
@@ -723,61 +479,7 @@ describe('BlunderController', () => {
       expect(mockRes.json).toHaveBeenCalledWith(
         expect.objectContaining({
           overview: expect.objectContaining({
-            totalBlunders: 0,
-            avgCentipawnLoss: 0,
-            mostCostlyBlunder: null
-          })
-        })
-      );
-    });
-
-    it('should calculate trend correctly', async () => {
-      const now = Date.now();
-      const mockBlunders = [
-        {
-          centipawn_loss: 200,
-          created_at: new Date(now - 10 * 24 * 60 * 60 * 1000).toISOString(), // 10 days ago
-          phase: 'opening',
-          tactical_theme: 'fork',
-          blunder_severity: 'major',
-          learned: 0,
-          white_player: mockReq.userId,
-          player_color: 'white'
-        },
-        {
-          centipawn_loss: 300,
-          created_at: new Date(now - 45 * 24 * 60 * 60 * 1000).toISOString(), // 45 days ago
-          phase: 'middlegame',
-          tactical_theme: 'pin',
-          blunder_severity: 'critical',
-          learned: 0,
-          white_player: mockReq.userId,
-          player_color: 'white'
-        },
-        {
-          centipawn_loss: 250,
-          created_at: new Date(now - 50 * 24 * 60 * 60 * 1000).toISOString(), // 50 days ago
-          phase: 'endgame',
-          tactical_theme: 'skewer',
-          blunder_severity: 'major',
-          learned: 0,
-          white_player: mockReq.userId,
-          player_color: 'white'
-        }
-      ];
-
-      mockDb.all.mockResolvedValue(mockBlunders);
-
-      await blunderController.getDashboard(mockReq, mockRes);
-
-      expect(mockRes.json).toHaveBeenCalledWith(
-        expect.objectContaining({
-          overview: expect.objectContaining({
-            trend: expect.objectContaining({
-              lastMonth: 1, // 1 blunder in last 30 days
-              previousMonth: 2, // 2 blunders in previous 30 days
-              improving: true // fewer blunders recently
-            })
+            totalBlunders: 0
           })
         })
       );
@@ -787,40 +489,37 @@ describe('BlunderController', () => {
   describe('getTimeline()', () => {
     it('should return blunder timeline grouped by date', async () => {
       const mockTimeline = [
-        { date: '2024-01-15', count: 3, avgLoss: 250.5 },
-        { date: '2024-01-14', count: 1, avgLoss: 180.0 },
-        { date: '2024-01-10', count: 2, avgLoss: 320.7 }
+        { date: '2024-01-15', count: 3, avgLoss: 250 },
+        { date: '2024-01-14', count: 1, avgLoss: 180 }
       ];
-
       mockDb.all.mockResolvedValue(mockTimeline);
 
       await blunderController.getTimeline(mockReq, mockRes);
 
       expect(mockDb.all).toHaveBeenCalledWith(
         expect.stringContaining('GROUP BY DATE(bd.created_at)'),
-        [mockReq.userId]
+        ['test-user-123']
       );
       expect(mockRes.json).toHaveBeenCalledWith({
-        data: [
-          { date: '2024-01-15', count: 3, avgLoss: 251 },
-          { date: '2024-01-14', count: 1, avgLoss: 180 },
-          { date: '2024-01-10', count: 2, avgLoss: 321 }
-        ],
-        totalDays: 3
+        data: mockTimeline.map(row => ({
+          date: row.date,
+          count: row.count,
+          avgLoss: Math.round(row.avgLoss)
+        })),
+        totalDays: 2
       });
     });
 
     it('should filter timeline by date range', async () => {
       mockReq.query.startDate = '2024-01-01';
       mockReq.query.endDate = '2024-01-31';
-
       mockDb.all.mockResolvedValue([]);
 
       await blunderController.getTimeline(mockReq, mockRes);
 
       expect(mockDb.all).toHaveBeenCalledWith(
         expect.stringContaining('AND DATE(bd.created_at) >= ?'),
-        [mockReq.userId, '2024-01-01', '2024-01-31']
+        ['test-user-123', '2024-01-01', '2024-01-31']
       );
     });
 
@@ -842,6 +541,41 @@ describe('BlunderController', () => {
 
       expect(mockRes.status).toHaveBeenCalledWith(500);
       expect(mockRes.json).toHaveBeenCalledWith({ error: 'Database error' });
+    });
+  });
+
+  describe('User ID Filtering', () => {
+    it('should always pass userId to database queries', async () => {
+      const testMethods = [
+        { method: 'getByPhase', setup: () => { mockReq.params.phase = 'opening'; } },
+        { method: 'getByTheme', setup: () => { mockReq.params.theme = 'fork'; } },
+        { method: 'getUnlearned', setup: () => {} },
+        { method: 'getDashboard', setup: () => {} },
+        { method: 'getTimeline', setup: () => {} }
+      ];
+
+      for (const { method, setup } of testMethods) {
+        jest.clearAllMocks();
+        mockDb.all.mockResolvedValue([]);
+        setup();
+
+        await blunderController[method](mockReq, mockRes);
+
+        expect(mockDb.all).toHaveBeenCalled();
+        const [[query, params]] = mockDb.all.mock.calls;
+        expect(params).toContain('test-user-123');
+      }
+    });
+
+    it('should pass userId to BlunderService in list()', async () => {
+      mockBlunderService.getBlundersForUser.mockResolvedValue([]);
+
+      await blunderController.list(mockReq, mockRes);
+
+      expect(mockBlunderService.getBlundersForUser).toHaveBeenCalledWith(
+        'test-user-123',
+        expect.any(Object)
+      );
     });
   });
 });

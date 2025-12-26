@@ -9,9 +9,22 @@ export const authGuard: CanActivateFn = async (route, state) => {
   const authService = inject(AuthService);
   const router = inject(Router);
 
-  // Wait for auth to initialize
-  while (authService.isLoading()) {
+  // Wait for auth to initialize with timeout
+  let attempts = 0;
+  const maxAttempts = 50; // 5 seconds max wait
+
+  while (authService.isLoading() && attempts < maxAttempts) {
     await new Promise(resolve => setTimeout(resolve, 100));
+    attempts++;
+  }
+
+  // If still loading after timeout, treat as not authenticated
+  if (authService.isLoading()) {
+    console.warn('Auth initialization timeout in guard');
+    router.navigate(['/sign-in'], {
+      queryParams: { returnUrl: state.url }
+    });
+    return false;
   }
 
   // Check if user is authenticated
@@ -20,7 +33,7 @@ export const authGuard: CanActivateFn = async (route, state) => {
   }
 
   // Redirect to login page with return URL
-  router.navigate(['/auth/login'], {
+  router.navigate(['/sign-in'], {
     queryParams: { returnUrl: state.url }
   });
 
@@ -34,9 +47,19 @@ export const guestGuard: CanActivateFn = async (route, state) => {
   const authService = inject(AuthService);
   const router = inject(Router);
 
-  // Wait for auth to initialize
-  while (authService.isLoading()) {
+  // Wait for auth to initialize with timeout
+  let attempts = 0;
+  const maxAttempts = 50; // 5 seconds max wait
+
+  while (authService.isLoading() && attempts < maxAttempts) {
     await new Promise(resolve => setTimeout(resolve, 100));
+    attempts++;
+  }
+
+  // If still loading after timeout, allow access to login page
+  if (authService.isLoading()) {
+    console.warn('Auth initialization timeout in guest guard, allowing access');
+    return true;
   }
 
   // If user is authenticated, redirect to dashboard

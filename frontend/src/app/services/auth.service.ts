@@ -29,7 +29,17 @@ export class AuthService {
   constructor(private router: Router) {
     this.supabase = createClient(
       environment.supabaseUrl,
-      environment.supabasePublishableKey
+      environment.supabasePublishableKey,
+      {
+        auth: {
+          autoRefreshToken: true,
+          persistSession: true,
+          detectSessionInUrl: true,
+          // Increase lock timeout to prevent Navigator lock errors
+          storageKey: 'sb-auth-token',
+          flowType: 'pkce'
+        }
+      }
     );
 
     // Initialize auth state
@@ -49,18 +59,43 @@ export class AuthService {
   }
 
   private async initializeAuth() {
-    try {
-      const { data: { session } } = await this.supabase.auth.getSession();
-      this.currentSession.set(session);
+    let retries = 3;
+    while (retries > 0) {
+      try {
+        const { data: { session }, error } = await this.supabase.auth.getSession();
 
-      if (session?.user) {
-        this.currentUser.set(this.mapSupabaseUser(session.user));
+        if (error) {
+          // Check if it's a lock error
+          if (error.message?.includes('lock') && retries > 1) {
+            console.warn(`Lock acquisition failed, retrying... (${retries} attempts left)`);
+            await new Promise(resolve => setTimeout(resolve, 500)); // Wait 500ms before retry
+            retries--;
+            continue;
+          }
+          throw error;
+        }
+
+        this.currentSession.set(session);
+
+        if (session?.user) {
+          this.currentUser.set(this.mapSupabaseUser(session.user));
+        }
+
+        break; // Success, exit retry loop
+      } catch (error: any) {
+        console.error('Failed to initialize auth:', error);
+        if (retries === 1) {
+          // Last retry failed, set as not loading anyway to unblock UI
+          console.error('Auth initialization failed after all retries');
+        }
+        retries--;
+        if (retries > 0) {
+          await new Promise(resolve => setTimeout(resolve, 500));
+        }
       }
-    } catch (error) {
-      console.error('Failed to initialize auth:', error);
-    } finally {
-      this.isLoading.set(false);
     }
+
+    this.isLoading.set(false);
   }
 
   private mapSupabaseUser(user: User): AuthUser {

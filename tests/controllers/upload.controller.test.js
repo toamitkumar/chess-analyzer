@@ -5,14 +5,13 @@
  */
 
 // Must mock PGNUploadService BEFORE requiring the controller
-// because the controller creates a singleton instance on load
 jest.mock('../../src/services/PGNUploadService');
 
-const uploadController = require('../../src/api/controllers/upload.controller');
+const UploadController = require('../../src/api/controllers/upload.controller');
 const PGNUploadService = require('../../src/services/PGNUploadService');
 
 describe('UploadController', () => {
-  let mockReq, mockRes, mockUploadService;
+  let uploadController, mockReq, mockRes, mockUploadService, mockAnalyzer;
 
   beforeEach(() => {
     // Reset all mocks before each test
@@ -33,6 +32,13 @@ describe('UploadController', () => {
       json: jest.fn().mockReturnThis()
     };
 
+    // Mock analyzer (for shared analyzer pattern)
+    mockAnalyzer = {
+      isReady: true,
+      analyzeGame: jest.fn(),
+      close: jest.fn()
+    };
+
     // Create mock methods
     mockUploadService = {
       processPGNUpload: jest.fn(),
@@ -42,9 +48,8 @@ describe('UploadController', () => {
     // Mock the PGNUploadService constructor to return our mock
     PGNUploadService.mockImplementation(() => mockUploadService);
 
-    // Replace the controller's uploadService with our mock
-    // (since it was instantiated when the module loaded)
-    uploadController.uploadService = mockUploadService;
+    // Create controller instance with mock analyzer
+    uploadController = new UploadController(mockAnalyzer);
   });
 
   describe('upload()', () => {

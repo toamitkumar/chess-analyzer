@@ -203,21 +203,18 @@ class TournamentAnalyzer {
           ORDER BY move_number
         `, [game.id]);
 
-        const blunders = gameAnalysis.filter(a => a.is_blunder === true).length;
-        const accuracy = AccuracyCalculator.calculatePlayerAccuracy(
-          gameAnalysis,
-          userId,
-          game.white_player,
-          game.black_player
-        );
-
-        // Calculate average centipawn loss for player moves only using user_color
+        // Calculate metrics for player moves only using user_color
         const playerMoves = gameAnalysis.filter(move =>
           (game.user_color === 'white' && move.move_number % 2 === 1) ||
           (game.user_color === 'black' && move.move_number % 2 === 0)
         );
+
+        const blunders = playerMoves.filter(a => a.is_blunder === true).length;
         const totalCpl = playerMoves.reduce((sum, move) => sum + (move.centipawn_loss || 0), 0);
         const avgCentipawnLoss = playerMoves.length > 0 ? Math.round(totalCpl / playerMoves.length) : 0;
+
+        // Calculate accuracy from average centipawn loss
+        const accuracy = AccuracyCalculator.calculateAccuracy(avgCentipawnLoss);
 
         trends.push({
           gameNumber: index + 1,

@@ -24,7 +24,7 @@ describe('GameAnalysisService', () => {
 
       await service.ensureReady();
 
-      expect(consoleLogSpy).toHaveBeenCalledWith('✅ Stockfish engine already ready');
+      expect(consoleLogSpy).toHaveBeenCalledWith(expect.stringContaining('Stockfish engine already ready'));
       expect(service.isInitialized).toBe(true);
 
       consoleLogSpy.mockRestore();
@@ -43,8 +43,8 @@ describe('GameAnalysisService', () => {
 
       await service.ensureReady();
 
-      expect(consoleLogSpy).toHaveBeenCalledWith('⏳ Waiting for Stockfish engine to initialize...');
-      expect(consoleLogSpy).toHaveBeenCalledWith('✅ Stockfish engine ready for analysis');
+      expect(consoleLogSpy).toHaveBeenCalledWith(expect.stringContaining('Waiting for Stockfish engine to initialize'));
+      expect(consoleLogSpy).toHaveBeenCalledWith(expect.stringContaining('Stockfish engine ready for analysis'));
       expect(service.isInitialized).toBe(true);
 
       consoleLogSpy.mockRestore();
@@ -73,7 +73,11 @@ describe('GameAnalysisService', () => {
 
       await service.ensureReady();
 
-      expect(consoleLogSpy).not.toHaveBeenCalled();
+      // Should not log anything or only log debug messages
+      const relevantCalls = consoleLogSpy.mock.calls.filter(call =>
+        !call[0].includes('[GameAnalysisService]')
+      );
+      expect(relevantCalls).toHaveLength(0);
 
       consoleLogSpy.mockRestore();
     });
@@ -234,12 +238,13 @@ describe('GameAnalysisService', () => {
       mockAnalyzer.close.mockResolvedValue();
       const consoleLogSpy = jest.spyOn(console, 'log').mockImplementation();
       service.isInitialized = true;
+      service.isSharedAnalyzer = false; // Not a shared analyzer, so it can be closed
 
       await service.close();
 
       expect(mockAnalyzer.close).toHaveBeenCalled();
       expect(service.isInitialized).toBe(false);
-      expect(consoleLogSpy).toHaveBeenCalledWith('🔒 Analyzer closed');
+      expect(consoleLogSpy).toHaveBeenCalledWith(expect.stringContaining('Analyzer closed'));
 
       consoleLogSpy.mockRestore();
     });

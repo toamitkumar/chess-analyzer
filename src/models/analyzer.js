@@ -106,12 +106,17 @@ class ChessAnalyzer {
       this.engine.stdout.on('data', (data) => {
         const output = data.toString();
         if (output.includes('uciok')) {
-          // Engine acknowledged UCI protocol, now check if ready
+          // Engine acknowledged UCI protocol
+          // Set Threads to 1 for deterministic analysis results
+          this.engine.stdin.write('setoption name Threads value 1\n');
+          // Set Hash to a fixed size for consistency
+          this.engine.stdin.write('setoption name Hash value 128\n');
+          // Now check if ready
           this.engine.stdin.write('isready\n');
         }
         if (output.includes('readyok')) {
           this.isReady = true;
-          console.log('✅ Real Stockfish engine ready');
+          console.log('✅ Real Stockfish engine ready (deterministic mode: Threads=1)');
         }
       });
 

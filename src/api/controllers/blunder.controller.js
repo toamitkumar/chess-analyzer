@@ -29,10 +29,10 @@ class BlunderController {
       }
 
       let query = `
-        SELECT bd.*, g.white_player, g.black_player, g.date, g.event
+        SELECT bd.*, g.white_player, g.black_player, g.date, g.event, g.user_color
         FROM blunder_details bd
         JOIN games g ON bd.game_id = g.id
-        WHERE g.user_id = ?
+        WHERE g.user_id = ? AND bd.player_color = g.user_color
       `;
       const params = [req.userId];
 
@@ -100,10 +100,10 @@ class BlunderController {
       }
 
       const blunders = await database.all(`
-        SELECT bd.*, g.white_player, g.black_player, g.date, g.event
+        SELECT bd.*, g.white_player, g.black_player, g.date, g.event, g.user_color
         FROM blunder_details bd
         JOIN games g ON bd.game_id = g.id
-        WHERE g.user_id = ? AND bd.phase = ?
+        WHERE g.user_id = ? AND bd.player_color = g.user_color AND bd.phase = ?
         ORDER BY bd.centipawn_loss DESC
       `, [req.userId, phase]);
 
@@ -150,10 +150,10 @@ class BlunderController {
       }
 
       const blunders = await database.all(`
-        SELECT bd.*, g.white_player, g.black_player, g.date, g.event
+        SELECT bd.*, g.white_player, g.black_player, g.date, g.event, g.user_color
         FROM blunder_details bd
         JOIN games g ON bd.game_id = g.id
-        WHERE g.user_id = ? AND bd.tactical_theme = ?
+        WHERE g.user_id = ? AND bd.player_color = g.user_color AND bd.tactical_theme = ?
         ORDER BY bd.centipawn_loss DESC
       `, [req.userId, theme]);
 
@@ -201,10 +201,10 @@ class BlunderController {
       }
 
       const blunders = await database.all(`
-        SELECT bd.*, g.white_player, g.black_player, g.date, g.event
+        SELECT bd.*, g.white_player, g.black_player, g.date, g.event, g.user_color
         FROM blunder_details bd
         JOIN games g ON bd.game_id = g.id
-        WHERE g.user_id = ? AND (bd.learned = 0 OR bd.mastery_score < ?)
+        WHERE g.user_id = ? AND bd.player_color = g.user_color AND (bd.learned = 0 OR bd.mastery_score < ?)
         ORDER BY bd.difficulty_level DESC, bd.centipawn_loss DESC
       `, [req.userId, minMastery]);
 
@@ -371,10 +371,10 @@ class BlunderController {
 
       // Get all blunders with game info (only actual blunders by the authenticated user, not mistakes or inaccuracies)
       const allBlunders = await database.all(`
-        SELECT bd.*, g.white_player, g.black_player, g.date, g.event
+        SELECT bd.*, g.white_player, g.black_player, g.date, g.event, g.user_color
         FROM blunder_details bd
         JOIN games g ON bd.game_id = g.id
-        WHERE g.user_id = ? AND bd.is_blunder = TRUE
+        WHERE g.user_id = ? AND bd.player_color = g.user_color AND bd.is_blunder = TRUE
         ORDER BY bd.created_at DESC
       `, [req.userId]);
 
@@ -603,7 +603,7 @@ class BlunderController {
           AVG(bd.centipawn_loss) as avgLoss
         FROM blunder_details bd
         JOIN games g ON bd.game_id = g.id
-        WHERE g.user_id = ? AND bd.is_blunder = TRUE
+        WHERE g.user_id = ? AND bd.player_color = g.user_color AND bd.is_blunder = TRUE
       `;
       const params = [req.userId];
 

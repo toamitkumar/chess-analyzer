@@ -9,6 +9,8 @@ class ChessAnalyzer {
     this.engine = null;
     this.isReady = false;
     this.blunderCategorizer = new BlunderCategorizer();
+    this.analysisQueue = [];
+    this.isAnalyzing = false;
     this.setupEngine();
   }
 
@@ -151,7 +153,52 @@ class ChessAnalyzer {
     }
   }
 
+  /**
+   * Queue-based wrapper for game analysis
+   * Ensures only one game is analyzed at a time (prevents concurrent access issues)
+   */
   async analyzeGame(moves, fetchAlternatives = true) {
+    return new Promise((resolve, reject) => {
+      // Add to queue
+      this.analysisQueue.push({ moves, fetchAlternatives, resolve, reject });
+      console.log(`📥 [QUEUE] Added analysis to queue. Queue length: ${this.analysisQueue.length}`);
+
+      // Process queue if not already processing
+      if (!this.isAnalyzing) {
+        this._processQueue();
+      }
+    });
+  }
+
+  /**
+   * Process analysis queue one at a time
+   */
+  async _processQueue() {
+    if (this.analysisQueue.length === 0) {
+      this.isAnalyzing = false;
+      console.log('✅ [QUEUE] Queue empty, analysis complete');
+      return;
+    }
+
+    this.isAnalyzing = true;
+    const { moves, fetchAlternatives, resolve, reject } = this.analysisQueue.shift();
+    console.log(`⚙️ [QUEUE] Processing analysis. Remaining in queue: ${this.analysisQueue.length}`);
+
+    try {
+      const result = await this._analyzeGameInternal(moves, fetchAlternatives);
+      resolve(result);
+    } catch (error) {
+      reject(error);
+    }
+
+    // Process next item in queue
+    setImmediate(() => this._processQueue());
+  }
+
+  /**
+   * Internal analysis method (should not be called directly)
+   */
+  async _analyzeGameInternal(moves, fetchAlternatives = true) {
     try {
       if (!moves || !Array.isArray(moves) || moves.length === 0) {
         throw new Error('No moves provided for analysis');

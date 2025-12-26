@@ -11,10 +11,13 @@ process.env.NODE_ENV = 'test';
 
 const blunderController = require('../../src/api/controllers/blunder.controller');
 const { getDatabase } = require('../../src/models/database');
-const { TARGET_PLAYER } = require('../../src/config/app-config');
+const BlunderService = require('../../src/services/BlunderService');
 
 // Mock the database module - no real database operations occur
 jest.mock('../../src/models/database');
+
+// Mock BlunderService
+jest.mock('../../src/services/BlunderService');
 
 describe('BlunderController', () => {
   let mockDb;
@@ -32,11 +35,18 @@ describe('BlunderController', () => {
     // Mock getDatabase to return our mock
     getDatabase.mockReturnValue(mockDb);
 
+    // Mock BlunderService
+    const mockBlunderService = {
+      getBlundersForUser: jest.fn()
+    };
+    BlunderService.mockImplementation(() => mockBlunderService);
+
     // Create mock request and response objects
     mockReq = {
       params: {},
       query: {},
-      body: {}
+      body: {},
+      userId: 'test-user-123' // Added for authentication context
     };
 
     mockRes = {
@@ -635,7 +645,7 @@ describe('BlunderController', () => {
           learned: 1,
           mastery_score: 90,
           created_at: new Date().toISOString(),
-          white_player: TARGET_PLAYER,
+          white_player: mockReq.userId,
           black_player: 'Opponent1',
           player_color: 'white',
           date: '2024-01-01',
@@ -653,7 +663,7 @@ describe('BlunderController', () => {
           mastery_score: 30,
           created_at: new Date(Date.now() - 40 * 24 * 60 * 60 * 1000).toISOString(),
           white_player: 'Opponent2',
-          black_player: TARGET_PLAYER,
+          black_player: mockReq.userId,
           player_color: 'black',
           date: '2023-12-01',
           event: 'Tournament 2'
@@ -666,7 +676,7 @@ describe('BlunderController', () => {
 
       expect(mockDb.all).toHaveBeenCalledWith(
         expect.stringContaining('WHERE bd.is_blunder = TRUE'),
-        [TARGET_PLAYER, TARGET_PLAYER]
+        [mockReq.userId]
       );
       expect(mockRes.json).toHaveBeenCalledWith(
         expect.objectContaining({
@@ -731,7 +741,7 @@ describe('BlunderController', () => {
           tactical_theme: 'fork',
           blunder_severity: 'major',
           learned: 0,
-          white_player: TARGET_PLAYER,
+          white_player: mockReq.userId,
           player_color: 'white'
         },
         {
@@ -741,7 +751,7 @@ describe('BlunderController', () => {
           tactical_theme: 'pin',
           blunder_severity: 'critical',
           learned: 0,
-          white_player: TARGET_PLAYER,
+          white_player: mockReq.userId,
           player_color: 'white'
         },
         {
@@ -751,7 +761,7 @@ describe('BlunderController', () => {
           tactical_theme: 'skewer',
           blunder_severity: 'major',
           learned: 0,
-          white_player: TARGET_PLAYER,
+          white_player: mockReq.userId,
           player_color: 'white'
         }
       ];
@@ -788,7 +798,7 @@ describe('BlunderController', () => {
 
       expect(mockDb.all).toHaveBeenCalledWith(
         expect.stringContaining('GROUP BY DATE(bd.created_at)'),
-        [TARGET_PLAYER, TARGET_PLAYER]
+        [mockReq.userId]
       );
       expect(mockRes.json).toHaveBeenCalledWith({
         data: [
@@ -810,7 +820,7 @@ describe('BlunderController', () => {
 
       expect(mockDb.all).toHaveBeenCalledWith(
         expect.stringContaining('AND DATE(bd.created_at) >= ?'),
-        [TARGET_PLAYER, TARGET_PLAYER, '2024-01-01', '2024-01-31']
+        [mockReq.userId, '2024-01-01', '2024-01-31']
       );
     });
 

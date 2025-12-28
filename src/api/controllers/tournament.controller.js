@@ -465,10 +465,13 @@ class TournamentController {
         let playerBlunders = 0;
 
         if (analysis.length > 0) {
-          // Calculate accuracy for user
+          // Calculate accuracy for user based on their color
+          // Determine player name based on user_color
+          const targetPlayerName = game.user_color === 'white' ? game.white_player : game.black_player;
+
           playerAccuracy = AccuracyCalculator.calculatePlayerAccuracy(
             analysis,
-            req.userId,
+            targetPlayerName,
             game.white_player,
             game.black_player
           );

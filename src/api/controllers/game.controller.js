@@ -491,10 +491,10 @@ class GameController {
     try {
       const database = getDatabase();
       const opening = await database.get(
-        'SELECT name FROM chess_openings WHERE eco = ?',
+        'SELECT opening_name FROM chess_openings WHERE eco_code = ?',
         [ecoCode]
       );
-      return opening ? opening.name : null;
+      return opening ? opening.opening_name : null;
     } catch (error) {
       return null;
     }

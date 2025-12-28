@@ -606,5 +606,173 @@ describe('TournamentController', () => {
         })
       ]));
     });
+
+    // Bug #105: Accuracy calculation should use player name, not userId
+    it('should pass white_player name to AccuracyCalculator when user_color is white', async () => {
+      mockReq.params.id = '1';
+
+      const mockGames = [{
+        id: 1,
+        white_player: 'TestPlayer',  // Actual player name
+        black_player: 'Opponent',
+        result: '1-0',
+        date: '2025-01-01',
+        white_elo: 1800,
+        black_elo: 1750,
+        moves_count: 40,
+        created_at: '2025-01-01T10:00:00Z',
+        pgn_content: '[Event "Test"]\n1. e4 e5',
+        user_color: 'white'  // User played white
+      }];
+
+      const mockAnalysis = [{ move_number: 1, centipawn_loss: 20 }];
+
+      mockDatabase.all
+        .mockResolvedValueOnce(mockGames)
+        .mockResolvedValueOnce(mockAnalysis);
+
+      mockDatabase.get.mockResolvedValueOnce({ count: 0 });
+
+      // Mock AccuracyCalculator
+      AccuracyCalculator.calculatePlayerAccuracy = jest.fn().mockReturnValue(85);
+
+      await tournamentController.getGames(mockReq, mockRes);
+
+      // CRITICAL: Should pass white_player name, NOT req.userId
+      expect(AccuracyCalculator.calculatePlayerAccuracy).toHaveBeenCalledWith(
+        mockAnalysis,
+        'TestPlayer',  // ✅ Should be player name from game
+        'TestPlayer',  // white_player
+        'Opponent'     // black_player
+      );
+
+      // Should NOT be called with userId
+      expect(AccuracyCalculator.calculatePlayerAccuracy).not.toHaveBeenCalledWith(
+        expect.anything(),
+        'test-user-123',  // ❌ userId should NOT be passed
+        expect.anything(),
+        expect.anything()
+      );
+    });
+
+    it('should pass black_player name to AccuracyCalculator when user_color is black', async () => {
+      mockReq.params.id = '1';
+
+      const mockGames = [{
+        id: 1,
+        white_player: 'Opponent',
+        black_player: 'TestPlayer',  // Actual player name
+        result: '0-1',
+        date: '2025-01-01',
+        white_elo: 1750,
+        black_elo: 1800,
+        moves_count: 40,
+        created_at: '2025-01-01T10:00:00Z',
+        pgn_content: '[Event "Test"]\n1. e4 e5',
+        user_color: 'black'  // User played black
+      }];
+
+      const mockAnalysis = [{ move_number: 1, centipawn_loss: 15 }];
+
+      mockDatabase.all
+        .mockResolvedValueOnce(mockGames)
+        .mockResolvedValueOnce(mockAnalysis);
+
+      mockDatabase.get.mockResolvedValueOnce({ count: 0 });
+
+      AccuracyCalculator.calculatePlayerAccuracy = jest.fn().mockReturnValue(90);
+
+      await tournamentController.getGames(mockReq, mockRes);
+
+      // CRITICAL: Should pass black_player name, NOT req.userId
+      expect(AccuracyCalculator.calculatePlayerAccuracy).toHaveBeenCalledWith(
+        mockAnalysis,
+        'TestPlayer',  // ✅ Should be player name from game
+        'Opponent',    // white_player
+        'TestPlayer'   // black_player
+      );
+    });
+
+    it('should handle multiple games with different colors correctly', async () => {
+      mockReq.params.id = '1';
+
+      const mockGames = [
+        {
+          id: 1,
+          white_player: 'UserPlayer',
+          black_player: 'Opponent1',
+          result: '1-0',
+          date: '2025-01-01',
+          white_elo: 1800,
+          black_elo: 1750,
+          moves_count: 40,
+          created_at: '2025-01-01T10:00:00Z',
+          pgn_content: '[Event "Test"]\n1. e4 e5',
+          user_color: 'white'
+        },
+        {
+          id: 2,
+          white_player: 'Opponent2',
+          black_player: 'UserPlayer',
+          result: '0-1',
+          date: '2025-01-02',
+          white_elo: 1750,
+          black_elo: 1800,
+          moves_count: 35,
+          created_at: '2025-01-02T10:00:00Z',
+          pgn_content: '[Event "Test"]\n1. d4 d5',
+          user_color: 'black'
+        }
+      ];
+
+      const mockAnalysis = [{ move_number: 1, centipawn_loss: 20 }];
+
+      mockDatabase.all
+        .mockResolvedValueOnce(mockGames)
+        .mockResolvedValueOnce(mockAnalysis) // Game 1
+        .mockResolvedValueOnce(mockAnalysis); // Game 2
+
+      mockDatabase.get
+        .mockResolvedValueOnce({ count: 0 }) // Game 1 blunders
+        .mockResolvedValueOnce({ count: 1 }); // Game 2 blunders
+
+      AccuracyCalculator.calculatePlayerAccuracy = jest.fn()
+        .mockReturnValueOnce(85) // Game 1
+        .mockReturnValueOnce(90); // Game 2
+
+      await tournamentController.getGames(mockReq, mockRes);
+
+      // First game: user played white
+      expect(AccuracyCalculator.calculatePlayerAccuracy).toHaveBeenNthCalledWith(
+        1,
+        mockAnalysis,
+        'UserPlayer',  // ✅ white_player (user's name)
+        'UserPlayer',
+        'Opponent1'
+      );
+
+      // Second game: user played black
+      expect(AccuracyCalculator.calculatePlayerAccuracy).toHaveBeenNthCalledWith(
+        2,
+        mockAnalysis,
+        'UserPlayer',  // ✅ black_player (user's name)
+        'Opponent2',
+        'UserPlayer'
+      );
+
+      // Verify both games returned with correct accuracy
+      expect(mockRes.json).toHaveBeenCalledWith(expect.arrayContaining([
+        expect.objectContaining({
+          id: 1,
+          accuracy: 85,
+          playerColor: 'white'
+        }),
+        expect.objectContaining({
+          id: 2,
+          accuracy: 90,
+          playerColor: 'black'
+        })
+      ]));
+    });
   });
 });

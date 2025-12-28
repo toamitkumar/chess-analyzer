@@ -65,6 +65,12 @@ class OpeningDetector {
       ['c4 Nf6', { eco: 'A10', name: 'English Opening' }],
       ['c4 c5', { eco: 'A10', name: 'English Opening, Symmetrical' }],
 
+      // Bird's Opening
+      ['f4', { eco: 'A02', name: "Bird's Opening" }],
+      ['f4 d5', { eco: 'A03', name: "Bird's Opening" }],
+      ['f4 e5', { eco: 'A02', name: "Bird's Opening, From's Gambit" }],
+      ['f4 Nf6', { eco: 'A02', name: "Bird's Opening" }],
+
       // London System
       ['d4 d5 Bf4', { eco: 'D02', name: 'London System' }],
       ['d4 Nf6 Bf4', { eco: 'D02', name: 'London System' }],

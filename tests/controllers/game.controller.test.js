@@ -64,7 +64,7 @@ describe('GameController', () => {
       ];
 
       mockDb.all.mockResolvedValue(mockGames);
-      mockDb.get.mockResolvedValue({ name: 'Caro-Kann Defense' });
+      mockDb.get.mockResolvedValue({ opening_name: 'Caro-Kann Defense' });
 
       await gameController.list(mockReq, mockRes);
 
@@ -126,7 +126,7 @@ describe('GameController', () => {
 
       mockDb.get
         .mockResolvedValueOnce(mockGame) // Game query
-        .mockResolvedValueOnce({ name: 'Caro-Kann Defense' }); // Opening name query
+        .mockResolvedValueOnce({ opening_name: 'Caro-Kann Defense' }); // Opening name query
 
       await gameController.getById(mockReq, mockRes);
 
@@ -313,7 +313,7 @@ describe('GameController', () => {
 
       mockDb.get
         .mockResolvedValueOnce(mockGame) // First call for game
-        .mockResolvedValueOnce({ name: 'Caro-Kann Defense' }) // Second call for opening name
+        .mockResolvedValueOnce({ opening_name: 'Caro-Kann Defense' }) // Second call for opening name
         .mockResolvedValueOnce(mockBlunderCount); // Third call for blunder count
       mockDb.all.mockResolvedValue(mockAnalysis);
 
@@ -403,12 +403,12 @@ describe('GameController', () => {
 
   describe('_getOpeningName()', () => {
     it('should return opening name for valid ECO code', async () => {
-      mockDb.get.mockResolvedValue({ name: 'Sicilian Defense' });
+      mockDb.get.mockResolvedValue({ opening_name: 'Sicilian Defense' });
 
       const result = await gameController._getOpeningName('B20');
 
       expect(mockDb.get).toHaveBeenCalledWith(
-        'SELECT name FROM chess_openings WHERE eco = ?',
+        'SELECT opening_name FROM chess_openings WHERE eco_code = ?',
         ['B20']
       );
       expect(result).toBe('Sicilian Defense');

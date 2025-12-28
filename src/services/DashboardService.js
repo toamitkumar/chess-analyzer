@@ -361,9 +361,9 @@ class DashboardService {
    */
   async getOpeningName(ecoCode) {
     const opening = await this.database.get(`
-      SELECT name FROM chess_openings WHERE eco_code = ?
+      SELECT opening_name FROM chess_openings WHERE eco_code = ?
     `, [ecoCode]);
-    return opening ? opening.name : null;
+    return opening ? opening.opening_name : null;
   }
 }
 

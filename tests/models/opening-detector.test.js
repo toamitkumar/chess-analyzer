@@ -136,6 +136,33 @@ describe('Opening Detector', () => {
       expect(result.eco).toBe('B01');
       expect(result.name).toBe('Scandinavian Defense');
     });
+
+    test('should detect Bird\'s Opening', () => {
+      const moves = ['f4'];
+      const result = openingDetector.detect(moves);
+
+      expect(result).not.toBeNull();
+      expect(result.eco).toBe('A02');
+      expect(result.name).toBe("Bird's Opening");
+    });
+
+    test('should detect Bird\'s Opening with d5', () => {
+      const moves = ['f4', 'd5'];
+      const result = openingDetector.detect(moves);
+
+      expect(result).not.toBeNull();
+      expect(result.eco).toBe('A03');
+      expect(result.name).toBe("Bird's Opening");
+    });
+
+    test('should detect Bird\'s Opening From\'s Gambit', () => {
+      const moves = ['f4', 'e5'];
+      const result = openingDetector.detect(moves);
+
+      expect(result).not.toBeNull();
+      expect(result.eco).toBe('A02');
+      expect(result.name).toBe("Bird's Opening, From's Gambit");
+    });
   });
 
   describe('PGN String Detection', () => {

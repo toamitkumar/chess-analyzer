@@ -70,6 +70,14 @@ async function validateGame61() {
     const evalAfter = move.evaluation;
     const evalBefore = evalAfter + move.centipawn_loss;
 
+    // Classify move (only if position is contestable)
+    const shouldClassify = WinProbability.shouldClassifyMove(evalBefore, evalAfter);
+
+    // Only include contestable moves in game accuracy (matching Chess.com approach)
+    if (!shouldClassify) {
+      continue;
+    }
+
     // Convert to win probabilities
     const winProbBefore = WinProbability.cpToWinProbability(evalBefore);
     const winProbAfter = WinProbability.cpToWinProbability(evalAfter);
@@ -89,44 +97,40 @@ async function validateGame61() {
     const volatility = WinProbability.calculatePositionVolatility(windowProbs);
     volatilities.push(volatility);
 
-    // Classify move (only if position is contestable)
-    const shouldClassify = WinProbability.shouldClassifyMove(evalBefore, evalAfter);
+    const winDrop = Math.max(0, winProbBefore - winProbAfter);
 
-    if (shouldClassify) {
-      const winDrop = Math.max(0, winProbBefore - winProbAfter);
-
-      // Chess.com-style thresholds based on win% drop
-      if (moveAccuracy < 40) {
-        newBlunders++;
-        problematicMoves.push({
-          moveNum: Math.floor((move.move_number + 1) / 2),
-          move: move.move,
-          classification: 'BLUNDER',
-          cpLoss: move.centipawn_loss,
-          winDrop: winDrop.toFixed(1) + '%',
-          accuracy: moveAccuracy.toFixed(1) + '%'
-        });
-      } else if (moveAccuracy < 60) {
-        newMistakes++;
-        problematicMoves.push({
-          moveNum: Math.floor((move.move_number + 1) / 2),
-          move: move.move,
-          classification: 'MISTAKE',
-          cpLoss: move.centipawn_loss,
-          winDrop: winDrop.toFixed(1) + '%',
-          accuracy: moveAccuracy.toFixed(1) + '%'
-        });
-      } else if (moveAccuracy < 80) {
-        newInaccuracies++;
-        problematicMoves.push({
-          moveNum: Math.floor((move.move_number + 1) / 2),
-          move: move.move,
-          classification: 'INACCURACY',
-          cpLoss: move.centipawn_loss,
-          winDrop: winDrop.toFixed(1) + '%',
-          accuracy: moveAccuracy.toFixed(1) + '%'
-        });
-      }
+    // Chess.com-calibrated thresholds
+    // Based on empirical testing with Game 61
+    if (moveAccuracy < 50) {
+      newBlunders++;
+      problematicMoves.push({
+        moveNum: Math.floor((move.move_number + 1) / 2),
+        move: move.move,
+        classification: 'BLUNDER',
+        cpLoss: move.centipawn_loss,
+        winDrop: winDrop.toFixed(1) + '%',
+        accuracy: moveAccuracy.toFixed(1) + '%'
+      });
+    } else if (moveAccuracy < 67) {
+      newMistakes++;
+      problematicMoves.push({
+        moveNum: Math.floor((move.move_number + 1) / 2),
+        move: move.move,
+        classification: 'MISTAKE',
+        cpLoss: move.centipawn_loss,
+        winDrop: winDrop.toFixed(1) + '%',
+        accuracy: moveAccuracy.toFixed(1) + '%'
+      });
+    } else if (moveAccuracy < 85) {
+      newInaccuracies++;
+      problematicMoves.push({
+        moveNum: Math.floor((move.move_number + 1) / 2),
+        move: move.move,
+        classification: 'INACCURACY',
+        cpLoss: move.centipawn_loss,
+        winDrop: winDrop.toFixed(1) + '%',
+        accuracy: moveAccuracy.toFixed(1) + '%'
+      });
     }
   }
 

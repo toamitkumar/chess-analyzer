@@ -52,8 +52,9 @@ class WinProbability {
     // Calculate win percentage drop (only penalize losses, not gains)
     const winPercentDrop = Math.max(0, winProbBefore - winProbAfter);
 
-    // Lichess formula with +1 uncertainty bonus
-    const raw = 103.1668 * Math.exp(-0.04354 * winPercentDrop) - 3.1669 + 1;
+    // Lichess-inspired formula with calibrated coefficient for Chess.com alignment
+    // Original Lichess: 0.04354, calibrated to 0.063 based on Chess.com Game 61
+    const raw = 103.1668 * Math.exp(-0.063 * winPercentDrop) - 3.1669 + 1;
 
     // Clamp to [0, 100]
     return Math.max(0, Math.min(100, raw));

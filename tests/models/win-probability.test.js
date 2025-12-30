@@ -67,22 +67,22 @@ describe('WinProbability', () => {
       expect(result).toBeCloseTo(100, 0);
     });
 
-    it('should return ~80% for 5% win drop', () => {
+    it('should return ~73% for 5% win drop', () => {
       const result = WinProbability.calculateMoveAccuracy(65, 60);
-      expect(result).toBeGreaterThan(75);
-      expect(result).toBeLessThan(85);
+      expect(result).toBeGreaterThan(72);
+      expect(result).toBeLessThan(74);
     });
 
-    it('should return ~60% for 10% win drop', () => {
+    it('should return ~53% for 10% win drop', () => {
       const result = WinProbability.calculateMoveAccuracy(65, 55);
-      expect(result).toBeGreaterThan(55);
-      expect(result).toBeLessThan(65);
+      expect(result).toBeGreaterThan(52);
+      expect(result).toBeLessThan(54);
     });
 
-    it('should return ~40% for 20% win drop', () => {
+    it('should return ~27% for 20% win drop', () => {
       const result = WinProbability.calculateMoveAccuracy(65, 45);
-      expect(result).toBeGreaterThan(38);
-      expect(result).toBeLessThan(44);
+      expect(result).toBeGreaterThan(26);
+      expect(result).toBeLessThan(28);
     });
 
     it('should return very low accuracy for 50% win drop', () => {
@@ -102,11 +102,11 @@ describe('WinProbability', () => {
       expect(result).toBeLessThanOrEqual(100);
     });
 
-    it('should return ~51% for 15% drop (Lichess-style)', () => {
-      // Lichess formula with our constants
+    it('should return ~38% for 15% drop (Chess.com-calibrated)', () => {
+      // Calibrated coefficient (0.063) for Chess.com alignment
       const result = WinProbability.calculateMoveAccuracy(70, 55);
-      expect(result).toBeGreaterThan(50);
-      expect(result).toBeLessThan(53);
+      expect(result).toBeGreaterThan(37);
+      expect(result).toBeLessThan(39);
     });
   });
 

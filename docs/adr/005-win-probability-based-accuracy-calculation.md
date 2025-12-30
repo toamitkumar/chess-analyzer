@@ -177,10 +177,16 @@ function calculateGameAccuracy(moveAccuracies, positionVolatilities) {
 Based on win-probability drops (not raw centipawn loss):
 
 ```javascript
-function classifyMoveByWinProb(winProbDrop, moveAccuracy) {
+function classifyMoveByWinProb(winProbDrop, moveAccuracy, alternatives) {
   // Skip classification if position already decided
   if (!shouldClassifyMove(...)) {
     return 'ok';
+  }
+
+  // Check for missed opportunities (tactical/strategic)
+  const missedOpportunity = checkForMissedOpportunity(alternatives, winProbDrop);
+  if (missedOpportunity) {
+    return 'miss';  // Missed winning tactic or significant improvement
   }
 
   // Based on Lichess/Chess.com standards
@@ -192,6 +198,70 @@ function classifyMoveByWinProb(winProbDrop, moveAccuracy) {
   return 'blunder';  // >15% win drop
 }
 ```
+
+### 6. Missed Opportunity Detection
+
+A critical feature both Chess.com and Lichess use to identify tactical/strategic opportunities:
+
+```javascript
+function checkForMissedOpportunity(alternatives, winProbDrop) {
+  if (!alternatives || alternatives.length < 2) return false;
+
+  const playedMove = alternatives[0];  // Move actually played
+  const bestMove = alternatives[1];     // Engine's top choice
+
+  // Calculate evaluation difference between played move and best move
+  const evalDiff = Math.abs(playedMove.score - bestMove.score);
+
+  // Missed opportunities criteria:
+  // 1. Book move deviation (opening theory)
+  const isBookDeviation = checkBookMove(playedMove, bestMove);
+  if (isBookDeviation && evalDiff > 50) {
+    return { type: 'book', severity: 'minor' };
+  }
+
+  // 2. Missed tactical shot (mate, material gain, or significant advantage)
+  if (bestMove.isMate || bestMove.score > 300) {
+    if (evalDiff > 200) {
+      return { type: 'tactical', severity: 'critical' };
+    }
+  }
+
+  // 3. Missed winning continuation
+  if (bestMove.score > 100 && playedMove.score < 50) {
+    return { type: 'winning_line', severity: 'major' };
+  }
+
+  // 4. Positional opportunity (no tactics but significantly better move exists)
+  if (evalDiff > 100 && winProbDrop < 5) {
+    // Move doesn't lose much but misses clear improvement
+    return { type: 'positional', severity: 'minor' };
+  }
+
+  return false;
+}
+```
+
+**Missed Opportunity Types:**
+
+| Type | Description | Example |
+|------|-------------|---------|
+| **Book** | Deviation from opening theory | Playing a3 instead of standard opening move |
+| **Tactical** | Missed forced win, mate, or material | Missed checkmate in 2, hanging piece |
+| **Winning Line** | Missed continuation to winning position | Missing the key attacking sequence |
+| **Positional** | Missed strategic improvement | Missed knight outpost, better piece placement |
+
+**Display in UI:**
+- Book miss: ❌ with book icon (red X)
+- Tactical miss: ‼️ (double exclamation, critical)
+- Winning line: ⚠️ (warning)
+- Positional: ❓ with annotation
+
+**Why This Matters:**
+- Helps users learn tactical patterns
+- Identifies calculation errors vs. positional misunderstandings
+- Focuses improvement on specific skill areas
+- Matches Chess.com/Lichess user experience
 
 ## Implementation Plan
 
@@ -205,14 +275,18 @@ function classifyMoveByWinProb(winProbDrop, moveAccuracy) {
 ### Phase 2: Position Context (Week 2)
 1. Add position context filtering
 2. Skip classifications in decided positions
-3. Update move classification logic
-4. Integration tests with real game data
+3. Implement missed opportunity detection
+4. Add opening book integration for book move detection
+5. Update move classification logic
+6. Integration tests with real game data
 
 ### Phase 3: Migration & Calibration (Week 3)
 1. Add database columns for new metrics:
    - `win_prob_before`, `win_prob_after` in analysis table
    - `move_accuracy` in analysis table
    - `position_volatility` in analysis table
+   - `missed_opportunity_type` in analysis table (book/tactical/winning_line/positional)
+   - `missed_opportunity_severity` in analysis table (minor/major/critical)
 2. Create migration to backfill existing games
 3. Calibrate against Chess.com/Lichess reference games
 4. Update API responses

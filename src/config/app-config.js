@@ -29,8 +29,18 @@ const ANALYSIS_CONFIG = {
   analysisTimeout: 10000, // 10 seconds per position
 };
 
+/**
+ * Feature Flags
+ */
+const FEATURE_FLAGS = {
+  // ADR 005: Win-probability based accuracy calculation
+  // Set to true to enable new algorithm, false for legacy centipawn-loss method
+  USE_WIN_PROBABILITY_ACCURACY: process.env.USE_WIN_PROBABILITY_ACCURACY === 'true' || false,
+};
+
 module.exports = {
   TARGET_PLAYER,
   API_CONFIG,
   ANALYSIS_CONFIG,
+  FEATURE_FLAGS,
 };

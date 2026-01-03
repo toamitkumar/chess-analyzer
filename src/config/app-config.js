@@ -5,6 +5,9 @@
  * In the future, this will be replaced with user authentication and per-user settings.
  */
 
+// Load environment variables from .env file
+require('dotenv').config();
+
 /**
  * Target player for analysis
  * TODO: Replace with user authentication system
@@ -29,8 +32,17 @@ const ANALYSIS_CONFIG = {
   analysisTimeout: 10000, // 10 seconds per position
 };
 
+/**
+ * Feature Flags
+ * (Currently none - all features are enabled by default)
+ */
+const FEATURE_FLAGS = {
+  // Reserved for future feature flags
+};
+
 module.exports = {
   TARGET_PLAYER,
   API_CONFIG,
   ANALYSIS_CONFIG,
+  FEATURE_FLAGS,
 };

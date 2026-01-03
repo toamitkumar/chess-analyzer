@@ -22,6 +22,8 @@ describe('Analysis Structure Tests', () => {
   afterEach(async () => {
     if (analyzer) {
       await analyzer.close();
+      // Wait a bit more for all processes to fully close
+      await new Promise(resolve => setTimeout(resolve, 200));
     }
   });
 

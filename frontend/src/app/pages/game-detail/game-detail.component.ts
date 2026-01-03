@@ -250,48 +250,58 @@ interface GameAnalysisResponse {
 
                       <!-- Move Quality Distribution -->
                       <div class="pt-2 space-y-2">
-                        <div class="text-xs font-medium text-muted-foreground mb-2">Move Quality</div>
-                        <div class="flex justify-between text-sm">
+                        <div class="grid grid-cols-3 gap-2 text-xs font-medium text-muted-foreground mb-2">
+                          <span>Move Quality</span>
+                          <span class="text-center">White</span>
+                          <span class="text-center">Black</span>
+                        </div>
+                        <div class="grid grid-cols-3 gap-2 text-sm items-center">
                           <span class="flex items-center gap-1">
                             <span class="w-2 h-2 rounded-full bg-green-500"></span>
-                            Best Moves
+                            Best
                           </span>
-                          <span class="font-semibold text-green-600">{{ getBestMoveCount() }}</span>
+                          <span class="font-semibold text-green-600 text-center">{{ getBestMoveCount('white') }}</span>
+                          <span class="font-semibold text-green-600 text-center">{{ getBestMoveCount('black') }}</span>
                         </div>
-                        <div class="flex justify-between text-sm">
+                        <div class="grid grid-cols-3 gap-2 text-sm items-center">
                           <span class="flex items-center gap-1">
                             <span class="w-2 h-2 rounded-full bg-green-400"></span>
                             Excellent
                           </span>
-                          <span class="font-semibold text-green-500">{{ getExcellentMoveCount() }}</span>
+                          <span class="font-semibold text-green-500 text-center">{{ getExcellentMoveCount('white') }}</span>
+                          <span class="font-semibold text-green-500 text-center">{{ getExcellentMoveCount('black') }}</span>
                         </div>
-                        <div class="flex justify-between text-sm">
+                        <div class="grid grid-cols-3 gap-2 text-sm items-center">
                           <span class="flex items-center gap-1">
                             <span class="w-2 h-2 rounded-full bg-blue-500"></span>
                             Good
                           </span>
-                          <span class="font-semibold text-blue-600">{{ getGoodMoveCount() }}</span>
+                          <span class="font-semibold text-blue-600 text-center">{{ getGoodMoveCount('white') }}</span>
+                          <span class="font-semibold text-blue-600 text-center">{{ getGoodMoveCount('black') }}</span>
                         </div>
-                        <div class="flex justify-between text-sm">
+                        <div class="grid grid-cols-3 gap-2 text-sm items-center">
                           <span class="flex items-center gap-1">
                             <span class="w-2 h-2 rounded-full bg-yellow-500"></span>
                             Inaccuracies
                           </span>
-                          <span class="font-semibold text-yellow-600">{{ getInaccuracyCount() }}</span>
+                          <span class="font-semibold text-yellow-600 text-center">{{ getInaccuracyCount('white') }}</span>
+                          <span class="font-semibold text-yellow-600 text-center">{{ getInaccuracyCount('black') }}</span>
                         </div>
-                        <div class="flex justify-between text-sm">
+                        <div class="grid grid-cols-3 gap-2 text-sm items-center">
                           <span class="flex items-center gap-1">
                             <span class="w-2 h-2 rounded-full bg-orange-500"></span>
                             Mistakes
                           </span>
-                          <span class="font-semibold text-orange-600">{{ getMistakeCount() }}</span>
+                          <span class="font-semibold text-orange-600 text-center">{{ getMistakeCount('white') }}</span>
+                          <span class="font-semibold text-orange-600 text-center">{{ getMistakeCount('black') }}</span>
                         </div>
-                        <div class="flex justify-between text-sm">
+                        <div class="grid grid-cols-3 gap-2 text-sm items-center">
                           <span class="flex items-center gap-1">
                             <span class="w-2 h-2 rounded-full bg-red-500"></span>
                             Blunders
                           </span>
-                          <span class="font-semibold text-red-600">{{ getBlunderCount() }}</span>
+                          <span class="font-semibold text-red-600 text-center">{{ getBlunderCount('white') }}</span>
+                          <span class="font-semibold text-red-600 text-center">{{ getBlunderCount('black') }}</span>
                         </div>
                       </div>
                     </div>
@@ -529,7 +539,7 @@ export class GameDetailComponent implements OnInit, AfterViewInit {
       const annotation = this.generateAnnotation(move, index);
 
       return {
-        moveNumber: move.move_number,
+        moveNumber: Math.ceil(move.move_number / 2), // Convert ply to board move number
         move: move.move,
         evaluation: move.evaluation / 100, // Convert to pawns
         centipawnLoss: move.centipawn_loss,
@@ -859,28 +869,36 @@ export class GameDetailComponent implements OnInit, AfterViewInit {
     return Math.round(total / this.moves.length);
   }
 
-  getBlunderCount(): number {
-    return this.enhancedMoves.filter(m => m.moveQuality === 'blunder').length;
+  getBlunderCount(color?: 'white' | 'black'): number {
+    return this.filterByColor(color).filter(m => m.moveQuality === 'blunder').length;
   }
 
-  getMistakeCount(): number {
-    return this.enhancedMoves.filter(m => m.moveQuality === 'mistake').length;
+  getMistakeCount(color?: 'white' | 'black'): number {
+    return this.filterByColor(color).filter(m => m.moveQuality === 'mistake').length;
   }
 
-  getInaccuracyCount(): number {
-    return this.enhancedMoves.filter(m => m.moveQuality === 'inaccuracy').length;
+  getInaccuracyCount(color?: 'white' | 'black'): number {
+    return this.filterByColor(color).filter(m => m.moveQuality === 'inaccuracy').length;
   }
 
-  getBestMoveCount(): number {
-    return this.enhancedMoves.filter(m => m.moveQuality === 'best').length;
+  getBestMoveCount(color?: 'white' | 'black'): number {
+    return this.filterByColor(color).filter(m => m.moveQuality === 'best').length;
   }
 
-  getExcellentMoveCount(): number {
-    return this.enhancedMoves.filter(m => m.moveQuality === 'excellent').length;
+  getExcellentMoveCount(color?: 'white' | 'black'): number {
+    return this.filterByColor(color).filter(m => m.moveQuality === 'excellent').length;
   }
 
-  getGoodMoveCount(): number {
-    return this.enhancedMoves.filter(m => m.moveQuality === 'good').length;
+  getGoodMoveCount(color?: 'white' | 'black'): number {
+    return this.filterByColor(color).filter(m => m.moveQuality === 'good').length;
+  }
+
+  private filterByColor(color?: 'white' | 'black'): EnhancedMove[] {
+    if (!color) return this.enhancedMoves;
+    // White moves are at even indices (0, 2, 4...), Black at odd indices (1, 3, 5...)
+    return this.enhancedMoves.filter((_, index) =>
+      color === 'white' ? index % 2 === 0 : index % 2 === 1
+    );
   }
 
   getCurrentMoveQuality(): string {

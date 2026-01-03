@@ -22,10 +22,10 @@ class TrendCalculator {
       .filter(game => game.date && (game.avgCentipawnLoss !== undefined || game.moves))
       .map(game => ({
         date: this.parseDate(game.date),
-        avgCentipawnLoss: game.avgCentipawnLoss !== undefined 
-          ? game.avgCentipawnLoss 
+        avgCentipawnLoss: game.avgCentipawnLoss !== undefined
+          ? game.avgCentipawnLoss
           : this.calculateGameCentipawnLoss(game.moves),
-        moveCount: game.moveCount || (game.moves ? game.moves.length : 0)
+        moveCount: game.moveCount || (game.moves ? Math.ceil(game.moves.length / 2) : 0) // Board moves, not ply
       }))
       .sort((a, b) => a.date - b.date);
 

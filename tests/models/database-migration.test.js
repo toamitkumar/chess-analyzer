@@ -95,10 +95,16 @@ describe('Database Migration 001', () => {
       expect(updatedColumns).toContain('content_hash');
       expect(updatedColumns).toContain('tournament_id');
     } else {
-      // Columns already exist - just verify they're there
-      expect(initialColumns).toContain('pgn_content');
-      expect(initialColumns).toContain('content_hash');
-      expect(initialColumns).toContain('tournament_id');
+      // Columns already exist - run migration anyway (should be idempotent)
+      await migration.up();
+      
+      // Just verify they're still there
+      schema = await testDb.all("PRAGMA table_info(games)");
+      const finalColumns = schema.map(col => col.name);
+      
+      expect(finalColumns).toContain('pgn_content');
+      expect(finalColumns).toContain('content_hash');
+      expect(finalColumns).toContain('tournament_id');
     }
   });
 

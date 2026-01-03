@@ -7,6 +7,9 @@ describe('Database - Blunder Details', () => {
   beforeAll(async () => {
     database = getDatabase();
     await database.initialize();
+    
+    // Ensure migrations are run for test database
+    await database.runMigrations();
   });
 
   afterAll(async () => {

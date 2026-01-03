@@ -81,7 +81,7 @@ class GameStorageService {
       event: tournament.name,
       whiteElo: game.whiteElo ? parseInt(game.whiteElo) : null,
       blackElo: game.blackElo ? parseInt(game.blackElo) : null,
-      movesCount: game.moves ? game.moves.length : 0,
+      movesCount: game.moves ? Math.ceil(game.moves.length / 2) : 0, // Board moves, not ply count
       tournamentId: tournament.id,
       userId: userId,
       userColor: userColor  // Add user_color

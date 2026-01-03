@@ -67,22 +67,22 @@ describe('WinProbability', () => {
       expect(result).toBeCloseTo(100, 0);
     });
 
-    it('should return ~73% for 5% win drop', () => {
+    it('should return ~81% for 5% win drop (Lichess exact)', () => {
       const result = WinProbability.calculateMoveAccuracy(65, 60);
-      expect(result).toBeGreaterThan(72);
-      expect(result).toBeLessThan(74);
+      expect(result).toBeGreaterThan(80);
+      expect(result).toBeLessThan(82);
     });
 
-    it('should return ~53% for 10% win drop', () => {
+    it('should return ~65% for 10% win drop (Lichess exact)', () => {
       const result = WinProbability.calculateMoveAccuracy(65, 55);
-      expect(result).toBeGreaterThan(52);
-      expect(result).toBeLessThan(54);
+      expect(result).toBeGreaterThan(64);
+      expect(result).toBeLessThan(66);
     });
 
-    it('should return ~27% for 20% win drop', () => {
+    it('should return ~41% for 20% win drop (Lichess exact)', () => {
       const result = WinProbability.calculateMoveAccuracy(65, 45);
-      expect(result).toBeGreaterThan(26);
-      expect(result).toBeLessThan(28);
+      expect(result).toBeGreaterThan(40);
+      expect(result).toBeLessThan(42);
     });
 
     it('should return very low accuracy for 50% win drop', () => {
@@ -102,11 +102,10 @@ describe('WinProbability', () => {
       expect(result).toBeLessThanOrEqual(100);
     });
 
-    it('should return ~38% for 15% drop (Chess.com-calibrated)', () => {
-      // Calibrated coefficient (0.063) for Chess.com alignment
+    it('should return ~52% for 15% drop (Lichess exact)', () => {
       const result = WinProbability.calculateMoveAccuracy(70, 55);
-      expect(result).toBeGreaterThan(37);
-      expect(result).toBeLessThan(39);
+      expect(result).toBeGreaterThan(51);
+      expect(result).toBeLessThan(53);
     });
   });
 
@@ -208,34 +207,44 @@ describe('WinProbability', () => {
       expect(result).toBe(true);
     });
 
-    it('should return false for clearly winning (+600 CP)', () => {
+    it('should return true for contestable position (+600 CP, within raised threshold)', () => {
       const result = WinProbability.shouldClassifyMove(400, 600);
-      expect(result).toBe(false);
+      expect(result).toBe(true); // Changed: now within ±800 threshold
     });
 
-    it('should return false for clearly losing (-700 CP)', () => {
-      const result = WinProbability.shouldClassifyMove(-500, -700);
-      expect(result).toBe(false);
+    it('should return false for clearly losing (-900 CP, small mistake)', () => {
+      const result = WinProbability.shouldClassifyMove(-850, -900, 10);
+      expect(result).toBe(false); // Small mistake in decided position
     });
 
-    it('should return true at threshold boundary (500 CP)', () => {
-      const result = WinProbability.shouldClassifyMove(300, 500);
+    it('should return true for clearly losing but significant mistake', () => {
+      const result = WinProbability.shouldClassifyMove(-500, -900, 100);
+      expect(result).toBe(true); // Significant mistake counts even in decided positions
+    });
+
+    it('should return true at new threshold boundary (800 CP)', () => {
+      const result = WinProbability.shouldClassifyMove(300, 800);
       expect(result).toBe(true);
     });
 
-    it('should return false just above threshold (501 CP)', () => {
-      const result = WinProbability.shouldClassifyMove(300, 501);
-      expect(result).toBe(false);
+    it('should return false just above threshold without significant mistake', () => {
+      const result = WinProbability.shouldClassifyMove(300, 850, 10);
+      expect(result).toBe(false); // Beyond threshold, small mistake
     });
 
-    it('should handle mate evaluation (10000 CP)', () => {
-      const result = WinProbability.shouldClassifyMove(500, 10000);
+    it('should handle mate evaluation (10000 CP) without significant mistake', () => {
+      const result = WinProbability.shouldClassifyMove(500, 10000, 20);
       expect(result).toBe(false);
     });
 
     it('should handle position turning from equal to winning', () => {
       const result = WinProbability.shouldClassifyMove(0, 450);
       expect(result).toBe(true); // Still contestable
+    });
+
+    it('should classify Game 60 Move 41 scenario (-724 CP, 306 CP loss)', () => {
+      const result = WinProbability.shouldClassifyMove(-418, -724, 306);
+      expect(result).toBe(true); // Significant mistake in lost position
     });
   });
 });

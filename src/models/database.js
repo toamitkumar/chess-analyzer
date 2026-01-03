@@ -552,32 +552,32 @@ class Database {
 
   // Performance metrics operations (unchanged)
   async updatePerformanceMetrics() {
-    // Update white performance
+    // Update white performance (White moves are odd: 1, 3, 5, ...)
     await this.run(`
-      UPDATE performance_metrics 
-      SET 
+      UPDATE performance_metrics
+      SET
         total_games = (SELECT COUNT(*) FROM games),
         wins = (SELECT COUNT(*) FROM games WHERE result = '1-0'),
         losses = (SELECT COUNT(*) FROM games WHERE result = '0-1'),
         draws = (SELECT COUNT(*) FROM games WHERE result = '1/2-1/2'),
-        total_moves = (SELECT COUNT(*) FROM analysis WHERE game_id IN (SELECT id FROM games)),
-        total_blunders = (SELECT COUNT(*) FROM analysis WHERE is_blunder = TRUE AND game_id IN (SELECT id FROM games)),
-        total_centipawn_loss = (SELECT COALESCE(SUM(centipawn_loss), 0) FROM analysis WHERE game_id IN (SELECT id FROM games)),
+        total_moves = (SELECT COUNT(*) FROM analysis WHERE move_number % 2 = 1 AND game_id IN (SELECT id FROM games)),
+        total_blunders = (SELECT COUNT(*) FROM analysis WHERE is_blunder = TRUE AND move_number % 2 = 1 AND game_id IN (SELECT id FROM games)),
+        total_centipawn_loss = (SELECT COALESCE(SUM(centipawn_loss), 0) FROM analysis WHERE move_number % 2 = 1 AND game_id IN (SELECT id FROM games)),
         last_updated = CURRENT_TIMESTAMP
       WHERE color = 'white'
     `);
 
-    // Update black performance
+    // Update black performance (Black moves are even: 2, 4, 6, ...)
     await this.run(`
-      UPDATE performance_metrics 
-      SET 
+      UPDATE performance_metrics
+      SET
         total_games = (SELECT COUNT(*) FROM games),
         wins = (SELECT COUNT(*) FROM games WHERE result = '0-1'),
         losses = (SELECT COUNT(*) FROM games WHERE result = '1-0'),
         draws = (SELECT COUNT(*) FROM games WHERE result = '1/2-1/2'),
-        total_moves = (SELECT COUNT(*) FROM analysis WHERE game_id IN (SELECT id FROM games)),
-        total_blunders = (SELECT COUNT(*) FROM analysis WHERE is_blunder = TRUE AND game_id IN (SELECT id FROM games)),
-        total_centipawn_loss = (SELECT COALESCE(SUM(centipawn_loss), 0) FROM analysis WHERE game_id IN (SELECT id FROM games)),
+        total_moves = (SELECT COUNT(*) FROM analysis WHERE move_number % 2 = 0 AND game_id IN (SELECT id FROM games)),
+        total_blunders = (SELECT COUNT(*) FROM analysis WHERE is_blunder = TRUE AND move_number % 2 = 0 AND game_id IN (SELECT id FROM games)),
+        total_centipawn_loss = (SELECT COALESCE(SUM(centipawn_loss), 0) FROM analysis WHERE move_number % 2 = 0 AND game_id IN (SELECT id FROM games)),
         last_updated = CURRENT_TIMESTAMP
       WHERE color = 'black'
     `);

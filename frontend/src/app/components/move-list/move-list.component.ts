@@ -129,7 +129,7 @@ interface MovePair {
                 <div class="alt-move-section">
                   <div class="alt-primary-move">{{ alt.move }}</div>
                   <div class="alt-continuation" *ngIf="alt.line && alt.line.length > 1">
-                    {{ alt.line.slice(1, 4).join(' ') }}{{ alt.line.length > 4 ? '...' : '' }}
+                    {{ alt.line.slice(1, 4).join(' ') }}{{ alt.line.length > 4 ? '..' : '' }}
                   </div>
                 </div>
                 <div [class]="'alt-eval ' + getEvalClass(alt.evaluation)">

@@ -111,9 +111,9 @@ describe('ChessAnalyzer Determinism', () => {
       const results = await Promise.all([promise1, promise2, promise3]);
 
       expect(results).toHaveLength(3);
-      expect(results[0].summary.totalMoves).toBe(2);
-      expect(results[1].summary.totalMoves).toBe(2);
-      expect(results[2].summary.totalMoves).toBe(2);
+      expect(results[0].summary.totalMoves).toBe(1); // 2 plies = 1 board move
+      expect(results[1].summary.totalMoves).toBe(1); // 2 plies = 1 board move
+      expect(results[2].summary.totalMoves).toBe(1); // 2 plies = 1 board move
     }, 60000);
 
     it('should handle queue with mixed success and errors', async () => {

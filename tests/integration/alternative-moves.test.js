@@ -32,6 +32,8 @@ describe('Alternative Moves Analysis', () => {
   afterAll(async () => {
     if (analyzer) {
       await analyzer.close();
+      // Wait a bit more for all processes to fully close
+      await new Promise(resolve => setTimeout(resolve, 200));
     }
     if (database) {
       await database.close();
@@ -81,9 +83,9 @@ describe('Alternative Moves Analysis', () => {
       expect(alternatives.length).toBeGreaterThan(3);
       console.log(`Found ${alternatives.length} alternatives for complex position`);
 
-      // Verify all moves are valid UCI format
+      // Verify all moves are valid SAN format (standard algebraic notation)
       alternatives.forEach(alt => {
-        expect(alt.move).toMatch(/^[a-h][1-8][a-h][1-8][qrbn]?$/);
+        expect(alt.move).toMatch(/^[NBRQK]?[a-h]?[1-8]?x?[a-h][1-8](?:=[NBRQ])?[+#]?$|^O-O(?:-O)?[+#]?$/);
       });
     }, 30000);
 

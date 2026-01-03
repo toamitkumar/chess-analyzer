@@ -28,15 +28,17 @@ class WinProbability {
    */
   static cpToWinProbability(centipawns) {
     // Lichess formula: 50 + 50 * (2 / (1 + exp(-0.00368208 * cp)) - 1)
-    const pawn = 50 + 50 * (2 / (1 + Math.exp(-0.00368208 * centipawns)) - 1);
-    return Math.max(0, Math.min(100, pawn));
+    // This returns percentages (0-100)
+    const result = 50 + 50 * (2 / (1 + Math.exp(-0.00368208 * centipawns)) - 1);
+    return Math.max(0, Math.min(100, result));
   }
 
   /**
    * Calculate per-move accuracy based on win probability drop
-   * Uses Lichess exponential penalty formula
+   * Uses EXACT Lichess CAPS formula (Computer Aggregated Precision Score)
    *
-   * Formula: 103.1668 * exp(-0.04354 * winDrop) - 3.1669 + 1
+   * Formula: raw = 103.167 * exp(-0.04354 * winDiff) - 3.167
+   *          accuracy = (raw + 1).clamp(0, 100)
    *
    * @param {number} winProbBefore - Win% before the move (0-100)
    * @param {number} winProbAfter - Win% after the move (0-100)
@@ -49,15 +51,20 @@ class WinProbability {
    * calculateMoveAccuracy(65, 45)  // => ~30  (20% drop)
    */
   static calculateMoveAccuracy(winProbBefore, winProbAfter) {
-    // Calculate win percentage drop (only penalize losses, not gains)
-    const winPercentDrop = Math.max(0, winProbBefore - winProbAfter);
+    // If position improved or stayed same, perfect accuracy
+    if (winProbAfter >= winProbBefore) {
+      return 100;
+    }
 
-    // Lichess-inspired formula with calibrated coefficient for Chess.com alignment
-    // Original Lichess: 0.04354, calibrated to 0.063 based on Chess.com Game 61
-    const raw = 103.1668 * Math.exp(-0.063 * winPercentDrop) - 3.1669 + 1;
+    // Calculate win percentage drop
+    const winDiff = winProbBefore - winProbAfter;
+
+    // Exact Lichess formula
+    const raw = 103.167 * Math.exp(-0.04354 * winDiff) - 3.167;
+    const accuracy = raw + 1;
 
     // Clamp to [0, 100]
-    return Math.max(0, Math.min(100, raw));
+    return Math.max(0, Math.min(100, accuracy));
   }
 
   /**
@@ -141,22 +148,33 @@ class WinProbability {
 
   /**
    * Determine if move should be classified
-   * Skip classification if position is already clearly won/lost
+   * Uses two-tier approach:
+   * 1. Classify all moves in contestable positions (±800 CP)
+   * 2. Classify significant mistakes even in decided positions
    *
    * @param {number} evalBefore - Evaluation before move (centipawns)
    * @param {number} evalAfter - Evaluation after move (centipawns)
+   * @param {number} cpLoss - Centipawn loss of the move (optional)
    * @returns {boolean} True if move should be classified
    *
    * @example
-   * shouldClassifyMove(0, 150)     // => true  (contestable)
-   * shouldClassifyMove(100, 600)   // => false (clearly winning)
-   * shouldClassifyMove(-200, -700) // => false (clearly losing)
+   * shouldClassifyMove(0, 150)        // => true  (contestable)
+   * shouldClassifyMove(100, 600)      // => true  (contestable, raised threshold)
+   * shouldClassifyMove(200, 900, 10)  // => false (decided, small mistake)
+   * shouldClassifyMove(200, 900, 100) // => true  (decided, but significant mistake)
    */
-  static shouldClassifyMove(evalBefore, evalAfter) {
-    const DECISIVE_THRESHOLD = 500; // ~95% win probability
+  static shouldClassifyMove(evalBefore, evalAfter, cpLoss = 0) {
+    const CONTESTABLE_THRESHOLD = 800; // ~97% win probability
+    const SIGNIFICANT_MISTAKE_THRESHOLD = 50; // CP loss to count in decided positions
 
-    // Only classify if position after move is still contestable
-    return Math.abs(evalAfter) <= DECISIVE_THRESHOLD;
+    // Tier 1: Classify all moves in contestable positions
+    if (Math.abs(evalAfter) <= CONTESTABLE_THRESHOLD) {
+      return true;
+    }
+
+    // Tier 2: In decided positions, only classify significant mistakes
+    // This catches moves like Game 60 Move 41 (-724 CP, 306 CP loss)
+    return cpLoss >= SIGNIFICANT_MISTAKE_THRESHOLD;
   }
 }
 

@@ -5,7 +5,6 @@ const { spawn } = require('child_process');
 const BlunderCategorizer = require('./blunder-categorizer');
 const TacticalDetector = require('./tactical-detector');
 const WinProbability = require('./win-probability');
-const { FEATURE_FLAGS } = require('../config/app-config');
 
 class ChessAnalyzer {
   constructor() {
@@ -14,15 +13,9 @@ class ChessAnalyzer {
     this.blunderCategorizer = new BlunderCategorizer();
     this.analysisQueue = [];
     this.isAnalyzing = false;
+    this.activeProcesses = new Set(); // Track all active Stockfish processes
+    this.timeouts = new Set(); // Track all active timeouts
     this.setupEngine();
-  }
-
-  // Lichess-style win probability calculation
-  // Converts centipawn evaluation to win probability (0-1)
-  centipawnToWinProbability(cp) {
-    // Lichess uses a sigmoid function based on empirical data
-    // This approximates real game outcomes
-    return 1 / (1 + Math.exp(-0.004 * cp));
   }
 
   // Convert win probability to centipawn equivalent
@@ -30,53 +23,6 @@ class ChessAnalyzer {
     if (wp <= 0) return -10000;
     if (wp >= 1) return 10000;
     return Math.round(-250 * Math.log((1 - wp) / wp));
-  }
-
-  // Lichess-style accuracy calculation based on win probability loss
-  // Returns accuracy score from 0-100
-  calculateMoveAccuracy(beforeEval, afterEval, isWhiteMove) {
-    // Stockfish evaluates from side to move's perspective
-    // beforeEval: from mover's perspective
-    // afterEval: from opponent's perspective (after move)
-    const beforeCp = beforeEval;
-    const afterCp = -afterEval; // Negate to get mover's perspective
-
-    const beforeWp = this.centipawnToWinProbability(beforeCp);
-    const afterWp = this.centipawnToWinProbability(afterCp);
-
-    // Win probability should stay the same or improve after a good move
-    const wpLoss = Math.max(0, beforeWp - afterWp);
-
-    // Convert to accuracy score (Lichess formula approximation)
-    // Perfect move = 100%, losing all winning chances = 0%
-    const accuracy = Math.max(0, Math.min(100, 100 * (1 - wpLoss)));
-
-    return accuracy;
-  }
-
-  // Classify move quality based on Lichess/Chess.com standards
-  classifyMove(centipawnLoss, playedMoveSan, bestMoveUci, alternatives, playedMoveUci = null) {
-    // Check if player played the actual best move (engine's top choice)
-    const playedBestMove = playedMoveUci && (
-      playedMoveUci === bestMoveUci ||
-      (alternatives && alternatives.length > 0 && alternatives[0].moveUci === playedMoveUci)
-    );
-
-    // Lichess/Chess.com style thresholds (based on centipawn loss)
-    // Best: Played the engine's #1 move OR negligible loss (0-2 cp)
-    if (playedBestMove || centipawnLoss <= 2) {
-      return 'best';
-    } else if (centipawnLoss <= 10) {
-      return 'excellent';
-    } else if (centipawnLoss <= 25) {
-      return 'good';
-    } else if (centipawnLoss <= 50) {
-      return 'inaccuracy';
-    } else if (centipawnLoss <= 100) {
-      return 'mistake';
-    } else {
-      return 'blunder'; // >100cp loss
-    }
   }
 
   // Calculate overall game accuracy using Lichess formula
@@ -106,6 +52,9 @@ class ChessAnalyzer {
     try {
       this.engine = spawn('stockfish');
       this.isReady = false;
+      
+      // Track this process
+      this.activeProcesses.add(this.engine);
 
       // Set up event handlers BEFORE sending any commands
       this.engine.stdout.on('data', (data) => {
@@ -137,18 +86,22 @@ class ChessAnalyzer {
       });
 
       this.engine.on('close', (code) => {
-        if (code !== 0) {
+        // Remove from active processes when closed
+        this.activeProcesses.delete(this.engine);
+        if (code !== 0 && code !== null) {
           console.error(`❌ Stockfish process exited with code ${code}`);
         }
         this.isReady = false;
       });
 
       // Small delay to ensure event handlers are registered, then start UCI protocol
-      setTimeout(() => {
+      const timeout = setTimeout(() => {
         if (this.engine && this.engine.stdin) {
           this.engine.stdin.write('uci\n');
         }
       }, 100);
+      
+      this.timeouts.add(timeout);
 
     } catch (error) {
       console.error('❌ Failed to initialize Stockfish:', error);
@@ -218,6 +171,7 @@ class ChessAnalyzer {
       // Close existing engine
       if (this.engine) {
         this.engine.removeAllListeners();
+        this.activeProcesses.delete(this.engine);
         this.engine.kill();
       }
 
@@ -237,10 +191,12 @@ class ChessAnalyzer {
         checkReady();
 
         // Timeout after 5 seconds
-        setTimeout(() => {
+        const timeout = setTimeout(() => {
           console.log('⚠️ [DETERMINISM] Timeout waiting for engine, proceeding anyway');
           resolve();
         }, 5000);
+        
+        this.timeouts.add(timeout);
       });
 
       console.log(`🔍 Analyzing game with ${moves.length} moves using real Stockfish...`);
@@ -316,61 +272,47 @@ class ChessAnalyzer {
           const afterFen = chess.fen();
           const afterEval = await this.evaluatePosition(afterFen, 12);
 
-          // Calculate centipawn loss by comparing to best move in alternatives
+          // Calculate centipawn loss using direct evaluation comparison (most accurate)
           const isWhiteMove = i % 2 === 0;
           let centipawnLoss = 0;
-
+          
+          // Use direct evaluation comparison as primary method
+          const rawCentipawnLoss = this.calculateCentipawnLoss(beforeEval.evaluation, afterEval.evaluation, isWhiteMove);
+          centipawnLoss = rawCentipawnLoss;
+          
+          // Alternative method: compare with best alternative (for validation/debugging)
           if (alternatives.length > 0) {
-            // Find the played move in alternatives list
             const bestMoveEval = alternatives[0].evaluation;
             const playedMoveAlt = alternatives.find(alt => alt.moveUci === playedMoveUci);
-
+            
+            let alternativesCpLoss = 0;
             if (playedMoveAlt) {
               // Player played one of the top moves - calculate loss from best
-              centipawnLoss = Math.max(0, bestMoveEval - playedMoveAlt.evaluation);
+              alternativesCpLoss = Math.max(0, bestMoveEval - playedMoveAlt.evaluation);
             } else {
               // Player played a move not in top alternatives
-              // Compare best alternative evaluation to actual result
-              // afterEval is from OPPONENT's perspective (after we moved, it's their turn)
-              // bestMoveEval is from MOVER's perspective (from alternatives before the move)
-              // We need to negate afterEval to get mover's perspective
+              // Use the actual evaluation after the move (from mover's perspective)
               const actualEval = -afterEval.evaluation; // Convert to mover's perspective
-              centipawnLoss = Math.max(0, bestMoveEval - actualEval);
+              alternativesCpLoss = Math.max(0, bestMoveEval - actualEval);
             }
-          } else {
-            // Fallback to old calculation if no alternatives
-            const rawCentipawnLoss = this.calculateCentipawnLoss(beforeEval.evaluation, afterEval.evaluation, isWhiteMove);
-            centipawnLoss = rawCentipawnLoss;
+            
+            // Use the larger of the two methods (more conservative)
+            // This catches cases where alternatives might miss the full tactical consequence
+            centipawnLoss = Math.max(centipawnLoss, alternativesCpLoss);
           }
 
           centipawnLoss = Math.min(centipawnLoss, 500); // Cap at 500cp (5 pawns)
           totalCentipawnLoss += centipawnLoss;
 
-          // Calculate win probability before and after from mover's perspective
-          // beforeEval is from mover's perspective, afterEval is from opponent's perspective
-          const wpBefore = this.centipawnToWinProbability(beforeEval.evaluation);
-          const wpAfter = this.centipawnToWinProbability(-afterEval.evaluation); // Negate for mover's view
-
-          // Calculate per-move accuracy and win probabilities based on feature flag
-          let moveAccuracy;
-          let winProbBefore, winProbAfter; // Declare here so they're available later
-
-          if (FEATURE_FLAGS.USE_WIN_PROBABILITY_ACCURACY) {
-            // New algorithm: Win-probability based accuracy (ADR 005)
-            winProbBefore = WinProbability.cpToWinProbability(beforeEval.evaluation);
-            winProbAfter = WinProbability.cpToWinProbability(-afterEval.evaluation);
-            moveAccuracy = WinProbability.calculateMoveAccuracy(winProbBefore, winProbAfter);
-          } else {
-            // Legacy algorithm: Lichess-style centipawn loss
-            winProbBefore = wpBefore;
-            winProbAfter = wpAfter;
-            moveAccuracy = this.calculateMoveAccuracy(beforeEval.evaluation, afterEval.evaluation, isWhiteMove);
-          }
+          // Calculate per-move accuracy and win probabilities using win-probability algorithm (ADR 005)
+          const winProbBefore = WinProbability.cpToWinProbability(beforeEval.evaluation);
+          const winProbAfter = WinProbability.cpToWinProbability(-afterEval.evaluation);
+          const moveAccuracy = WinProbability.calculateMoveAccuracy(winProbBefore, winProbAfter);
 
           // Tactical blunder detection (ADR 005 Phase 2)
           let tacticalAnalysis = null;
           let moveClassification = null;
-          if (FEATURE_FLAGS.USE_WIN_PROBABILITY_ACCURACY && alternatives.length > 0) {
+          if (alternatives.length > 0) {
             // Analyze for tactical blunders and missed opportunities
             const moveData = {
               evaluation: -afterEval.evaluation, // From mover's perspective
@@ -384,14 +326,16 @@ class ChessAnalyzer {
               tacticalAnalysis,
               beforeEval.evaluation,
               -afterEval.evaluation,
-              centipawnLoss
+              centipawnLoss,
+              winProbBefore, // Pass pre-calculated win probability
+              winProbAfter   // Pass pre-calculated win probability
             );
           }
 
-          // Classify move quality
+          // Classify move quality using tactical detection + win probability
           let moveQuality, isBlunder, isMistake, isInaccuracy, isBest, isExcellent, isGood;
 
-          if (FEATURE_FLAGS.USE_WIN_PROBABILITY_ACCURACY && moveClassification) {
+          if (moveClassification) {
             // Use tactical + win-probability classification
             switch (moveClassification.classification) {
               case 'blunder':
@@ -451,14 +395,23 @@ class ChessAnalyzer {
                 break;
             }
           } else {
-            // Legacy classification: Lichess/Chess.com style
-            moveQuality = this.classifyMove(centipawnLoss, move, beforeEval.bestMove, alternatives, playedMoveUci);
-            isBlunder = moveQuality === 'blunder';
-            isMistake = moveQuality === 'mistake';
-            isInaccuracy = moveQuality === 'inaccuracy';
-            isBest = moveQuality === 'best';
-            isExcellent = moveQuality === 'excellent';
-            isGood = moveQuality === 'good';
+            // Good move - classify by accuracy
+            if (moveAccuracy >= 95) {
+              moveQuality = 'best';
+              isBest = true;
+            } else if (moveAccuracy >= 90) {
+              moveQuality = 'excellent';
+              isExcellent = true;
+            } else {
+              moveQuality = 'good';
+              isGood = true;
+            }
+            isBlunder = false;
+            isMistake = false;
+            isInaccuracy = false;
+            if (!isBest) isBest = false;
+            if (!isExcellent) isExcellent = false;
+            if (!isGood) isGood = false;
           }
 
           // Categorize blunders, mistakes, and inaccuracies with enhanced details
@@ -485,7 +438,7 @@ class ChessAnalyzer {
               moveNumber: Math.ceil((i + 1) / 2),
               move: move,
               centipawnLoss: centipawnLoss,
-              winProbabilityLoss: Math.round((wpBefore - wpAfter) * 100),
+              winProbabilityLoss: Math.round(winProbBefore - winProbAfter),
               categorization: categorization // Add categorization details
             });
           }
@@ -498,8 +451,8 @@ class ChessAnalyzer {
             centipawn_loss: centipawnLoss,
             move_accuracy: Math.round(moveAccuracy * 10) / 10, // Per-move accuracy
             move_quality: moveQuality, // best/excellent/good/inaccuracy/mistake/blunder
-            win_probability_before: Math.round(winProbBefore * 10) / 10, // As percentage (0-100)
-            win_probability_after: Math.round(winProbAfter * 10) / 10, // As percentage (0-100)
+            win_probability_before: Math.round(winProbBefore * 10) / 10, // Already percentage (0-100), just round to 1 decimal
+            win_probability_after: Math.round(winProbAfter * 10) / 10, // Already percentage (0-100), just round to 1 decimal
             is_best: isBest,
             is_excellent: isExcellent,
             is_good: isGood,
@@ -565,27 +518,60 @@ class ChessAnalyzer {
   }
 
   async evaluatePosition(fen, depth = 12) {
-    return new Promise((resolve) => {
-      if (!this.engine || !this.isReady) {
-        resolve({
-          bestMove: 'e4',
-          evaluation: 0
-        });
-        return;
-      }
+    // DETERMINISM FIX: Use fresh engine instance for each evaluation
+    return this._evaluateWithFreshEngine(fen, depth);
+  }
 
+  async _evaluateWithFreshEngine(fen, depth) {
+    return new Promise((resolve, reject) => {
+      // Spawn fresh Stockfish instance
+      const { spawn } = require('child_process');
+      const engine = spawn('stockfish');
+      
+      // Track this process
+      this.activeProcesses.add(engine);
+      
       let bestMove = '';
       let evaluation = 0;
       let resolved = false;
+      let engineReady = false;
+      
+      const timeout = setTimeout(() => {
+        if (!resolved) {
+          engine.kill();
+          this.activeProcesses.delete(engine);
+          resolved = true;
+          resolve({ bestMove: bestMove || 'e4', evaluation });
+        }
+      }, 10000);
+      
+      this.timeouts.add(timeout);
       
       const dataHandler = (data) => {
         const output = data.toString();
         const lines = output.split('\n');
         
         for (const line of lines) {
+          if (line.includes('uciok')) {
+            // Engine acknowledged UCI protocol
+            engine.stdin.write('setoption name Threads value 1\n');
+            engine.stdin.write('setoption name Hash value 128\n');
+            engine.stdin.write('isready\n');
+          }
+          
+          if (line.includes('readyok') && !engineReady) {
+            engineReady = true;
+            // Engine is ready, start analysis
+            engine.stdin.write(`position fen ${fen}\n`);
+            engine.stdin.write(`go depth ${depth}\n`);
+          }
+          
           if (line.startsWith('bestmove') && !resolved) {
             bestMove = line.split(' ')[1] || 'e4';
-            this.engine.stdout.removeListener('data', dataHandler);
+            clearTimeout(timeout);
+            this.timeouts.delete(timeout);
+            engine.kill();
+            this.activeProcesses.delete(engine);
             resolved = true;
             resolve({ bestMove, evaluation });
             return;
@@ -604,18 +590,34 @@ class ChessAnalyzer {
         }
       };
 
-      this.engine.stdout.on('data', dataHandler);
-      this.engine.stdin.write(`position fen ${fen}\n`);
-      this.engine.stdin.write(`go depth ${depth}\n`);
+      engine.stdout.on('data', dataHandler);
       
-      // Timeout after 10 seconds for complex positions
-      setTimeout(() => {
+      engine.stderr.on('data', (data) => {
+        console.error('Fresh Stockfish error:', data.toString());
+      });
+
+      engine.on('error', (err) => {
         if (!resolved) {
-          this.engine.stdout.removeListener('data', dataHandler);
+          clearTimeout(timeout);
+          this.timeouts.delete(timeout);
+          this.activeProcesses.delete(engine);
+          resolved = true;
+          reject(err);
+        }
+      });
+
+      engine.on('close', (code) => {
+        this.activeProcesses.delete(engine);
+        if (!resolved) {
+          clearTimeout(timeout);
+          this.timeouts.delete(timeout);
           resolved = true;
           resolve({ bestMove: bestMove || 'e4', evaluation });
         }
-      }, 10000);
+      });
+
+      // Start UCI protocol
+      engine.stdin.write('uci\n');
     });
   }
 
@@ -653,13 +655,37 @@ class ChessAnalyzer {
   }
 
   async close() {
+    // Clear all timeouts first
+    for (const timeout of this.timeouts) {
+      clearTimeout(timeout);
+    }
+    this.timeouts.clear();
+
+    // Close main engine
     if (this.engine) {
       this.engine.stdin.write('quit\n');
       this.engine.kill();
+      this.activeProcesses.delete(this.engine);
       this.engine = null;
       this.isReady = false;
-      console.log('✅ Stockfish engine closed');
     }
+
+    // Close all active fresh processes
+    for (const process of this.activeProcesses) {
+      try {
+        if (process && process.kill) {
+          process.kill();
+        }
+      } catch (error) {
+        // Ignore errors when killing processes
+      }
+    }
+    this.activeProcesses.clear();
+
+    // Wait a bit for processes to close
+    await new Promise(resolve => setTimeout(resolve, 100));
+    
+    console.log('✅ Stockfish engine closed');
   }
 
   // Enhanced analysis with alternative moves
@@ -781,24 +807,60 @@ class ChessAnalyzer {
   }
 
   async generateAlternatives(fen, depth = 12, maxAlternatives = 15) {
-    return new Promise((resolve) => {
-      if (!this.engine || !this.isReady) {
-        resolve([]);
-        return;
-      }
+    // DETERMINISM FIX: Use fresh engine instance for each alternatives generation
+    return this._generateAlternativesWithFreshEngine(fen, depth, maxAlternatives);
+  }
 
+  async _generateAlternativesWithFreshEngine(fen, depth, maxAlternatives) {
+    return new Promise((resolve, reject) => {
+      // Spawn fresh Stockfish instance
+      const { spawn } = require('child_process');
+      const engine = spawn('stockfish');
+      
+      // Track this process
+      this.activeProcesses.add(engine);
+      
       const alternatives = [];
       let resolved = false;
       let lastDepthSeen = 0;
+      let engineReady = false;
 
       // Create a chess instance for UCI to SAN conversion
+      const { Chess } = require('chess.js');
       const tempChess = new Chess();
+
+      const timeout = setTimeout(() => {
+        if (!resolved) {
+          engine.kill();
+          this.activeProcesses.delete(engine);
+          resolved = true;
+          alternatives.sort((a, b) => (a.rank || 999) - (b.rank || 999));
+          resolve(alternatives.slice(0, maxAlternatives));
+        }
+      }, 15000);
+
+      this.timeouts.add(timeout);
 
       const dataHandler = (data) => {
         const output = data.toString();
         const lines = output.split('\n');
 
         for (const line of lines) {
+          if (line.includes('uciok')) {
+            // Engine acknowledged UCI protocol
+            engine.stdin.write('setoption name Threads value 1\n');
+            engine.stdin.write('setoption name Hash value 128\n');
+            engine.stdin.write(`setoption name MultiPV value ${maxAlternatives}\n`);
+            engine.stdin.write('isready\n');
+          }
+          
+          if (line.includes('readyok') && !engineReady) {
+            engineReady = true;
+            // Engine is ready, start analysis
+            engine.stdin.write(`position fen ${fen}\n`);
+            engine.stdin.write(`go depth ${depth}\n`);
+          }
+
           // Look for multipv lines with score cp or score mate
           const cpMatch = line.match(/info.*depth (\d+).*multipv (\d+).*score cp (-?\d+).*pv (.+)/);
           const mateMatch = line.match(/info.*depth (\d+).*multipv (\d+).*score mate (-?\d+).*pv (.+)/);
@@ -925,33 +987,49 @@ class ChessAnalyzer {
               }
             }
           }
-        }
 
-        if (output.includes('bestmove') && !resolved) {
-          resolved = true;
-          this.engine.stdout.removeListener('data', dataHandler);
-          // Sort by rank and return up to maxAlternatives
-          alternatives.sort((a, b) => (a.rank || 999) - (b.rank || 999));
-          resolve(alternatives.slice(0, maxAlternatives));
+          if (line.startsWith('bestmove') && !resolved) {
+            resolved = true;
+            clearTimeout(timeout);
+            this.timeouts.delete(timeout);
+            engine.kill();
+            this.activeProcesses.delete(engine);
+            // Sort by rank and return up to maxAlternatives
+            alternatives.sort((a, b) => (a.rank || 999) - (b.rank || 999));
+            resolve(alternatives.slice(0, maxAlternatives));
+          }
         }
       };
 
-      this.engine.stdout.on('data', dataHandler);
+      engine.stdout.on('data', dataHandler);
+      
+      engine.stderr.on('data', (data) => {
+        console.error('Fresh Stockfish error:', data.toString());
+      });
 
-      // Set MultiPV to get up to 15 alternative lines
-      this.engine.stdin.write(`setoption name MultiPV value ${maxAlternatives}\n`);
-      this.engine.stdin.write(`position fen ${fen}\n`);
-      this.engine.stdin.write(`go depth ${depth}\n`);
-
-      // Timeout after 15 seconds for complex positions with many alternatives
-      setTimeout(() => {
+      engine.on('error', (err) => {
         if (!resolved) {
-          this.engine.stdout.removeListener('data', dataHandler);
+          clearTimeout(timeout);
+          this.timeouts.delete(timeout);
+          this.activeProcesses.delete(engine);
+          resolved = true;
+          reject(err);
+        }
+      });
+
+      engine.on('close', (code) => {
+        this.activeProcesses.delete(engine);
+        if (!resolved) {
+          clearTimeout(timeout);
+          this.timeouts.delete(timeout);
           resolved = true;
           alternatives.sort((a, b) => (a.rank || 999) - (b.rank || 999));
           resolve(alternatives.slice(0, maxAlternatives));
         }
-      }, 15000);
+      });
+
+      // Start UCI protocol
+      engine.stdin.write('uci\n');
     });
   }
 }

@@ -5,6 +5,9 @@
  * In the future, this will be replaced with user authentication and per-user settings.
  */
 
+// Load environment variables from .env file
+require('dotenv').config();
+
 /**
  * Target player for analysis
  * TODO: Replace with user authentication system
@@ -31,11 +34,10 @@ const ANALYSIS_CONFIG = {
 
 /**
  * Feature Flags
+ * (Currently none - all features are enabled by default)
  */
 const FEATURE_FLAGS = {
-  // ADR 005: Win-probability based accuracy calculation
-  // Set to true to enable new algorithm, false for legacy centipawn-loss method
-  USE_WIN_PROBABILITY_ACCURACY: process.env.USE_WIN_PROBABILITY_ACCURACY === 'true' || false,
+  // Reserved for future feature flags
 };
 
 module.exports = {

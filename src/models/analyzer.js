@@ -3,6 +3,9 @@ const path = require('path');
 const { Chess } = require('chess.js');
 const { spawn } = require('child_process');
 const BlunderCategorizer = require('./blunder-categorizer');
+const TacticalDetector = require('./tactical-detector');
+const WinProbability = require('./win-probability');
+const { FEATURE_FLAGS } = require('../config/app-config');
 
 class ChessAnalyzer {
   constructor() {
@@ -56,7 +59,7 @@ class ChessAnalyzer {
     // Check if player played the actual best move (engine's top choice)
     const playedBestMove = playedMoveUci && (
       playedMoveUci === bestMoveUci ||
-      (alternatives && alternatives.length > 0 && alternatives[0].move === playedMoveUci)
+      (alternatives && alternatives.length > 0 && alternatives[0].moveUci === playedMoveUci)
     );
 
     // Lichess/Chess.com style thresholds (based on centipawn loss)
@@ -272,8 +275,26 @@ class ChessAnalyzer {
             alternatives = await this.generateAlternatives(beforeFen, 12, 10);
             console.log(`✅ Found ${alternatives.length} alternatives for move ${i + 1}`);
           } else {
-            // Fallback to just the best move
-            alternatives = beforeEval.bestMove !== move ? [{ move: beforeEval.bestMove, evaluation: beforeEval.evaluation }] : [];
+            // Fallback to just the best move - convert UCI to SAN
+            if (beforeEval.bestMove !== move) {
+              try {
+                const tempChess = new Chess();
+                tempChess.load(beforeFen);
+                const moveResult = tempChess.move(beforeEval.bestMove);
+                const bestMoveSan = moveResult ? moveResult.san : beforeEval.bestMove;
+                alternatives = [{ 
+                  move: bestMoveSan, 
+                  moveUci: beforeEval.bestMove,
+                  evaluation: beforeEval.evaluation 
+                }];
+              } catch (error) {
+                alternatives = [{ 
+                  move: beforeEval.bestMove, 
+                  moveUci: beforeEval.bestMove,
+                  evaluation: beforeEval.evaluation 
+                }];
+              }
+            }
           }
 
           // Make the move and get UCI notation
@@ -302,7 +323,7 @@ class ChessAnalyzer {
           if (alternatives.length > 0) {
             // Find the played move in alternatives list
             const bestMoveEval = alternatives[0].evaluation;
-            const playedMoveAlt = alternatives.find(alt => alt.move === playedMoveUci);
+            const playedMoveAlt = alternatives.find(alt => alt.moveUci === playedMoveUci);
 
             if (playedMoveAlt) {
               // Player played one of the top moves - calculate loss from best
@@ -325,24 +346,120 @@ class ChessAnalyzer {
           centipawnLoss = Math.min(centipawnLoss, 500); // Cap at 500cp (5 pawns)
           totalCentipawnLoss += centipawnLoss;
 
-          // Calculate per-move accuracy (Lichess style)
-          const moveAccuracy = this.calculateMoveAccuracy(beforeEval.evaluation, afterEval.evaluation, isWhiteMove);
-
           // Calculate win probability before and after from mover's perspective
           // beforeEval is from mover's perspective, afterEval is from opponent's perspective
           const wpBefore = this.centipawnToWinProbability(beforeEval.evaluation);
           const wpAfter = this.centipawnToWinProbability(-afterEval.evaluation); // Negate for mover's view
 
-          // Classify move quality (Lichess/Chess.com style)
-          const moveQuality = this.classifyMove(centipawnLoss, move, beforeEval.bestMove, alternatives, playedMoveUci);
+          // Calculate per-move accuracy and win probabilities based on feature flag
+          let moveAccuracy;
+          let winProbBefore, winProbAfter; // Declare here so they're available later
 
-          // Determine move quality flags (for backward compatibility)
-          const isBlunder = moveQuality === 'blunder';
-          const isMistake = moveQuality === 'mistake';
-          const isInaccuracy = moveQuality === 'inaccuracy';
-          const isBest = moveQuality === 'best';
-          const isExcellent = moveQuality === 'excellent';
-          const isGood = moveQuality === 'good';
+          if (FEATURE_FLAGS.USE_WIN_PROBABILITY_ACCURACY) {
+            // New algorithm: Win-probability based accuracy (ADR 005)
+            winProbBefore = WinProbability.cpToWinProbability(beforeEval.evaluation);
+            winProbAfter = WinProbability.cpToWinProbability(-afterEval.evaluation);
+            moveAccuracy = WinProbability.calculateMoveAccuracy(winProbBefore, winProbAfter);
+          } else {
+            // Legacy algorithm: Lichess-style centipawn loss
+            winProbBefore = wpBefore;
+            winProbAfter = wpAfter;
+            moveAccuracy = this.calculateMoveAccuracy(beforeEval.evaluation, afterEval.evaluation, isWhiteMove);
+          }
+
+          // Tactical blunder detection (ADR 005 Phase 2)
+          let tacticalAnalysis = null;
+          let moveClassification = null;
+          if (FEATURE_FLAGS.USE_WIN_PROBABILITY_ACCURACY && alternatives.length > 0) {
+            // Analyze for tactical blunders and missed opportunities
+            const moveData = {
+              evaluation: -afterEval.evaluation, // From mover's perspective
+              centipawnLoss: centipawnLoss
+            };
+            tacticalAnalysis = TacticalDetector.analyzeTacticalBlunder(moveData, alternatives);
+
+            // Classify move using tactical detection + win probability
+            moveClassification = TacticalDetector.classifyMoveWithTactics(
+              moveAccuracy,
+              tacticalAnalysis,
+              beforeEval.evaluation,
+              -afterEval.evaluation,
+              centipawnLoss
+            );
+          }
+
+          // Classify move quality
+          let moveQuality, isBlunder, isMistake, isInaccuracy, isBest, isExcellent, isGood;
+
+          if (FEATURE_FLAGS.USE_WIN_PROBABILITY_ACCURACY && moveClassification) {
+            // Use tactical + win-probability classification
+            switch (moveClassification.classification) {
+              case 'blunder':
+                moveQuality = 'blunder';
+                isBlunder = true;
+                isMistake = false;
+                isInaccuracy = false;
+                isBest = false;
+                isExcellent = false;
+                isGood = false;
+                break;
+              case 'mistake':
+                moveQuality = 'mistake';
+                isBlunder = false;
+                isMistake = true;
+                isInaccuracy = false;
+                isBest = false;
+                isExcellent = false;
+                isGood = false;
+                break;
+              case 'inaccuracy':
+                moveQuality = 'inaccuracy';
+                isBlunder = false;
+                isMistake = false;
+                isInaccuracy = true;
+                isBest = false;
+                isExcellent = false;
+                isGood = false;
+                break;
+              case 'missed_opportunity':
+                moveQuality = 'good'; // Still a good move, just missed something better
+                isBlunder = false;
+                isMistake = false;
+                isInaccuracy = false;
+                isBest = false;
+                isExcellent = false;
+                isGood = true;
+                break;
+              default:
+                // Good move (no classification)
+                if (moveAccuracy >= 95) {
+                  moveQuality = 'best';
+                  isBest = true;
+                } else if (moveAccuracy >= 90) {
+                  moveQuality = 'excellent';
+                  isExcellent = true;
+                } else {
+                  moveQuality = 'good';
+                  isGood = true;
+                }
+                isBlunder = false;
+                isMistake = false;
+                isInaccuracy = false;
+                if (!isBest) isBest = false;
+                if (!isExcellent) isExcellent = false;
+                if (!isGood) isGood = false;
+                break;
+            }
+          } else {
+            // Legacy classification: Lichess/Chess.com style
+            moveQuality = this.classifyMove(centipawnLoss, move, beforeEval.bestMove, alternatives, playedMoveUci);
+            isBlunder = moveQuality === 'blunder';
+            isMistake = moveQuality === 'mistake';
+            isInaccuracy = moveQuality === 'inaccuracy';
+            isBest = moveQuality === 'best';
+            isExcellent = moveQuality === 'excellent';
+            isGood = moveQuality === 'good';
+          }
 
           // Categorize blunders, mistakes, and inaccuracies with enhanced details
           let categorization = null;
@@ -376,13 +493,13 @@ class ChessAnalyzer {
           const moveAnalysis = {
             move_number: i + 1,
             move: move,
-            evaluation: afterEval.evaluation,
+            evaluation: -afterEval.evaluation, // From mover's perspective (negated from opponent's view)
             best_move: beforeEval.bestMove,
             centipawn_loss: centipawnLoss,
             move_accuracy: Math.round(moveAccuracy * 10) / 10, // Per-move accuracy
             move_quality: moveQuality, // best/excellent/good/inaccuracy/mistake/blunder
-            win_probability_before: Math.round(wpBefore * 1000) / 10, // As percentage
-            win_probability_after: Math.round(wpAfter * 1000) / 10,
+            win_probability_before: Math.round(winProbBefore * 10) / 10, // As percentage (0-100)
+            win_probability_after: Math.round(winProbAfter * 10) / 10, // As percentage (0-100)
             is_best: isBest,
             is_excellent: isExcellent,
             is_good: isGood,
@@ -392,7 +509,10 @@ class ChessAnalyzer {
             fen_before: beforeFen,
             fen_after: afterFen,
             alternatives: alternatives, // Up to 10 alternative moves with lines
-            categorization: categorization // Enhanced blunder/mistake/inaccuracy categorization
+            categorization: categorization, // Enhanced blunder/mistake/inaccuracy categorization
+            // ADR 005 Phase 2: Tactical analysis data
+            tactical_analysis: tacticalAnalysis,
+            move_classification: moveClassification
           };
 
           analysis.push(moveAnalysis);
@@ -425,7 +545,7 @@ class ChessAnalyzer {
       return {
         moves: analysis,
         summary: {
-          totalMoves: moves.length,
+          totalMoves: Math.ceil(moves.length / 2), // Board moves, not ply count
           accuracy: Math.round(accuracy * 10) / 10, // One decimal place
           averageCentipawnLoss: Math.round(averageCentipawnLoss * 10) / 10,
           moveQuality: moveQualityCounts,
@@ -648,15 +768,15 @@ class ChessAnalyzer {
     const result = {
       moves: analysis,
       summary: {
-        totalMoves: analysis.length,
+        totalMoves: Math.ceil(analysis.length / 2), // Board moves, not ply count
         accuracy: Math.round(accuracy),
         blunders: blunders.length,
         averageCentipawnLoss: Math.round(averageCentipawnLoss),
         blunderDetails: blunders
       }
     };
-    
-    console.log(`✅ Enhanced analysis complete: ${analysis.length} moves, ${Math.round(accuracy)}% accuracy`);
+
+    console.log(`✅ Enhanced analysis complete: ${Math.ceil(analysis.length / 2)} board moves, ${Math.round(accuracy)}% accuracy`);
     return result;
   }
 
@@ -671,6 +791,9 @@ class ChessAnalyzer {
       let resolved = false;
       let lastDepthSeen = 0;
 
+      // Create a chess instance for UCI to SAN conversion
+      const tempChess = new Chess();
+
       const dataHandler = (data) => {
         const output = data.toString();
         const lines = output.split('\n');
@@ -684,28 +807,58 @@ class ChessAnalyzer {
             const [, depthStr, multipv, score, pv] = cpMatch;
             const currentDepth = parseInt(depthStr);
             const moves = pv.trim().split(' ');
-            const mainMove = moves[0];
+            const mainMoveUci = moves[0];
+
+            // Convert UCI move to SAN notation
+            let mainMoveSan = mainMoveUci;
+            try {
+              tempChess.load(fen);
+              const moveResult = tempChess.move(mainMoveUci);
+              if (moveResult) {
+                mainMoveSan = moveResult.san;
+              }
+            } catch (error) {
+              console.warn(`Failed to convert UCI move ${mainMoveUci} to SAN:`, error.message);
+            }
+
+            // Convert the entire line to SAN notation
+            const lineSan = [];
+            try {
+              tempChess.load(fen);
+              for (const uciMove of moves.slice(0, 5)) {
+                const moveResult = tempChess.move(uciMove);
+                if (moveResult) {
+                  lineSan.push(moveResult.san);
+                } else {
+                  break; // Stop if we can't make the move
+                }
+              }
+            } catch (error) {
+              console.warn(`Failed to convert line to SAN:`, error.message);
+            }
 
             // Only add if this is the deepest analysis we've seen for this move
-            if (mainMove && currentDepth >= lastDepthSeen) {
+            if (mainMoveUci && currentDepth >= lastDepthSeen) {
               lastDepthSeen = currentDepth;
-              const existingIndex = alternatives.findIndex(alt => alt.move === mainMove);
+              const existingIndex = alternatives.findIndex(alt => alt.moveUci === mainMoveUci);
 
               if (existingIndex === -1) {
                 alternatives.push({
-                  move: mainMove,
+                  move: mainMoveSan, // Store SAN notation for display
+                  moveUci: mainMoveUci, // Keep UCI for internal use
                   evaluation: parseInt(score),
                   depth: currentDepth,
-                  line: moves.slice(0, 5), // Store first 5 moves of the line
+                  line: lineSan.length > 0 ? lineSan : moves.slice(0, 5), // Use SAN line if available, fallback to UCI
                   rank: parseInt(multipv)
                 });
               } else if (currentDepth > alternatives[existingIndex].depth) {
                 // Update with deeper analysis
                 alternatives[existingIndex] = {
-                  move: mainMove,
+                  move: mainMoveSan,
+                  moveUci: mainMoveUci,
                   evaluation: parseInt(score),
                   depth: currentDepth,
-                  line: moves.slice(0, 5),
+                  line: lineSan.length > 0 ? lineSan : moves.slice(0, 5),
                   rank: parseInt(multipv)
                 };
               }
@@ -714,28 +867,58 @@ class ChessAnalyzer {
             const [, depthStr, multipv, mateIn, pv] = mateMatch;
             const currentDepth = parseInt(depthStr);
             const moves = pv.trim().split(' ');
-            const mainMove = moves[0];
+            const mainMoveUci = moves[0];
             const mateScore = parseInt(mateIn) > 0 ? 10000 - (parseInt(mateIn) * 10) : -10000 + (Math.abs(parseInt(mateIn)) * 10);
 
-            if (mainMove && currentDepth >= lastDepthSeen) {
+            // Convert UCI move to SAN notation
+            let mainMoveSan = mainMoveUci;
+            try {
+              tempChess.load(fen);
+              const moveResult = tempChess.move(mainMoveUci);
+              if (moveResult) {
+                mainMoveSan = moveResult.san;
+              }
+            } catch (error) {
+              console.warn(`Failed to convert UCI move ${mainMoveUci} to SAN:`, error.message);
+            }
+
+            // Convert the entire line to SAN notation
+            const lineSan = [];
+            try {
+              tempChess.load(fen);
+              for (const uciMove of moves.slice(0, 5)) {
+                const moveResult = tempChess.move(uciMove);
+                if (moveResult) {
+                  lineSan.push(moveResult.san);
+                } else {
+                  break;
+                }
+              }
+            } catch (error) {
+              console.warn(`Failed to convert mate line to SAN:`, error.message);
+            }
+
+            if (mainMoveUci && currentDepth >= lastDepthSeen) {
               lastDepthSeen = currentDepth;
-              const existingIndex = alternatives.findIndex(alt => alt.move === mainMove);
+              const existingIndex = alternatives.findIndex(alt => alt.moveUci === mainMoveUci);
 
               if (existingIndex === -1) {
                 alternatives.push({
-                  move: mainMove,
+                  move: mainMoveSan,
+                  moveUci: mainMoveUci,
                   evaluation: mateScore,
                   depth: currentDepth,
-                  line: moves.slice(0, 5),
+                  line: lineSan.length > 0 ? lineSan : moves.slice(0, 5),
                   rank: parseInt(multipv),
                   mateIn: parseInt(mateIn)
                 });
               } else if (currentDepth > alternatives[existingIndex].depth) {
                 alternatives[existingIndex] = {
-                  move: mainMove,
+                  move: mainMoveSan,
+                  moveUci: mainMoveUci,
                   evaluation: mateScore,
                   depth: currentDepth,
-                  line: moves.slice(0, 5),
+                  line: lineSan.length > 0 ? lineSan : moves.slice(0, 5),
                   rank: parseInt(multipv),
                   mateIn: parseInt(mateIn)
                 };

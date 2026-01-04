@@ -122,9 +122,23 @@ interface GameAnalysisResponse {
           <ng-template #moveListTemplate>
             <div class="rounded-xl border border-border gradient-card text-card-foreground shadow-xl sticky top-20">
               <div class="flex flex-col space-y-1.5 p-4 sm:p-6 pb-3">
-                <h3 class="text-xl sm:text-2xl font-semibold leading-none tracking-tight">Moves</h3>
+                <div class="flex items-center justify-between">
+                  <h3 class="text-xl sm:text-2xl font-semibold leading-none tracking-tight">Moves</h3>
+                  <span class="text-sm text-muted-foreground">
+                    {{ currentMove + 1 }} / {{ moves.length }}
+                  </span>
+                </div>
+                <!-- Move quality legend - grid on mobile, flex on larger -->
+                <div class="grid grid-cols-3 sm:flex sm:flex-wrap gap-1 sm:gap-2 mt-2 text-[10px] sm:text-xs">
+                  <span class="flex items-center gap-0.5 sm:gap-1"><span class="text-green-600 font-bold">!!</span> Best</span>
+                  <span class="flex items-center gap-0.5 sm:gap-1"><span class="text-green-500 font-bold">!</span> Excellent</span>
+                  <span class="flex items-center gap-0.5 sm:gap-1"><span class="text-blue-500 font-bold">+</span> Good</span>
+                  <span class="flex items-center gap-0.5 sm:gap-1"><span class="text-yellow-600 font-bold">?!</span> Inaccuracy</span>
+                  <span class="flex items-center gap-0.5 sm:gap-1"><span class="text-orange-600 font-bold">?</span> Mistake</span>
+                  <span class="flex items-center gap-0.5 sm:gap-1"><span class="text-red-600 font-bold">??</span> Blunder</span>
+                </div>
               </div>
-              <div class="overflow-y-auto h-[calc(100vh-12rem)] px-2">
+              <div class="overflow-y-auto h-[400px] sm:h-[calc(100vh-14rem)] px-2">
                 <app-move-list
                   [moves]="enhancedMoves"
                   [currentMoveIndex]="currentMove"
@@ -180,6 +194,29 @@ interface GameAnalysisResponse {
                         [previewFen]="previewFen"
                         (moveChanged)="onMoveChanged($event)">
                       </app-chess-board>
+                    </div>
+
+                    <!-- Keyboard Shortcuts Hint (hidden on mobile - touch devices) -->
+                    <div class="hidden sm:flex justify-center">
+                      <div class="inline-flex items-center gap-4 text-xs text-muted-foreground bg-muted/50 px-4 py-2 rounded-lg">
+                        <span class="flex items-center gap-1">
+                          <kbd class="px-1.5 py-0.5 bg-background border border-border rounded text-[10px] font-mono">←</kbd>
+                          <kbd class="px-1.5 py-0.5 bg-background border border-border rounded text-[10px] font-mono">→</kbd>
+                          <span class="ml-1">Navigate</span>
+                        </span>
+                        <span class="flex items-center gap-1">
+                          <kbd class="px-1.5 py-0.5 bg-background border border-border rounded text-[10px] font-mono">Home</kbd>
+                          <span class="ml-1">Start</span>
+                        </span>
+                        <span class="flex items-center gap-1">
+                          <kbd class="px-1.5 py-0.5 bg-background border border-border rounded text-[10px] font-mono">End</kbd>
+                          <span class="ml-1">End</span>
+                        </span>
+                      </div>
+                    </div>
+                    <!-- Mobile swipe hint -->
+                    <div class="flex sm:hidden justify-center">
+                      <p class="text-xs text-muted-foreground">Tap moves in the list to navigate</p>
                     </div>
                   </div>
                 </div>

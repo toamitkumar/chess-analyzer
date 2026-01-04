@@ -232,6 +232,8 @@ interface GameAnalysisResponse {
       background: var(--c-lpv-bg);
       border-radius: 8px;
       min-height: 500px;
+      height: calc(100vh - 120px); /* Constrain height for internal scroll */
+      max-height: 900px;
       max-width: 1400px;
       margin: 0 auto;
     }
@@ -446,6 +448,8 @@ interface GameAnalysisResponse {
       border-left: 1px solid var(--c-lpv-border);
       min-width: 280px;
       max-width: 400px;
+      overflow: hidden;
+      /* Height is determined by grid row span */
     }
 
     @media (max-width: 700px) {
@@ -453,7 +457,8 @@ interface GameAnalysisResponse {
         border-left: none;
         border-top: 1px solid var(--c-lpv-border);
         max-width: none;
-        max-height: 300px;
+        height: 300px;
+        min-height: 200px;
       }
     }
 
@@ -518,7 +523,8 @@ interface GameAnalysisResponse {
 
     /* Move List - Lichess Style */
     .lpv__moves {
-      flex: 1;
+      flex: 1 1 0;
+      min-height: 0; /* Critical for flex container scroll */
       display: flex;
       flex-flow: row wrap;
       align-items: center;
@@ -527,6 +533,7 @@ interface GameAnalysisResponse {
       padding: 8px;
       line-height: 1.8;
       user-select: none;
+      will-change: scroll-position;
     }
 
     .lpv__moves > index {

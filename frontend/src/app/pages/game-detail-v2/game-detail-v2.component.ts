@@ -203,24 +203,24 @@ interface GameAnalysisResponse {
     </app-layout>
   `,
   styles: [`
-    /* CSS Variables for theming */
+    /* CSS Variables for theming - Light Mode */
     :host {
-      --c-lpv-bg: hsl(37, 5%, 18%);
-      --c-lpv-bg-side: hsl(37, 5%, 15%);
-      --c-lpv-accent: hsl(88, 62%, 37%);
+      --c-lpv-bg: hsl(37, 12%, 96%);
+      --c-lpv-bg-side: hsl(37, 12%, 98%);
+      --c-lpv-accent: hsl(209, 77%, 46%);
       --c-lpv-accent-over: #fff;
-      --c-lpv-font: #bbb;
-      --c-lpv-font-shy: #888;
-      --c-lpv-border: hsl(0, 0%, 25%);
-      --c-lpv-current-move: hsl(88, 62%, 37%);
-      --c-lpv-past-moves: #888;
-      --c-lpv-move-hover: hsl(37, 5%, 25%);
-      --c-lpv-blunder: #e74c3c;
-      --c-lpv-mistake: #e67e22;
-      --c-lpv-inaccuracy: #f1c40f;
-      --c-lpv-good: #3498db;
-      --c-lpv-excellent: #2ecc71;
-      --c-lpv-best: #27ae60;
+      --c-lpv-font: #333;
+      --c-lpv-font-shy: #666;
+      --c-lpv-border: hsl(0, 0%, 85%);
+      --c-lpv-current-move: hsl(209, 77%, 46%);
+      --c-lpv-past-moves: #999;
+      --c-lpv-move-hover: hsl(37, 12%, 90%);
+      --c-lpv-blunder: #c0392b;
+      --c-lpv-mistake: #d35400;
+      --c-lpv-inaccuracy: #b8860b;
+      --c-lpv-good: #2980b9;
+      --c-lpv-excellent: #27ae60;
+      --c-lpv-best: #1e8449;
       --controls-height: 3.5rem;
       --player-height: 2.5rem;
     }
@@ -231,6 +231,8 @@ interface GameAnalysisResponse {
       overflow: hidden;
       background: var(--c-lpv-bg);
       border-radius: 8px;
+      border: 1px solid var(--c-lpv-border);
+      box-shadow: 0 2px 8px rgba(0, 0, 0, 0.08);
       min-height: 500px;
       height: calc(100vh - 120px); /* Constrain height for internal scroll */
       max-height: 900px;
@@ -367,11 +369,13 @@ interface GameAnalysisResponse {
     }
 
     .lpv__player-piece.white {
-      background: #f0f0f0;
+      background: #fff;
+      border-color: #999;
     }
 
     .lpv__player-piece.black {
       background: #333;
+      border-color: #333;
     }
 
     .lpv__player-name {
@@ -502,6 +506,7 @@ interface GameAnalysisResponse {
       border-radius: 2px;
       overflow: hidden;
       position: relative;
+      border: 1px solid var(--c-lpv-border);
     }
 
     .lpv__eval-white {
@@ -509,7 +514,7 @@ interface GameAnalysisResponse {
       bottom: 0;
       left: 0;
       right: 0;
-      background: #f0f0f0;
+      background: #fff;
       transition: height 0.3s ease;
     }
 

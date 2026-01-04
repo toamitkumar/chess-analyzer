@@ -4,7 +4,7 @@ import { Chess } from 'chess.js';
 import { Chessground } from '@lichess-org/chessground';
 import { Config } from '@lichess-org/chessground/config';
 import { Key } from '@lichess-org/chessground/types';
-import { MoveQuality, MOVE_QUALITY_COLORS } from '../../constants/move-quality.constants';
+import { MoveQualityEnum, MOVE_QUALITY_COLORS, getMoveQualitySymbol, type MoveQuality } from '../../constants/move-quality.constants';
 
 interface MoveAnalysis {
   move_number: number;
@@ -504,15 +504,13 @@ export class ChessBoardComponent implements OnInit, AfterViewInit, OnDestroy, On
   }
 
   private getMoveQualityIcon(quality: string): string {
-    const icons: { [key: string]: string } = {
-      [MoveQuality.BOOK]: '📖',
-      [MoveQuality.EXCELLENT]: '★',
-      [MoveQuality.GOOD]: '✓',
-      [MoveQuality.INACCURACY]: '?!',
-      [MoveQuality.MISTAKE]: '?',
-      [MoveQuality.BLUNDER]: '??'
-    };
-    return icons[quality] || '';
+    // Use Lichess-style symbols from the config
+    const symbol = getMoveQualitySymbol(quality as MoveQuality);
+    if (symbol) return symbol;
+
+    // Fallback for book moves
+    if (quality === 'book') return '📖';
+    return '';
   }
 
   private getMoveQualityColor(quality: string): string {

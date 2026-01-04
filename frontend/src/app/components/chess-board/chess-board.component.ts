@@ -4,7 +4,7 @@ import { Chess } from 'chess.js';
 import { Chessground } from '@lichess-org/chessground';
 import { Config } from '@lichess-org/chessground/config';
 import { Key } from '@lichess-org/chessground/types';
-import { MoveQuality, MOVE_QUALITY_COLORS } from '../../constants/move-quality.constants';
+import { MoveQualityEnum, MOVE_QUALITY_COLORS, getMoveQualitySymbol, type MoveQuality } from '../../constants/move-quality.constants';
 
 interface MoveAnalysis {
   move_number: number;
@@ -15,6 +15,8 @@ interface MoveAnalysis {
   is_mistake: boolean;
   is_inaccuracy: boolean;
   fen_after: string;
+  fen_before?: string;
+  best_move?: string; // UCI notation (e.g., "e2e4")
 }
 
 @Component({
@@ -257,6 +259,8 @@ export class ChessBoardComponent implements OnInit, AfterViewInit, OnDestroy, On
   @Input() whitePlayer: string = '';
   @Input() blackPlayer: string = '';
   @Input() previewFen: string | null = null; // For previewing alternative moves
+  @Input() showBestMoveArrow: boolean = true; // Show arrow for best move on mistakes/blunders
+  @Input() bestMoveUci: string | null = null; // UCI notation for best move (e.g., "e2e4")
   @Output() moveChanged = new EventEmitter<number>();
 
   private board: ReturnType<typeof Chessground> | null = null;
@@ -325,7 +329,15 @@ export class ChessBoardComponent implements OnInit, AfterViewInit, OnDestroy, On
         },
         drawable: {
           enabled: true,
-          visible: true
+          visible: true,
+          brushes: {
+            // Custom brushes for best-move arrows
+            green: { key: 'g', color: '#15781B', opacity: 0.8, lineWidth: 10 },
+            red: { key: 'r', color: '#882020', opacity: 0.8, lineWidth: 10 },
+            blue: { key: 'b', color: '#003088', opacity: 0.8, lineWidth: 10 },
+            yellow: { key: 'y', color: '#e68f00', opacity: 0.8, lineWidth: 10 },
+            purple: { key: 'p', color: '#68217a', opacity: 0.8, lineWidth: 10 }
+          }
         }
       };
 
@@ -477,42 +489,76 @@ export class ChessBoardComponent implements OnInit, AfterViewInit, OnDestroy, On
 
   private highlightMoveQuality(from: Key, to: Key): void {
     if (!this.board || !this.currentMove) return;
-    
+
     const quality = this.getMoveQuality();
     const icon = this.getMoveQualityIcon(quality);
     const color = this.getMoveQualityColor(quality);
-    
+
+    const shapes: any[] = [];
+
+    // Add move quality badge at top-right corner of square
     if (icon) {
-      // Add move quality annotation at top-right corner of square
+      shapes.push({
+        orig: to,
+        customSvg: {
+          html: `<circle cx="85%" cy="15%" r="24" fill="${color}" stroke="white" stroke-width="3" opacity="0.95"/>
+                 <text x="85%" y="18%" text-anchor="middle" dominant-baseline="middle"
+                       font-size="26" font-weight="bold" fill="white" font-family="Arial, sans-serif">
+                   ${icon}
+                 </text>`
+        }
+      });
+    }
+
+    // Add best-move arrow for mistakes/blunders/inaccuracies
+    if (this.showBestMoveArrow && this.shouldShowBestMoveArrow(quality)) {
+      const bestMove = this.bestMoveUci || this.currentMove.best_move;
+      if (bestMove && bestMove.length >= 4) {
+        const bestFrom = bestMove.substring(0, 2) as Key;
+        const bestTo = bestMove.substring(2, 4) as Key;
+
+        // Only show arrow if best move is different from played move
+        if (bestFrom !== from || bestTo !== to) {
+          shapes.push({
+            orig: bestFrom,
+            dest: bestTo,
+            brush: this.getBestMoveArrowBrush(quality)
+          });
+        }
+      }
+    }
+
+    if (shapes.length > 0) {
       this.board.set({
         drawable: {
-          autoShapes: [
-            {
-              orig: to,
-              customSvg: {
-                html: `<circle cx="85%" cy="15%" r="24" fill="${color}" stroke="white" stroke-width="3" opacity="0.95"/>
-                       <text x="85%" y="18%" text-anchor="middle" dominant-baseline="middle" 
-                             font-size="26" font-weight="bold" fill="white" font-family="Arial, sans-serif">
-                         ${icon}
-                       </text>`
-              }
-            }
-          ]
+          autoShapes: shapes
         }
       });
     }
   }
 
+  private shouldShowBestMoveArrow(quality: string): boolean {
+    return quality === 'blunder' || quality === 'mistake' || quality === 'inaccuracy';
+  }
+
+  private getBestMoveArrowBrush(quality: string): string {
+    // Use different colors based on severity
+    switch (quality) {
+      case 'blunder': return 'red';
+      case 'mistake': return 'yellow';
+      case 'inaccuracy': return 'blue';
+      default: return 'green';
+    }
+  }
+
   private getMoveQualityIcon(quality: string): string {
-    const icons: { [key: string]: string } = {
-      [MoveQuality.BOOK]: '📖',
-      [MoveQuality.EXCELLENT]: '★',
-      [MoveQuality.GOOD]: '✓',
-      [MoveQuality.INACCURACY]: '?!',
-      [MoveQuality.MISTAKE]: '?',
-      [MoveQuality.BLUNDER]: '??'
-    };
-    return icons[quality] || '';
+    // Use Lichess-style symbols from the config
+    const symbol = getMoveQualitySymbol(quality as MoveQuality);
+    if (symbol) return symbol;
+
+    // Fallback for book moves
+    if (quality === 'book') return '📖';
+    return '';
   }
 
   private getMoveQualityColor(quality: string): string {
@@ -536,7 +582,18 @@ export class ChessBoardComponent implements OnInit, AfterViewInit, OnDestroy, On
   }
 
   getMoveQuality(): string {
-    // DISABLED: Return empty to hide all chess board move quality indicators
+    if (!this.currentMove) return '';
+
+    if (this.currentMove.is_blunder) return 'blunder';
+    if (this.currentMove.is_mistake) return 'mistake';
+    if (this.currentMove.is_inaccuracy) return 'inaccuracy';
+
+    // For good moves, check centipawn loss
+    const cpLoss = this.currentMove.centipawn_loss || 0;
+    if (cpLoss <= 5) return 'best';
+    if (cpLoss <= 15) return 'excellent';
+    if (cpLoss <= 30) return 'good';
+
     return '';
   }
 

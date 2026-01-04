@@ -1,5 +1,6 @@
 import { Component, Input, Output, EventEmitter, OnChanges, SimpleChanges, ViewChildren, QueryList, ElementRef, AfterViewInit } from '@angular/core';
 import { CommonModule } from '@angular/common';
+import { MOVE_QUALITY_CONFIG, getMoveQualitySymbol, type MoveQuality } from '../../constants/move-quality.constants';
 
 export interface MoveVariant {
   move: string;
@@ -66,15 +67,10 @@ interface MovePair {
               [attr.data-move-index]="pair.whiteIndex"
               [class]="'move-cell ' + (pair.whiteIndex === currentMoveIndex ? 'active' : '') + ' ' + pair.white.moveQuality"
               (click)="selectMove(pair.whiteIndex)">
-              {{ pair.white.move }}
-              <span *ngIf="pair.white.moveQuality === 'best'" class="quality-badge best" title="Best move">
-                <svg viewBox="0 0 24 24" fill="currentColor"><path d="M9 16.17L4.83 12l-1.42 1.41L9 19 21 7l-1.41-1.41z"/></svg>
-              </span>
-              <span *ngIf="pair.white.moveQuality === 'excellent'" class="quality-badge excellent" title="Excellent move">!</span>
-              <span *ngIf="pair.white.moveQuality === 'good'" class="quality-badge good" title="Good move">👍</span>
-              <span *ngIf="pair.white.moveQuality === 'inaccuracy'" class="quality-badge inaccuracy" title="Inaccuracy">?!</span>
-              <span *ngIf="pair.white.moveQuality === 'mistake'" class="quality-badge mistake" title="Mistake">?</span>
-              <span *ngIf="pair.white.moveQuality === 'blunder'" class="quality-badge blunder" title="Blunder">??</span>
+              {{ pair.white.move }}<span
+                *ngIf="getSymbol(pair.white.moveQuality)"
+                [class]="'quality-badge ' + pair.white.moveQuality"
+                [title]="getLabel(pair.white.moveQuality)">{{ getSymbol(pair.white.moveQuality) }}</span>
             </span>
 
             <!-- Black's Move -->
@@ -84,15 +80,10 @@ interface MovePair {
               [attr.data-move-index]="pair.blackIndex"
               [class]="'move-cell ' + (pair.blackIndex === currentMoveIndex ? 'active' : '') + ' ' + pair.black.moveQuality"
               (click)="selectMove(pair.blackIndex!)">
-              {{ pair.black.move }}
-              <span *ngIf="pair.black.moveQuality === 'best'" class="quality-badge best" title="Best move">
-                <svg viewBox="0 0 24 24" fill="currentColor"><path d="M9 16.17L4.83 12l-1.42 1.41L9 19 21 7l-1.41-1.41z"/></svg>
-              </span>
-              <span *ngIf="pair.black.moveQuality === 'excellent'" class="quality-badge excellent" title="Excellent move">!</span>
-              <span *ngIf="pair.black.moveQuality === 'good'" class="quality-badge good" title="Good move">👍</span>
-              <span *ngIf="pair.black.moveQuality === 'inaccuracy'" class="quality-badge inaccuracy" title="Inaccuracy">?!</span>
-              <span *ngIf="pair.black.moveQuality === 'mistake'" class="quality-badge mistake" title="Mistake">?</span>
-              <span *ngIf="pair.black.moveQuality === 'blunder'" class="quality-badge blunder" title="Blunder">??</span>
+              {{ pair.black.move }}<span
+                *ngIf="getSymbol(pair.black.moveQuality)"
+                [class]="'quality-badge ' + pair.black.moveQuality"
+                [title]="getLabel(pair.black.moveQuality)">{{ getSymbol(pair.black.moveQuality) }}</span>
             </span>
           </div>
 
@@ -536,5 +527,20 @@ export class MoveListComponent implements OnChanges, AfterViewInit {
     if (centipawns > 50) return 'winning';
     if (centipawns < -50) return 'losing';
     return 'equal';
+  }
+
+  /**
+   * Get the Lichess-style symbol for a move quality
+   */
+  getSymbol(quality: string): string {
+    return getMoveQualitySymbol(quality as MoveQuality);
+  }
+
+  /**
+   * Get the label for a move quality
+   */
+  getLabel(quality: string): string {
+    const config = MOVE_QUALITY_CONFIG[quality as MoveQuality];
+    return config?.label || quality;
   }
 }

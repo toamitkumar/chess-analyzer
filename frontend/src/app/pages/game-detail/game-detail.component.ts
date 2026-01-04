@@ -8,6 +8,7 @@ import { ChessBoardComponent } from '../../components/chess-board/chess-board.co
 import { MoveListComponent, EnhancedMove, MoveAnnotation } from '../../components/move-list/move-list.component';
 import { MultiVariationAnalysisComponent, Variation } from '../../components/multi-variation-analysis/multi-variation-analysis.component';
 import { AlternativesMovesPanelComponent, AlternativeMove } from '../../components/alternative-moves-panel/alternative-moves-panel.component';
+import { EvalBarComponent } from '../../components/eval-bar/eval-bar.component';
 import { ChessApiService } from '../../services/chess-api.service';
 
 interface MoveAnalysis {
@@ -55,7 +56,8 @@ interface GameAnalysisResponse {
     ChessBoardComponent,
     MoveListComponent,
     MultiVariationAnalysisComponent,
-    AlternativesMovesPanelComponent
+    AlternativesMovesPanelComponent,
+    EvalBarComponent
   ],
   template: `
     <app-layout>
@@ -120,9 +122,23 @@ interface GameAnalysisResponse {
           <ng-template #moveListTemplate>
             <div class="rounded-xl border border-border gradient-card text-card-foreground shadow-xl sticky top-20">
               <div class="flex flex-col space-y-1.5 p-4 sm:p-6 pb-3">
-                <h3 class="text-xl sm:text-2xl font-semibold leading-none tracking-tight">Moves</h3>
+                <div class="flex items-center justify-between">
+                  <h3 class="text-xl sm:text-2xl font-semibold leading-none tracking-tight">Moves</h3>
+                  <span class="text-sm text-muted-foreground">
+                    {{ currentMove + 1 }} / {{ moves.length }}
+                  </span>
+                </div>
+                <!-- Move quality legend - grid on mobile, flex on larger -->
+                <div class="grid grid-cols-3 sm:flex sm:flex-wrap gap-1 sm:gap-2 mt-2 text-[10px] sm:text-xs">
+                  <span class="flex items-center gap-0.5 sm:gap-1"><span class="text-green-600 font-bold">!!</span> Best</span>
+                  <span class="flex items-center gap-0.5 sm:gap-1"><span class="text-green-500 font-bold">!</span> Excellent</span>
+                  <span class="flex items-center gap-0.5 sm:gap-1"><span class="text-blue-500 font-bold">+</span> Good</span>
+                  <span class="flex items-center gap-0.5 sm:gap-1"><span class="text-yellow-600 font-bold">?!</span> Inaccuracy</span>
+                  <span class="flex items-center gap-0.5 sm:gap-1"><span class="text-orange-600 font-bold">?</span> Mistake</span>
+                  <span class="flex items-center gap-0.5 sm:gap-1"><span class="text-red-600 font-bold">??</span> Blunder</span>
+                </div>
               </div>
-              <div class="overflow-y-auto h-[calc(100vh-12rem)] px-2">
+              <div class="overflow-y-auto h-[400px] sm:h-[calc(100vh-14rem)] px-2">
                 <app-move-list
                   [moves]="enhancedMoves"
                   [currentMoveIndex]="currentMove"
@@ -156,6 +172,18 @@ interface GameAnalysisResponse {
                 </div>
                 <div class="p-6 pt-0">
                   <div class="space-y-4">
+                    <!-- Evaluation Bar -->
+                    <div class="flex justify-center">
+                      <app-eval-bar
+                        [evaluation]="getCurrentEvaluation()"
+                        [isMate]="isCurrentMate()"
+                        [mateIn]="getCurrentMateIn()"
+                        [depth]="15"
+                        [isAnalyzed]="moves.length > 0"
+                        [showEngineInfo]="true">
+                      </app-eval-bar>
+                    </div>
+
                     <!-- Chess Board -->
                     <div class="w-full">
                       <app-chess-board
@@ -166,6 +194,29 @@ interface GameAnalysisResponse {
                         [previewFen]="previewFen"
                         (moveChanged)="onMoveChanged($event)">
                       </app-chess-board>
+                    </div>
+
+                    <!-- Keyboard Shortcuts Hint (hidden on mobile - touch devices) -->
+                    <div class="hidden sm:flex justify-center">
+                      <div class="inline-flex items-center gap-4 text-xs text-muted-foreground bg-muted/50 px-4 py-2 rounded-lg">
+                        <span class="flex items-center gap-1">
+                          <kbd class="px-1.5 py-0.5 bg-background border border-border rounded text-[10px] font-mono">←</kbd>
+                          <kbd class="px-1.5 py-0.5 bg-background border border-border rounded text-[10px] font-mono">→</kbd>
+                          <span class="ml-1">Navigate</span>
+                        </span>
+                        <span class="flex items-center gap-1">
+                          <kbd class="px-1.5 py-0.5 bg-background border border-border rounded text-[10px] font-mono">Home</kbd>
+                          <span class="ml-1">Start</span>
+                        </span>
+                        <span class="flex items-center gap-1">
+                          <kbd class="px-1.5 py-0.5 bg-background border border-border rounded text-[10px] font-mono">End</kbd>
+                          <span class="ml-1">End</span>
+                        </span>
+                      </div>
+                    </div>
+                    <!-- Mobile swipe hint -->
+                    <div class="flex sm:hidden justify-center">
+                      <p class="text-xs text-muted-foreground">Tap moves in the list to navigate</p>
                     </div>
                   </div>
                 </div>
@@ -645,6 +696,22 @@ export class GameDetailComponent implements OnInit, AfterViewInit {
       return this.moves[this.currentMove].evaluation;
     }
     return 0;
+  }
+
+  isCurrentMate(): boolean {
+    const eval_ = this.getCurrentEvaluation();
+    return Math.abs(eval_) > 9000;
+  }
+
+  getCurrentMateIn(): number | null {
+    const eval_ = this.getCurrentEvaluation();
+    if (Math.abs(eval_) > 9000) {
+      // Convert evaluation to mate-in moves
+      // Stockfish uses 10000 - (mate_in * 10) for positive, and -10000 + (mate_in * 10) for negative
+      const mateIn = Math.ceil((10000 - Math.abs(eval_)) / 10);
+      return eval_ > 0 ? mateIn : -mateIn;
+    }
+    return null;
   }
 
   getCurrentPosition(): string {

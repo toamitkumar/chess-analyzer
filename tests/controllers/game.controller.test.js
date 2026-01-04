@@ -164,7 +164,7 @@ describe('GameController', () => {
   });
 
   describe('getAnalysis()', () => {
-    it('should return analysis for a game', async () => {
+    it('should return analysis for a game with opening extracted', async () => {
       mockReq.params.id = '1';
       const mockAnalysis = {
         game: { id: 1, white_player: 'Player1', black_player: 'Player2' },
@@ -179,7 +179,14 @@ describe('GameController', () => {
       await gameController.getAnalysis(mockReq, mockRes);
 
       expect(mockDb.getGameAnalysis).toHaveBeenCalledWith(1, 'test-user-id');
-      expect(mockRes.json).toHaveBeenCalledWith(mockAnalysis);
+      // Response should include opening field (defaults to 'Unknown Opening' when no pgn_content)
+      expect(mockRes.json).toHaveBeenCalledWith({
+        ...mockAnalysis,
+        game: {
+          ...mockAnalysis.game,
+          opening: 'Unknown Opening'
+        }
+      });
     });
 
     it('should return empty array on error', async () => {

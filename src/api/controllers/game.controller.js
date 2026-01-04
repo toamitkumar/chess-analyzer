@@ -135,12 +135,37 @@ class GameController {
       const gameAnalysis = await database.getGameAnalysis(gameId, req.userId);
 
       console.log('🎮 [GAME CONTROLLER] Game analysis requested');
-    
+
       if (!gameAnalysis) {
         return res.status(404).json({ error: 'Game not found' });
       }
-    
-      res.json(gameAnalysis);
+
+      // Extract opening from PGN content (same logic as other endpoints)
+      let opening = null;
+      if (gameAnalysis.game && gameAnalysis.game.pgn_content) {
+        // Try to get ECO from PGN headers first
+        const ecoMatch = gameAnalysis.game.pgn_content.match(/\[ECO "([^"]+)"\]/);
+        if (ecoMatch) {
+          const ecoCode = ecoMatch[1];
+          opening = await this._getOpeningName(ecoCode);
+        } else {
+          // Fallback: Detect opening from moves
+          const openingDetector = require('../../models/opening-detector');
+          const detected = openingDetector.detect(gameAnalysis.game.pgn_content);
+          if (detected) {
+            opening = detected.name;
+          }
+        }
+      }
+
+      // Merge opening into game data
+      res.json({
+        ...gameAnalysis,
+        game: {
+          ...gameAnalysis.game,
+          opening: opening || gameAnalysis.game.opening || 'Unknown Opening'
+        }
+      });
     } catch (error) {
       console.error('[GAME CONTROLLER] Analysis retrieval error:', error);
       res.json([]);

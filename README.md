@@ -1,6 +1,6 @@
-# Chessify - Chess PGN Analyzer
+# ChessPulse - Multi-User Chess Analysis Platform
 
-A Node.js application that analyzes chess games in PGN format using the Stockfish engine and provides a comprehensive performance dashboard with trend visualization.
+A comprehensive Node.js application that analyzes chess games in PGN format using the Stockfish engine. Features user authentication, multi-user support, and provides detailed performance dashboards with trend visualization.
 
 ## Installation
 
@@ -32,6 +32,11 @@ npm run dashboard
 Then open http://localhost:3000 in your browser to view the performance dashboard.
 
 ## Features
+
+### User Authentication & Multi-User Support
+- Supabase authentication integration
+- User-specific game analysis and progress tracking
+- Secure user sessions and data isolation
 
 ### Core Analysis
 - Parses PGN files using chess.js

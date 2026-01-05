@@ -4,7 +4,7 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ## Project Overview
 
-This is a comprehensive chess analysis platform for analyzing games of player **AdvaitKumar1213**. The repository contains:
+This is a comprehensive multi-user chess analysis platform. The repository contains:
 
 1. **chessify/** - Node.js/Express backend with Angular frontend (active codebase)
 2. **Game-PGNs/** - Source PGN files organized by tournament and platform
@@ -63,9 +63,10 @@ Note: Some tests (analyzer.test.js, api-server.test.js) have timeout issues due 
 - REST API consumption from backend
 - Dashboard visualizations for metrics and trends
 
-**Target Player:**
-- Hardcoded as `'AdvaitKumar1213'` in `database.js:6` and `api-server.js:20`
-- TODO: Replace with logged-in user when authentication is implemented
+**Multi-User Authentication:**
+- Supabase-based user authentication and authorization  
+- User-specific data isolation and game analysis
+- Secure session management
 
 ### Data Flow
 
@@ -126,7 +127,7 @@ When writing tests, prefer mocking Stockfish analysis to avoid async timeouts.
 ## Key Constraints
 
 1. **Stockfish Performance**: Engine analysis is CPU-intensive. API implements 5-minute caching to reduce load.
-2. **Single Player Focus**: Currently hardcoded for AdvaitKumar1213. Future: multi-user authentication.
+2. **Multi-User Support**: Full authentication system with Supabase integration for user-specific analysis.
 3. **SQLite Limitations**: Database is local file-based. For production, consider PostgreSQL (pg driver already installed).
 4. **File Upload Limit**: 10MB max file size for PGN uploads (api-server.js:51).
 

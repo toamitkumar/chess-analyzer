@@ -115,6 +115,16 @@ interface GameAnalysisResponse {
            [class.lpv--moves-bottom]="showMoves === 'bottom'"
            [class.lpv--players]="showPlayers">
 
+        <!-- Header with Back Navigation -->
+        <div class="lpv__header">
+          <button class="lpv__back-btn" (click)="goBack()">
+            <svg class="lpv__back-icon" xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+              <path d="m15 18-6-6 6-6"/>
+            </svg>
+            <span>Back to Games</span>
+          </button>
+        </div>
+
         <!-- Player Top (Black by default, White if flipped) -->
         <div class="lpv__player lpv__player--top" *ngIf="showPlayers">
           <div class="lpv__player-info">
@@ -379,6 +389,37 @@ interface GameAnalysisResponse {
     </app-layout>
   `,
   styles: [`
+    /* Header Styles */
+    .lpv__header {
+      grid-area: header;
+      padding: 1rem;
+      border-bottom: 1px solid var(--c-lpv-border);
+      background: var(--c-lpv-bg-side);
+    }
+
+    .lpv__back-btn {
+      display: flex;
+      align-items: center;
+      gap: 0.5rem;
+      padding: 0.5rem 0.75rem;
+      border: none;
+      background: none;
+      cursor: pointer;
+      border-radius: 4px;
+      transition: background-color 0.2s;
+      color: var(--c-lpv-font);
+      font-size: 0.875rem;
+    }
+
+    .lpv__back-btn:hover {
+      background: var(--c-lpv-move-hover);
+    }
+
+    .lpv__back-icon {
+      width: 16px;
+      height: 16px;
+    }
+
     /* CSS Variables for theming - Light Mode */
     :host {
       --c-lpv-bg: hsl(37, 12%, 96%);
@@ -419,68 +460,75 @@ interface GameAnalysisResponse {
     /* Layout: Moves Auto (Responsive) */
     .lpv--moves-auto {
       grid-template-areas:
+        'header     header'
         'board      side'
         'controls   side';
       grid-template-columns: auto fit-content(40%);
-      grid-template-rows: auto var(--controls-height);
+      grid-template-rows: auto auto var(--controls-height);
     }
 
     .lpv--moves-auto.lpv--players {
       grid-template-areas:
+        'header       header'
         'player-top   side'
         'board        side'
         'player-bot   side'
         'controls     side';
-      grid-template-rows: var(--player-height) auto var(--player-height) var(--controls-height);
+      grid-template-rows: auto var(--player-height) auto var(--player-height) var(--controls-height);
     }
 
     @media (max-width: 700px) {
       .lpv--moves-auto {
         grid-template-areas:
+          'header'
           'board'
           'controls'
           'side';
         grid-template-columns: 1fr;
-        grid-template-rows: auto var(--controls-height) 1fr;
+        grid-template-rows: auto auto var(--controls-height) 1fr;
       }
 
       .lpv--moves-auto.lpv--players {
         grid-template-areas:
+          'header'
           'player-top'
           'board'
           'player-bot'
           'controls'
           'side';
-        grid-template-rows: var(--player-height) auto var(--player-height) var(--controls-height) 1fr;
+        grid-template-rows: auto var(--player-height) auto var(--player-height) var(--controls-height) 1fr;
       }
     }
 
     /* Layout: Moves Right */
     .lpv--moves-right {
       grid-template-areas:
+        'header     header'
         'board      side'
         'controls   side';
       grid-template-columns: auto fit-content(40%);
-      grid-template-rows: auto var(--controls-height);
+      grid-template-rows: auto auto var(--controls-height);
     }
 
     .lpv--moves-right.lpv--players {
       grid-template-areas:
+        'header       header'
         'player-top   side'
         'board        side'
         'player-bot   side'
         'controls     side';
-      grid-template-rows: var(--player-height) auto var(--player-height) var(--controls-height);
+      grid-template-rows: auto var(--player-height) auto var(--player-height) var(--controls-height);
     }
 
     /* Layout: Moves Bottom */
     .lpv--moves-bottom {
       grid-template-areas:
+        'header'
         'board'
         'controls'
         'side';
       grid-template-columns: 1fr;
-      grid-template-rows: auto var(--controls-height) minmax(150px, 1fr);
+      grid-template-rows: auto auto var(--controls-height) minmax(150px, 1fr);
     }
 
     /* Grid Area Assignments */

@@ -52,12 +52,12 @@
       "black": "alireza2003",
       "result": "1/2-1/2",
       "criticalMoves": [
-        { "moveNumber": 16, "move": "Na5", "san": "Na5", "color": "black", "lichessEval": 0.43, "lichessClass": "inaccuracy" },
-        { "moveNumber": 32, "move": "Ne3", "san": "Ne3", "color": "white", "lichessEval": 2.14, "lichessClass": "mistake" },
-        { "moveNumber": 42, "move": "Kg8", "san": "Kg8", "color": "black", "lichessEval": 4.08, "lichessClass": "blunder" },
-        { "moveNumber": 64, "move": "Kf7", "san": "Kf7", "color": "black", "lichessEval": 1.95, "lichessClass": "blunder" },
-        { "moveNumber": 80, "move": "Rg1", "san": "Rg1", "color": "white", "lichessEval": 7.21, "lichessClass": "blunder" },
-        { "moveNumber": 97, "move": "h6", "san": "h6", "color": "white", "lichessEval": 0.00, "lichessClass": "blunder", "notes": "Throws away winning position" }
+        { "moveNumber": 8, "move": "Na5", "san": "Na5", "color": "black", "lichessEval": 0.43, "lichessClass": "inaccuracy", "notes": "Bg4 was best" },
+        { "moveNumber": 16, "move": "Ne3", "san": "Ne3", "color": "black", "lichessEval": 2.14, "lichessClass": "mistake", "notes": "Ne5 was best" },
+        { "moveNumber": 21, "move": "Kg8", "san": "Kg8", "color": "black", "lichessEval": 4.08, "lichessClass": "blunder", "notes": "e6 was best" },
+        { "moveNumber": 32, "move": "Kf7", "san": "Kf7", "color": "black", "lichessEval": 1.95, "lichessClass": "blunder", "notes": "Rxf6 was best" },
+        { "moveNumber": 40, "move": "Rg1", "san": "Rg1", "color": "black", "lichessEval": 7.21, "lichessClass": "blunder", "notes": "Rf1+ was best" },
+        { "moveNumber": 49, "move": "h6", "san": "h6", "color": "white", "lichessEval": 0.00, "lichessClass": "blunder", "notes": "Rf2+ was best - throws away win" }
       ]
     },
     {

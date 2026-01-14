@@ -116,6 +116,40 @@
         { "moveNumber": 10, "move": "Bg5", "san": "Bg5", "color": "white", "lichessEval": 0.29, "lichessClass": "inaccuracy", "notes": "Ne4 was best" },
         { "moveNumber": 16, "move": "c5", "san": "c5", "color": "black", "lichessEval": 4.55, "lichessClass": "blunder", "notes": "a5 was best" }
       ]
+    },
+    {
+      "id": "ZgJZ9lXt",
+      "dbId": 93,
+      "name": "EricRosen vs Var_Vlad - Won (Caro-Kann)",
+      "pgnFile": "tests/fixtures/10th-eric-rossen-won.pgn",
+      "white": "EricRosen",
+      "black": "Var_Vlad",
+      "result": "1-0",
+      "criticalMoves": [
+        { "moveNumber": 5, "move": "Nd7", "san": "Nd7", "color": "black", "lichessEval": 1.92, "lichessClass": "mistake", "notes": "e6 was best" },
+        { "moveNumber": 7, "move": "Ngf6", "san": "Ngf6", "color": "black", "lichessEval": 2.62, "lichessClass": "inaccuracy", "notes": "Qc7 was best" },
+        { "moveNumber": 11, "move": "Bb4", "san": "Bb4", "color": "black", "lichessEval": 3.56, "lichessClass": "inaccuracy", "notes": "Ne5 was best" },
+        { "moveNumber": 12, "move": "Bg5", "san": "Bg5", "color": "white", "lichessEval": 1.39, "lichessClass": "blunder", "notes": "Bxd7 was best" },
+        { "moveNumber": 12, "move": "Rb8", "san": "Rb8", "color": "black", "lichessEval": 2.87, "lichessClass": "mistake", "notes": "Qa5 was best" },
+        { "moveNumber": 13, "move": "Qxd7", "san": "Qxd7", "color": "black", "lichessEval": 3.14, "lichessClass": "inaccuracy", "notes": "Nxd7 was best" },
+        { "moveNumber": 15, "move": "Ne4", "san": "Ne4", "color": "white", "lichessEval": 2.08, "lichessClass": "inaccuracy", "notes": "Rfc1 was best" },
+        { "moveNumber": 16, "move": "Ba5", "san": "Ba5", "color": "black", "lichessEval": 3.44, "lichessClass": "inaccuracy", "notes": "f5 was best" },
+        { "moveNumber": 30, "move": "Re7", "san": "Re7", "color": "black", "lichessEval": 19.91, "lichessClass": "mistake", "notes": "Rxe8 was best" }
+      ]
+    },
+    {
+      "id": "9eTxgfrP",
+      "dbId": 94,
+      "name": "EricRosen vs AleksMink - Won (Pirc)",
+      "pgnFile": "tests/fixtures/9th-eric-rossen-won.pgn",
+      "white": "EricRosen",
+      "black": "AleksMink",
+      "result": "1-0",
+      "criticalMoves": [
+        { "moveNumber": 12, "move": "Ng3", "san": "Ng3", "color": "white", "lichessEval": 0.44, "lichessClass": "inaccuracy", "notes": "Qd2 was best" },
+        { "moveNumber": 15, "move": "Qc7", "san": "Qc7", "color": "black", "lichessEval": 1.77, "lichessClass": "inaccuracy", "notes": "b5 was best" },
+        { "moveNumber": 16, "move": "hxg5", "san": "hxg5", "color": "black", "lichessEval": 3.20, "lichessClass": "mistake", "notes": "exf4 was best" }
+      ]
     }
   ],
   "thresholds": {

@@ -81,6 +81,41 @@
         { "moveNumber": 27, "move": "Rxd4", "san": "Rxd4", "color": "black", "lichessEval": 8.28, "lichessClass": "inaccuracy", "notes": "Bxc6 was best" },
         { "moveNumber": 28, "move": "Ka7", "san": "Ka7", "color": "black", "lichessEval": 10000, "lichessClass": "blunder", "notes": "Mate in 3, Kb5 was best", "isMate": true, "mateIn": 3 }
       ]
+    },
+    {
+      "id": "dVOcv18q",
+      "dbId": 89,
+      "name": "Macko09 vs EricRosen - Won (Sicilian)",
+      "pgnFile": "tests/fixtures/5th-eric-rossen-won.pgn",
+      "white": "Macko09",
+      "black": "EricRosen",
+      "result": "0-1",
+      "criticalMoves": [
+        { "moveNumber": 13, "move": "Nf1", "san": "Nf1", "color": "white", "lichessEval": -0.14, "lichessClass": "inaccuracy", "notes": "e5 was best" },
+        { "moveNumber": 25, "move": "Rae1", "san": "Rae1", "color": "white", "lichessEval": -1.35, "lichessClass": "inaccuracy", "notes": "Kf1 was best" },
+        { "moveNumber": 30, "move": "a5", "san": "a5", "color": "black", "lichessEval": 2.58, "lichessClass": "blunder", "notes": "h5 was best" },
+        { "moveNumber": 32, "move": "b3", "san": "b3", "color": "white", "lichessEval": -0.29, "lichessClass": "blunder", "notes": "a3 was best" },
+        { "moveNumber": 33, "move": "b4", "san": "b4", "color": "white", "lichessEval": -2.80, "lichessClass": "blunder", "notes": "Re1 was best" },
+        { "moveNumber": 40, "move": "Kf6", "san": "Kf6", "color": "black", "lichessEval": -0.06, "lichessClass": "blunder", "notes": "h5 was best" },
+        { "moveNumber": 62, "move": "Rg5", "san": "Rg5", "color": "white", "lichessEval": -4.14, "lichessClass": "blunder", "notes": "Rh8+ was best" },
+        { "moveNumber": 75, "move": "Re4", "san": "Re4", "color": "white", "lichessEval": -8.48, "lichessClass": "mistake", "notes": "gxf4 was best" },
+        { "moveNumber": 77, "move": "g4", "san": "g4", "color": "white", "lichessEval": -10000, "lichessClass": "blunder", "notes": "Mate in 7", "isMate": true, "mateIn": -7 }
+      ]
+    },
+    {
+      "id": "6c2h8kVM",
+      "dbId": 90,
+      "name": "EricRosen vs Ram777 - Won (Scandinavian)",
+      "pgnFile": "tests/fixtures/6th-eric-rossen-won.pgn",
+      "white": "EricRosen",
+      "black": "Ram777",
+      "result": "1-0",
+      "criticalMoves": [
+        { "moveNumber": 4, "move": "b4", "san": "b4", "color": "white", "lichessEval": -0.13, "lichessClass": "inaccuracy", "notes": "Nf3 was best" },
+        { "moveNumber": 4, "move": "Qb6", "san": "Qb6", "color": "black", "lichessEval": 0.47, "lichessClass": "inaccuracy", "notes": "Qxb4 was best" },
+        { "moveNumber": 10, "move": "Bg5", "san": "Bg5", "color": "white", "lichessEval": 0.29, "lichessClass": "inaccuracy", "notes": "Ne4 was best" },
+        { "moveNumber": 16, "move": "c5", "san": "c5", "color": "black", "lichessEval": 4.55, "lichessClass": "blunder", "notes": "a5 was best" }
+      ]
     }
   ],
   "thresholds": {

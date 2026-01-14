@@ -8,6 +8,14 @@
 
 const AnalysisConfig = {
   /**
+   * Stockfish engine settings
+   */
+  ENGINE: {
+    HASH_MB: 512,       // Hash table size in MB (was 128, increased for better eval)
+    THREADS: 1,         // Number of threads (1 for determinism)
+  },
+
+  /**
    * Analysis depth levels (legacy - use NODES for Lichess compatibility)
    */
   DEPTH: {
@@ -26,8 +34,8 @@ const AnalysisConfig = {
    */
   NODES: {
     QUICK: 150000,      // 150K - Fast preview (~autoTutor)
-    STANDARD: 1000000,  // 1M - Default analysis (~manualRequest)
-    DEEP: 5000000,      // 5M - Detailed analysis (~officialBroadcast)
+    STANDARD: 300000,   // 300K - Default analysis (~autoHunter) - best speed/accuracy trade-off
+    DEEP: 1000000,      // 1M - Detailed analysis (~manualRequest)
   },
 
   /**

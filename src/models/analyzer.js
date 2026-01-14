@@ -6,6 +6,7 @@ const BlunderCategorizer = require('./blunder-categorizer');
 const TacticalDetector = require('./tactical-detector');
 const WinProbability = require('./win-probability');
 const EvaluationNormalizer = require('./evaluation-normalizer');
+const AnalysisConfig = require('./analysis-config');
 
 class ChessAnalyzer {
   constructor() {
@@ -17,6 +18,17 @@ class ChessAnalyzer {
     this.activeProcesses = new Set(); // Track all active Stockfish processes
     this.timeouts = new Set(); // Track all active timeouts
     this.setupEngine();
+  }
+
+  /**
+   * Get evaluation options based on config
+   * Uses nodes-based analysis if USE_NODES is true (Lichess-compatible)
+   */
+  getEvalOptions(quality = 'STANDARD') {
+    if (AnalysisConfig.USE_NODES) {
+      return { nodes: AnalysisConfig.NODES[quality] || AnalysisConfig.NODES.STANDARD };
+    }
+    return { depth: AnalysisConfig.DEPTH[quality] || AnalysisConfig.DEPTH.STANDARD };
   }
 
   // Convert win probability to centipawn equivalent
@@ -65,9 +77,9 @@ class ChessAnalyzer {
           // Set Threads to 1 for deterministic analysis results
           console.log('🔧 [DETERMINISM] Setting Threads=1 for deterministic analysis');
           this.engine.stdin.write('setoption name Threads value 1\n');
-          // Set Hash to a fixed size for consistency
-          console.log('🔧 [DETERMINISM] Setting Hash=128MB for consistency');
-          this.engine.stdin.write('setoption name Hash value 128\n');
+          // Set Hash size from config for better evaluation quality
+          console.log(`🔧 [CONFIG] Setting Hash=${AnalysisConfig.ENGINE.HASH_MB}MB`);
+          this.engine.stdin.write(`setoption name Hash value ${AnalysisConfig.ENGINE.HASH_MB}\n`);
           // Now check if ready
           this.engine.stdin.write('isready\n');
         }
@@ -210,6 +222,9 @@ class ChessAnalyzer {
       let totalCentipawnLoss = 0;
       const blunders = [];
 
+      // Get evaluation options based on config
+      const evalOptions = this.getEvalOptions('STANDARD');
+
       for (let i = 0; i < moves.length; i++) {
         const move = moves[i];
 
@@ -223,13 +238,13 @@ class ChessAnalyzer {
           const beforeFen = chess.fen();
 
           // Get best move evaluation before the actual move
-          const beforeEval = await this.evaluatePosition(beforeFen, 12);
+          const beforeEval = await this.evaluatePosition(beforeFen, evalOptions);
 
           // Fetch up to 10 alternative moves for each position
           let alternatives = [];
           if (fetchAlternatives) {
             console.log(`🔄 Fetching alternatives for move ${i + 1}...`);
-            alternatives = await this.generateAlternatives(beforeFen, 12, 10);
+            alternatives = await this.generateAlternatives(beforeFen, evalOptions, 10);
             console.log(`✅ Found ${alternatives.length} alternatives for move ${i + 1}`);
           } else {
             // Fallback to just the best move - convert UCI to SAN
@@ -271,7 +286,7 @@ class ChessAnalyzer {
 
           // Get evaluation after the move
           const afterFen = chess.fen();
-          const afterEval = await this.evaluatePosition(afterFen, 12);
+          const afterEval = await this.evaluatePosition(afterFen, evalOptions);
 
           // Calculate centipawn loss using direct evaluation comparison (most accurate)
           const isWhiteMove = i % 2 === 0;
@@ -574,7 +589,7 @@ class ChessAnalyzer {
           if (line.includes('uciok')) {
             // Engine acknowledged UCI protocol
             engine.stdin.write('setoption name Threads value 1\n');
-            engine.stdin.write('setoption name Hash value 128\n');
+            engine.stdin.write(`setoption name Hash value ${AnalysisConfig.ENGINE.HASH_MB}\n`);
             engine.stdin.write('isready\n');
           }
           
@@ -738,12 +753,13 @@ class ChessAnalyzer {
         }
         
         const beforeFen = chess.fen();
-        const beforeEval = await this.evaluatePosition(beforeFen, 15);
+        const evalOptions = this.getEvalOptions('STANDARD');
+        const beforeEval = await this.evaluatePosition(beforeFen, evalOptions);
         
         // Generate alternatives for significant positions
         let alternatives = [];
         if (i % 3 === 0 || i < 10) { // Every 3rd move or first 10 moves
-          alternatives = await this.generateAlternatives(beforeFen, 12);
+          alternatives = await this.generateAlternatives(beforeFen, evalOptions);
         }
         
         const moveResult = chess.move(move);
@@ -753,7 +769,7 @@ class ChessAnalyzer {
         }
         
         const afterFen = chess.fen();
-        const afterEval = await this.evaluatePosition(afterFen, 15);
+        const afterEval = await this.evaluatePosition(afterFen, evalOptions);
         
         const isWhiteMove = i % 2 === 0;
         const centipawnLoss = this.calculateCentipawnLoss(beforeEval.evaluation, afterEval.evaluation, isWhiteMove);
@@ -840,12 +856,18 @@ class ChessAnalyzer {
     return result;
   }
 
-  async generateAlternatives(fen, depth = 12, maxAlternatives = 15) {
-    // DETERMINISM FIX: Use fresh engine instance for each alternatives generation
-    return this._generateAlternativesWithFreshEngine(fen, depth, maxAlternatives);
+  async generateAlternatives(fen, depthOrOptions = 12, maxAlternatives = 15) {
+    // Support both legacy depth parameter and new options object
+    const options = typeof depthOrOptions === 'object' 
+      ? depthOrOptions 
+      : { depth: depthOrOptions };
+    
+    return this._generateAlternativesWithFreshEngine(fen, options, maxAlternatives);
   }
 
-  async _generateAlternativesWithFreshEngine(fen, depth, maxAlternatives) {
+  async _generateAlternativesWithFreshEngine(fen, options, maxAlternatives) {
+    const { depth = 12, nodes = null } = options;
+    
     return new Promise((resolve, reject) => {
       // Spawn fresh Stockfish instance
       const { spawn } = require('child_process');
@@ -883,7 +905,7 @@ class ChessAnalyzer {
           if (line.includes('uciok')) {
             // Engine acknowledged UCI protocol
             engine.stdin.write('setoption name Threads value 1\n');
-            engine.stdin.write('setoption name Hash value 128\n');
+            engine.stdin.write(`setoption name Hash value ${AnalysisConfig.ENGINE.HASH_MB}\n`);
             engine.stdin.write(`setoption name MultiPV value ${maxAlternatives}\n`);
             engine.stdin.write('isready\n');
           }
@@ -892,7 +914,12 @@ class ChessAnalyzer {
             engineReady = true;
             // Engine is ready, start analysis
             engine.stdin.write(`position fen ${fen}\n`);
-            engine.stdin.write(`go depth ${depth}\n`);
+            // Use nodes-based analysis if specified (Lichess-compatible), otherwise depth
+            if (nodes) {
+              engine.stdin.write(`go nodes ${nodes}\n`);
+            } else {
+              engine.stdin.write(`go depth ${depth}\n`);
+            }
           }
 
           // Look for multipv lines with score cp or score mate

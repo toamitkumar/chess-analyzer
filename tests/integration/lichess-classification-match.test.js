@@ -53,11 +53,17 @@ describe('Lichess Classification Match - Integration Tests', () => {
    * Win probability drop = WinProb(best move) - WinProb(your move)
    */
   async function analyzePosition(fen, move, isWhiteMove, options = {}) {
-    const { depth = 12, nodes = null } = typeof options === 'number' 
+    // Use config defaults if no options specified
+    const defaultOptions = AnalysisConfig.USE_NODES 
+      ? { nodes: AnalysisConfig.NODES.STANDARD }
+      : { depth: AnalysisConfig.DEPTH.STANDARD };
+    
+    const { depth = null, nodes = null } = typeof options === 'number' 
       ? { depth: options } 
       : options;
     
-    const evalOptions = nodes ? { nodes } : { depth };
+    // Use provided options or fall back to config defaults
+    const evalOptions = nodes ? { nodes } : (depth ? { depth } : defaultOptions);
     const chess = new Chess(fen);
     
     // Get evaluation of position BEFORE move (includes best move info)

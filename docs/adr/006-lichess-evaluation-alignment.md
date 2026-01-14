@@ -17,8 +17,16 @@
 **Key Discoveries:**
 1. ✅ Fixed threshold scale conversion bug (+18.2% improvement)
 2. ✅ Lichess uses nodes-based analysis, not depth-based
-3. 🔄 Nodes-based analysis shows improvement on some positions
-4. ⚠️ Remaining gap due to evaluation magnitude differences
+3. ❌ Nodes-based analysis shows no improvement over depth-based
+4. ❌ Evaluation normalization doesn't help (different issue)
+5. ⚠️ **Root Cause Identified:** Different NNUE weights
+   - Our Stockfish: `nn-1c0000000000.nnue`
+   - Lichess: `nn-2962dca31855.nnue`
+   - Evaluation magnitude difference: ~36% (e.g., +128 cp vs +174 cp)
+
+**Next Steps:**
+- Strategy B (Multi-PV comparison) is the most promising approach
+- NNUE weight matching would require custom Stockfish build
 
 ## Context
 
@@ -854,17 +862,124 @@ Work::Analysis { nodes, depth, .. } => {
 | 1 | 2026-01-13 | 2026-01-13 | ✅ Complete | Sign convention fixed |
 | 2 | 2026-01-13 | 2026-01-13 | ✅ Complete | Thresholds aligned |
 | 3 | 2026-01-13 | 2026-01-14 | ✅ Complete | **45.5%** (threshold scale fix) |
-| 4 | - | - | 🔄 Reconsidering | Switch to nodes-based analysis |
+| 4 | 2026-01-14 | 2026-01-14 | ✅ Complete | **48.5%** (nodes-based, 300K) |
 | 5 | - | - | Not Started | - |
 | 6 | - | - | Not Started | - |
 
-**Phase 3 Conclusion:** The threshold scale fix improved match rate from 27.3% to 45.5%. The remaining gap is due to Lichess using nodes-based analysis (1M nodes/move) vs our depth-based analysis (depth 12 ≈ 50K-200K nodes).
+**Phase 4 Results:**
+- Implemented nodes-based analysis (Lichess-compatible)
+- Default: 300K nodes (best speed/accuracy trade-off)
+- Match rate: 45.5% → **48.5%** (+3%)
+- Analysis time: ~3x slower than depth 12
 
-**Next Steps to Reach 85%:**
-1. ✅ Fix threshold scale conversion (Done - +18.2%)
-2. 🔄 Switch from depth-based to nodes-based analysis
-3. 🔄 Use `go nodes 1000000` instead of `go depth 12`
-4. 🔄 Implement configurable nodes levels matching Lichess tiers
+---
+
+## Remaining Strategies to Reach 85%
+
+### Strategy A: Increase Hash Table Size ~~(HIGH IMPACT)~~ (TESTED - NO IMPROVEMENT)
+**Status:** ✅ Completed - No significant improvement
+**Current:** 512MB (increased from 128MB)
+
+Tested with 512MB hash - no measurable improvement in classification accuracy.
+
+---
+
+### Strategy B: Multi-PV Best Move Comparison (HIGH IMPACT)
+**Status:** Not Started
+
+**Problem:** We currently compare `WP(before move) - WP(after move)`
+**Lichess Method:** Compare `WP(after best move) - WP(after played move)`
+
+This is a fundamental difference in how classification is calculated:
+- Our method: How much did the position change?
+- Lichess method: How much worse is your move than the best move?
+
+```javascript
+// Current approach
+const wpDrop = wpBefore - wpAfter;
+
+// Lichess approach (requires evaluating best move result)
+const bestMoveResult = await evaluateAfterBestMove(fen, bestMove);
+const wpDrop = wpAfterBestMove - wpAfterPlayedMove;
+```
+
+**Expected Impact:** High - this matches Lichess classification logic exactly
+**Risk:** Requires additional evaluation per move (slower)
+
+---
+
+### Strategy C: NNUE Weight Verification ~~(MEDIUM IMPACT)~~ (ROOT CAUSE IDENTIFIED)
+**Status:** ✅ Investigated - Different NNUE files confirmed
+
+**Finding:** Lichess uses different NNUE weights than our Stockfish 17.1:
+- **Lichess:** `nn-2962dca31855.nnue` (main) + `nn-37f18f62d772.nnue` (small)
+- **Our Stockfish:** `nn-1c0000000000.nnue` (main) + `nn-37f18f62d772.nnue` (small)
+
+This explains the evaluation magnitude differences:
+- Our Stockfish: Position after 1...e5 = +128 cp
+- Lichess: Position after 1...e5 = +174 cp
+- Difference: ~46 cp (36% higher on Lichess)
+
+**Options:**
+1. Download and use Lichess's NNUE file (requires custom Stockfish build)
+2. Accept evaluation differences and focus on relative classification
+3. Apply a scaling factor to our evaluations
+
+**Recommendation:** Focus on Strategy B (Multi-PV) first, as it addresses the classification method rather than raw evaluation values.
+
+---
+
+### Strategy D: Evaluation Normalization (TESTED - NOT EFFECTIVE)
+**Status:** ❌ Tested - Reverted
+
+**Problem:** Stockfish evaluates starting position at ~+30 cp, but Lichess displays 0.00
+**Attempted Solution:** Normalize all evaluations by subtracting the starting position evaluation
+
+**Finding:** Normalization doesn't help because:
+1. The offset varies by position (starting position vs after 1.d4 have different offsets)
+2. The core issue is evaluation MAGNITUDE, not offset
+3. Our Stockfish evaluates 1...e5 at +128 cp, Lichess at +174 cp (36% difference)
+
+**Root Cause:** Different NNUE weights produce different evaluation magnitudes, not just different baselines.
+
+---
+
+### Strategy E: Multi-threaded Analysis (MEDIUM IMPACT)
+**Status:** Not Started
+
+**Current:** `Threads=1` (for determinism)
+**Lichess:** Uses multiple threads for faster, potentially different evaluations
+
+```javascript
+// Current
+engine.stdin.write('setoption name Threads value 1\n');
+
+// Proposed (trade determinism for speed/accuracy)
+engine.stdin.write('setoption name Threads value 4\n');
+```
+
+**Expected Impact:** Faster analysis, possibly different evaluations
+**Risk:** Non-deterministic results (same position may give different evals)
+
+---
+
+### Strategy F: Contempt Setting (LOW IMPACT)
+**Status:** Not Started - Stockfish 17 removed Contempt option
+
+Stockfish 17+ no longer has a Contempt option (removed in favor of NNUE).
+
+---
+
+### Implementation Priority
+
+| Priority | Strategy | Expected Impact | Effort | Status |
+|----------|----------|-----------------|--------|--------|
+| 1 | A: Hash 512MB | ~~Moderate~~ None | Low | ✅ Done |
+| 2 | D: Eval Normalization | Low-Medium | Low | ✅ Done |
+| 3 | B: Multi-PV comparison | High | Medium | 🔄 Next |
+| 4 | C: NNUE verification | High (root cause) | High | Investigated |
+| 4 | D: Multi-threading | Moderate | Low | Medium |
+| 5 | E: Contempt | Low | Low | Low |
 
 ---
 

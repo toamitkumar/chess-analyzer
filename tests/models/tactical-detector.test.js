@@ -1,9 +1,11 @@
 /**
  * Tests for Tactical Blunder Detector
  * Phase 2.1 of ADR 005
+ * Updated in ADR 006 Phase 2: Mate detection tests
  */
 
 const TacticalDetector = require('../../src/models/tactical-detector');
+const AnalysisConfig = require('../../src/models/analysis-config');
 
 describe('TacticalDetector', () => {
   describe('analyzeTacticalBlunder()', () => {
@@ -156,6 +158,7 @@ describe('TacticalDetector', () => {
   describe('classifyMoveWithTactics()', () => {
     it('should classify based on win-probability in decided position', () => {
       // Current algorithm uses win-probability as primary method
+      // ADR 006 Phase 2: Updated thresholds - 20% drop = blunder
       const moveAccuracy = 80;
       const tacticalAnalysis = {
         isTacticalBlunder: false, // Conservative tactical detection
@@ -171,7 +174,7 @@ describe('TacticalDetector', () => {
         9,   // But large win% drop expected
         100, // Large CP loss
         85,  // winProbBefore
-        70   // winProbAfter (15% drop = blunder)
+        60   // winProbAfter (25% drop = blunder with new thresholds)
       );
 
       expect(result).not.toBeNull();
@@ -303,6 +306,93 @@ describe('TacticalDetector', () => {
 
       expect(result.classification).toBe('inaccuracy');
       expect(result.reason).toBe('win_probability');
+    });
+
+    // ADR 006 Phase 2: Mate detection tests
+    describe('Mate Detection (ADR 006 Phase 2)', () => {
+      it('should classify as blunder when moving into forced mate', () => {
+        const moveAccuracy = 50;
+        const tacticalAnalysis = {
+          isTacticalBlunder: false,
+          hasMissedOpportunity: false
+        };
+
+        // evalAfter is from mover's perspective, negative = mate against mover
+        const result = TacticalDetector.classifyMoveWithTactics(
+          moveAccuracy,
+          tacticalAnalysis,
+          -500,    // evalBefore (already losing)
+          -10000,  // evalAfter (forced mate against mover)
+          9500,    // CP loss
+          5,       // winProbBefore
+          0        // winProbAfter
+        );
+
+        expect(result.classification).toBe('blunder');
+        expect(result.reason).toBe('mate_detection');
+      });
+
+      it('Game 4 Move 56 (Ka7 - Mate in 3): should be blunder', () => {
+        // This is the critical bug from ADR 006
+        // Black moved Ka7, allowing forced mate in 3
+        const moveAccuracy = 10;
+        const tacticalAnalysis = {
+          isTacticalBlunder: false,
+          hasMissedOpportunity: false
+        };
+
+        const result = TacticalDetector.classifyMoveWithTactics(
+          moveAccuracy,
+          tacticalAnalysis,
+          -500,    // evalBefore (Black was losing)
+          -10000,  // evalAfter (forced mate against Black)
+          9500,    // CP loss
+          5,       // winProbBefore
+          0        // winProbAfter
+        );
+
+        expect(result.classification).toBe('blunder');
+        expect(result.reason).toBe('mate_detection');
+        expect(result.details).toContain('forced mate');
+      });
+
+      it('should NOT classify as mate blunder when mover has mate', () => {
+        // If the mover is delivering mate, that's good!
+        const moveAccuracy = 100;
+        const tacticalAnalysis = {
+          isTacticalBlunder: false,
+          hasMissedOpportunity: false
+        };
+
+        const result = TacticalDetector.classifyMoveWithTactics(
+          moveAccuracy,
+          tacticalAnalysis,
+          500,     // evalBefore
+          10000,   // evalAfter (mover has forced mate - GOOD!)
+          0,       // No CP loss
+          95,      // winProbBefore
+          100      // winProbAfter
+        );
+
+        // Should not be classified as blunder
+        expect(result).toBeNull();
+      });
+
+      it('should detect mate in tactical pattern analysis', () => {
+        const moveData = {
+          evaluation: -10000, // Forced mate against mover
+          centipawnLoss: 9500
+        };
+        const alternatives = [
+          { evaluation: -500, move: 'Kb8' } // Better defensive move
+        ];
+
+        const result = TacticalDetector.analyzeTacticalBlunder(moveData, alternatives);
+
+        expect(result.isTacticalBlunder).toBe(true);
+        expect(result.type).toBe('mate_blunder');
+        expect(result.severity).toBe('blunder');
+      });
     });
   });
 });

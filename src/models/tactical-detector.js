@@ -1,14 +1,17 @@
 /**
  * Tactical Blunder Detector
  * Phase 2.1 of ADR 005: Win-probability based accuracy calculation
+ * Updated in ADR 006 Phase 2: Centralized thresholds + Mate detection
  *
  * Detects tactical blunders by analyzing:
  * 1. Alternative moves from engine analysis
  * 2. Material loss in forced sequences
  * 3. Tactical patterns (hanging pieces, forced losses)
+ * 4. Mate detection (ADR 006)
  */
 
 const WinProbability = require('./win-probability');
+const AnalysisConfig = require('./analysis-config');
 
 class TacticalDetector {
   /**
@@ -102,17 +105,30 @@ class TacticalDetector {
 
   /**
    * Detect specific tactical patterns
+   * Uses thresholds from AnalysisConfig (ADR 006 Phase 2)
    * @private
    */
   static _detectTacticalPattern(moveData, bestAlternative, evalDiff, winProbDrop) {
     const cpLoss = moveData.centipawnLoss || 0;
+
+    // ADR 006 Phase 2: Check for mate first
+    if (AnalysisConfig.isMateEvaluation(moveData.evaluation) && moveData.evaluation < 0) {
+      return {
+        isTactical: true,
+        type: 'mate_blunder',
+        severity: 'blunder',
+        reason: `Moving into forced mate`
+      };
+    }
 
     // Only detect the most obvious tactical patterns
     // Most moves should be classified by win probability, not tactical patterns
 
     // Pattern 1: Massive material loss (hanging queen/rook level)
     // Only trigger for truly massive losses that are clearly tactical
-    if (cpLoss >= 200 && evalDiff >= 200 && Math.abs(moveData.evaluation) < 200) {
+    if (cpLoss >= AnalysisConfig.TACTICAL.HANGING_PIECE_MIN_LOSS && 
+        evalDiff >= AnalysisConfig.TACTICAL.HANGING_PIECE_MIN_LOSS && 
+        Math.abs(moveData.evaluation) < AnalysisConfig.TACTICAL.HANGING_PIECE_MIN_LOSS) {
       return {
         isTactical: true,
         type: 'hanging_piece',
@@ -123,7 +139,8 @@ class TacticalDetector {
 
     // Pattern 2: Mate-level blunder in equal position
     // Only trigger for moves that go from equal to mate-level disadvantage
-    if (cpLoss >= 300 && Math.abs(moveData.evaluation) < 100) {
+    if (cpLoss >= AnalysisConfig.TACTICAL.TACTICAL_OVERSIGHT_MIN_LOSS && 
+        Math.abs(moveData.evaluation) < AnalysisConfig.CLASSIFICATION.CP_MISTAKE) {
       return {
         isTactical: true,
         type: 'tactical_oversight',
@@ -138,6 +155,7 @@ class TacticalDetector {
 
   /**
    * Detect missed tactical or positional opportunities
+   * Uses thresholds from AnalysisConfig (ADR 006 Phase 2)
    * @private
    */
   static _detectMissedOpportunity(moveData, alternatives, evalDiff, winProbDrop) {
@@ -152,7 +170,8 @@ class TacticalDetector {
     // Type 1: Missed winning tactic
     // Best move gives significant advantage (>300 CP or mate) but player chose decent move
     const bestEval = alternatives[0].evaluation;
-    if (bestEval >= 300 && evalDiff >= 150) {
+    if (bestEval >= AnalysisConfig.TACTICAL.MISSED_WINNING_TACTIC_EVAL && 
+        evalDiff >= AnalysisConfig.TACTICAL.MISSED_WINNING_TACTIC_EVAL / 2) {
       return {
         hasMissed: true,
         type: 'winning_tactic',
@@ -162,7 +181,8 @@ class TacticalDetector {
 
     // Type 2: Missed significant improvement
     // Move is okay but misses clear tactical/positional improvement
-    if (evalDiff >= 100 && winProbDrop >= 8) {
+    if (evalDiff >= AnalysisConfig.TACTICAL.MISSED_IMPROVEMENT_EVAL && 
+        winProbDrop >= AnalysisConfig.TACTICAL.MISSED_IMPROVEMENT_WIN_PROB) {
       return {
         hasMissed: true,
         type: 'tactical_improvement',
@@ -172,7 +192,8 @@ class TacticalDetector {
 
     // Type 3: Missed positional opportunity
     // Moderate eval difference in a critical position
-    if (evalDiff >= 50 && Math.abs(evalAfter) < 100) {
+    if (evalDiff >= AnalysisConfig.TACTICAL.MISSED_POSITIONAL_EVAL && 
+        Math.abs(evalAfter) < AnalysisConfig.CLASSIFICATION.CP_MISTAKE) {
       return {
         hasMissed: true,
         type: 'positional_improvement',
@@ -187,10 +208,25 @@ class TacticalDetector {
    * Combine tactical analysis with win-probability classification
    * Returns the most severe classification
    * 
-   * UPDATED: Win-probability is now the PRIMARY classification method
-   * Tactical overrides are much more conservative and rare
+   * UPDATED ADR 006 Phase 2:
+   * - Added mate detection (always blunder if moving into forced mate)
+   * - Uses centralized thresholds from AnalysisConfig
+   * - Win-probability is the PRIMARY classification method
    */
   static classifyMoveWithTactics(moveAccuracy, tacticalAnalysis, evalBefore, evalAfter, cpLoss = 0, winProbBefore = null, winProbAfter = null) {
+    // ADR 006 Phase 2: CRITICAL - Mate detection
+    // If the position after the move is a forced mate against the mover, it's ALWAYS a blunder
+    // evalAfter is from mover's perspective, so negative mate = mate against mover
+    if (AnalysisConfig.isMateEvaluation(evalAfter) && evalAfter < 0) {
+      return {
+        classification: 'blunder',
+        reason: 'mate_detection',
+        details: `Moving into forced mate (eval: ${evalAfter})`,
+        moveAccuracy,
+        winProbDrop: 100 // Maximum drop
+      };
+    }
+
     // Check position context first (pass cpLoss for two-tier filtering)
     const shouldClassify = WinProbability.shouldClassifyMove(evalBefore, evalAfter, cpLoss);
 
@@ -206,17 +242,16 @@ class TacticalDetector {
       winProbDrop = Math.max(0, winProbBeforeCalc - winProbAfterCalc);
     }
 
-    // PRIMARY: Win-probability classification (most moves use this)
+    // PRIMARY: Win-probability classification using centralized config
     if (shouldClassify) {
-      // Calibrated thresholds based on systematic testing (Balanced config)
-      // More sensitive to catch Lichess blunders while avoiding false positives
-      if (winProbDrop >= 12) {
+      // Use thresholds from AnalysisConfig (ADR 006 Phase 2)
+      if (winProbDrop >= AnalysisConfig.CLASSIFICATION.WIN_PROB_BLUNDER) {
         return { classification: 'blunder', reason: 'win_probability', moveAccuracy, winProbDrop };
       }
-      if (winProbDrop >= 8) {
+      if (winProbDrop >= AnalysisConfig.CLASSIFICATION.WIN_PROB_MISTAKE) {
         return { classification: 'mistake', reason: 'win_probability', moveAccuracy, winProbDrop };
       }
-      if (winProbDrop >= 5) {
+      if (winProbDrop >= AnalysisConfig.CLASSIFICATION.WIN_PROB_INACCURACY) {
         return { classification: 'inaccuracy', reason: 'win_probability', moveAccuracy, winProbDrop };
       }
     }
@@ -238,9 +273,9 @@ class TacticalDetector {
 
     // TERTIARY: Explicit tactical blunders (very conservative)
     // Only if position is contestable AND no win% classification AND clear tactical pattern
-    if (shouldClassify && winProbDrop < 10 && tacticalAnalysis.isTacticalBlunder) {
+    if (shouldClassify && winProbDrop < AnalysisConfig.CLASSIFICATION.WIN_PROB_MISTAKE && tacticalAnalysis.isTacticalBlunder) {
       // Only allow tactical override if it's a very clear pattern
-      if (tacticalAnalysis.severity === 'blunder' && cpLoss >= 150) {
+      if (tacticalAnalysis.severity === 'blunder' && cpLoss >= AnalysisConfig.TACTICAL.HANGING_PIECE_MIN_LOSS * 0.75) {
         return {
           classification: 'blunder',
           reason: 'tactical',
@@ -249,7 +284,7 @@ class TacticalDetector {
           tacticalType: tacticalAnalysis.type
         };
       }
-      if (tacticalAnalysis.severity === 'mistake' && cpLoss >= 100) {
+      if (tacticalAnalysis.severity === 'mistake' && cpLoss >= AnalysisConfig.CLASSIFICATION.CP_MISTAKE) {
         return {
           classification: 'mistake',
           reason: 'tactical',

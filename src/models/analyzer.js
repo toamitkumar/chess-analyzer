@@ -5,6 +5,7 @@ const { spawn } = require('child_process');
 const BlunderCategorizer = require('./blunder-categorizer');
 const TacticalDetector = require('./tactical-detector');
 const WinProbability = require('./win-probability');
+const EvaluationNormalizer = require('./evaluation-normalizer');
 
 class ChessAnalyzer {
   constructor() {
@@ -304,9 +305,19 @@ class ChessAnalyzer {
           centipawnLoss = Math.min(centipawnLoss, 500); // Cap at 500cp (5 pawns)
           totalCentipawnLoss += centipawnLoss;
 
+          // ADR 006 Phase 1: Normalize evaluations to White's perspective (Lichess convention)
+          // Stockfish returns eval from side-to-move's perspective
+          // Before move: mover's turn, so beforeEval is from mover's perspective
+          // After move: opponent's turn, so afterEval is from opponent's perspective
+          const evalBeforeWhite = EvaluationNormalizer.toWhitePerspective(beforeEval.evaluation, isWhiteMove);
+          const evalAfterWhite = EvaluationNormalizer.toWhitePerspective(afterEval.evaluation, !isWhiteMove);
+
           // Calculate per-move accuracy and win probabilities using win-probability algorithm (ADR 005)
-          const winProbBefore = WinProbability.cpToWinProbability(beforeEval.evaluation);
-          const winProbAfter = WinProbability.cpToWinProbability(-afterEval.evaluation);
+          // Win probability should be calculated from the mover's perspective for accuracy
+          const evalBeforeMover = EvaluationNormalizer.toMoverPerspective(evalBeforeWhite, isWhiteMove);
+          const evalAfterMover = EvaluationNormalizer.toMoverPerspective(evalAfterWhite, isWhiteMove);
+          const winProbBefore = WinProbability.cpToWinProbability(evalBeforeMover);
+          const winProbAfter = WinProbability.cpToWinProbability(evalAfterMover);
           const moveAccuracy = WinProbability.calculateMoveAccuracy(winProbBefore, winProbAfter);
 
           // Tactical blunder detection (ADR 005 Phase 2)
@@ -314,18 +325,20 @@ class ChessAnalyzer {
           let moveClassification = null;
           if (alternatives.length > 0) {
             // Analyze for tactical blunders and missed opportunities
+            // Use mover's perspective for tactical analysis
             const moveData = {
-              evaluation: -afterEval.evaluation, // From mover's perspective
+              evaluation: evalAfterMover, // From mover's perspective
               centipawnLoss: centipawnLoss
             };
             tacticalAnalysis = TacticalDetector.analyzeTacticalBlunder(moveData, alternatives);
 
             // Classify move using tactical detection + win probability
+            // Use mover's perspective evaluations for classification
             moveClassification = TacticalDetector.classifyMoveWithTactics(
               moveAccuracy,
               tacticalAnalysis,
-              beforeEval.evaluation,
-              -afterEval.evaluation,
+              evalBeforeMover,
+              evalAfterMover,
               centipawnLoss,
               winProbBefore, // Pass pre-calculated win probability
               winProbAfter   // Pass pre-calculated win probability
@@ -424,8 +437,8 @@ class ChessAnalyzer {
                 moveNumber: Math.ceil((i + 1) / 2),
                 playerMove: playedMoveUci,
                 bestMove: beforeEval.bestMove,
-                evaluationBefore: beforeEval.evaluation,
-                evaluationAfter: -afterEval.evaluation, // From mover's perspective
+                evaluationBefore: evalBeforeMover, // From mover's perspective
+                evaluationAfter: evalAfterMover, // From mover's perspective
                 centipawnLoss: centipawnLoss
               }, tempChess);
             } catch (error) {
@@ -446,7 +459,7 @@ class ChessAnalyzer {
           const moveAnalysis = {
             move_number: i + 1,
             move: move,
-            evaluation: -afterEval.evaluation, // From mover's perspective (negated from opponent's view)
+            evaluation: evalAfterWhite, // ADR 006: White's perspective (Lichess convention)
             best_move: beforeEval.bestMove,
             centipawn_loss: centipawnLoss,
             move_accuracy: Math.round(moveAccuracy * 10) / 10, // Per-move accuracy
@@ -517,12 +530,18 @@ class ChessAnalyzer {
     }
   }
 
-  async evaluatePosition(fen, depth = 12) {
-    // DETERMINISM FIX: Use fresh engine instance for each evaluation
-    return this._evaluateWithFreshEngine(fen, depth);
+  async evaluatePosition(fen, depthOrOptions = 12) {
+    // Support both legacy depth parameter and new options object
+    const options = typeof depthOrOptions === 'object' 
+      ? depthOrOptions 
+      : { depth: depthOrOptions };
+    
+    return this._evaluateWithFreshEngine(fen, options);
   }
 
-  async _evaluateWithFreshEngine(fen, depth) {
+  async _evaluateWithFreshEngine(fen, options = {}) {
+    const { depth = 12, nodes = null } = options;
+    
     return new Promise((resolve, reject) => {
       // Spawn fresh Stockfish instance
       const { spawn } = require('child_process');
@@ -563,7 +582,12 @@ class ChessAnalyzer {
             engineReady = true;
             // Engine is ready, start analysis
             engine.stdin.write(`position fen ${fen}\n`);
-            engine.stdin.write(`go depth ${depth}\n`);
+            // Use nodes-based analysis if specified (Lichess-compatible), otherwise depth
+            if (nodes) {
+              engine.stdin.write(`go nodes ${nodes}\n`);
+            } else {
+              engine.stdin.write(`go depth ${depth}\n`);
+            }
           }
           
           if (line.startsWith('bestmove') && !resolved) {
@@ -622,19 +646,23 @@ class ChessAnalyzer {
   }
 
   calculateCentipawnLoss(beforeEval, afterEval, isWhiteMove) {
-    // Stockfish evaluates from the perspective of the side to move
-    // Before: evaluation is from the moving player's perspective
-    // After: evaluation is from the opponent's perspective (since they move next)
+    // ADR 006 Phase 1: Use EvaluationNormalizer for consistent perspective handling
+    //
+    // Stockfish evaluates from the perspective of the side to move:
+    // - beforeEval: from the moving player's perspective (before they move)
+    // - afterEval: from the opponent's perspective (after the move, opponent to move)
+    //
+    // We need to normalize both to White's perspective first, then calculate loss
+    // from the mover's perspective.
 
-    // Convert both to the moving player's perspective
-    const beforeFromMoverView = beforeEval; // Already from mover's perspective
-    const afterFromMoverView = -afterEval; // Negate because it's opponent's turn
+    // Convert to White's perspective
+    // Before: it's the mover's turn, so if White moves, eval is from White's perspective
+    const beforeWhitePerspective = EvaluationNormalizer.toWhitePerspective(beforeEval, isWhiteMove);
+    // After: it's the opponent's turn, so if White moved, it's now Black's turn
+    const afterWhitePerspective = EvaluationNormalizer.toWhitePerspective(afterEval, !isWhiteMove);
 
-    // Centipawn loss is how much the position worsened for the mover
-    // A good move should have afterFromMoverView >= beforeFromMoverView (improvement or same)
-    // A bad move has afterFromMoverView < beforeFromMoverView (loss)
-    const loss = Math.max(0, beforeFromMoverView - afterFromMoverView);
-    return Math.round(loss);
+    // Calculate centipawn loss from mover's perspective
+    return EvaluationNormalizer.calculateCentipawnLoss(beforeWhitePerspective, afterWhitePerspective, isWhiteMove);
   }
 
   async analyzePGN(pgnContent) {
@@ -732,6 +760,12 @@ class ChessAnalyzer {
         const cappedCentipawnLoss = Math.min(centipawnLoss, 500);
         const isBlunder = cappedCentipawnLoss > 200;
 
+        // ADR 006: Normalize evaluations to White's perspective
+        const evalBeforeWhite = EvaluationNormalizer.toWhitePerspective(beforeEval.evaluation, isWhiteMove);
+        const evalAfterWhite = EvaluationNormalizer.toWhitePerspective(afterEval.evaluation, !isWhiteMove);
+        const evalBeforeMover = EvaluationNormalizer.toMoverPerspective(evalBeforeWhite, isWhiteMove);
+        const evalAfterMover = EvaluationNormalizer.toMoverPerspective(evalAfterWhite, isWhiteMove);
+
         // Categorize blunders with enhanced details
         let categorization = null;
         if (isBlunder) {
@@ -743,8 +777,8 @@ class ChessAnalyzer {
               moveNumber: Math.ceil((i + 1) / 2),
               playerMove: playedMoveUci,
               bestMove: beforeEval.bestMove,
-              evaluationBefore: beforeEval.evaluation,
-              evaluationAfter: -afterEval.evaluation,
+              evaluationBefore: evalBeforeMover,
+              evaluationAfter: evalAfterMover,
               centipawnLoss: cappedCentipawnLoss
             }, tempChess);
           } catch (error) {
@@ -769,7 +803,7 @@ class ChessAnalyzer {
           centipawnLoss: cappedCentipawnLoss,
           isBlunder: isBlunder,
           bestMove: beforeEval.bestMove,
-          evaluation: afterEval.evaluation,
+          evaluation: evalAfterWhite, // ADR 006: White's perspective
           alternatives: alternatives,
           categorization: categorization
         });

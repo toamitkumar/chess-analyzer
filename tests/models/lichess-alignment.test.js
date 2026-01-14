@@ -112,29 +112,29 @@ describe('Lichess Alignment - ADR 006 Phase 3', () => {
   });
 
   describe('Classification Thresholds', () => {
-    test('should use exact Lichess win probability thresholds (converted from ±1 scale)', () => {
-      // Lichess uses [-1, +1] scale: 0.1, 0.2, 0.3
-      // Converted to [0, 100] scale: 5%, 10%, 15%
-      expect(AnalysisConfig.CLASSIFICATION.WIN_PROB_INACCURACY).toBe(5);
-      expect(AnalysisConfig.CLASSIFICATION.WIN_PROB_MISTAKE).toBe(10);
-      expect(AnalysisConfig.CLASSIFICATION.WIN_PROB_BLUNDER).toBe(15);
+    test('should use NNUE-adjusted win probability thresholds', () => {
+      // ADR 006: Adjusted for NNUE difference (our evals are ~74% of Lichess)
+      // Original Lichess: 5/10/15%, Adjusted: 3/6/9%
+      expect(AnalysisConfig.CLASSIFICATION.WIN_PROB_INACCURACY).toBe(3);
+      expect(AnalysisConfig.CLASSIFICATION.WIN_PROB_MISTAKE).toBe(6);
+      expect(AnalysisConfig.CLASSIFICATION.WIN_PROB_BLUNDER).toBe(9);
     });
 
     test('should classify based on win probability drop', () => {
-      // 5% drop = inaccuracy (Lichess 0.1 on ±1 scale)
+      // 3% drop = inaccuracy (adjusted from 5%)
+      expect(AnalysisConfig.getClassification(3)).toBe('inaccuracy');
       expect(AnalysisConfig.getClassification(5)).toBe('inaccuracy');
-      expect(AnalysisConfig.getClassification(8)).toBe('inaccuracy');
       
-      // 10% drop = mistake (Lichess 0.2 on ±1 scale)
-      expect(AnalysisConfig.getClassification(10)).toBe('mistake');
-      expect(AnalysisConfig.getClassification(12)).toBe('mistake');
+      // 6% drop = mistake (adjusted from 10%)
+      expect(AnalysisConfig.getClassification(6)).toBe('mistake');
+      expect(AnalysisConfig.getClassification(8)).toBe('mistake');
       
-      // 15% drop = blunder (Lichess 0.3 on ±1 scale)
+      // 9% drop = blunder (adjusted from 15%)
+      expect(AnalysisConfig.getClassification(9)).toBe('blunder');
       expect(AnalysisConfig.getClassification(15)).toBe('blunder');
-      expect(AnalysisConfig.getClassification(30)).toBe('blunder');
       
-      // < 5% = good move
-      expect(AnalysisConfig.getClassification(4)).toBeNull();
+      // < 3% = good move
+      expect(AnalysisConfig.getClassification(2)).toBeNull();
       expect(AnalysisConfig.getClassification(0)).toBeNull();
     });
   });

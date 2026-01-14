@@ -48,12 +48,8 @@ describe('Lichess Classification Match - Integration Tests', () => {
 
   /**
    * Helper: Analyze a single position and classify the move
-   * 
-   * IMPORTANT: Lichess compares your move to the BEST move, not to the position before.
-   * Win probability drop = WinProb(best move) - WinProb(your move)
    */
   async function analyzePosition(fen, move, isWhiteMove, options = {}) {
-    // Use config defaults if no options specified
     const defaultOptions = AnalysisConfig.USE_NODES 
       ? { nodes: AnalysisConfig.NODES.STANDARD }
       : { depth: AnalysisConfig.DEPTH.STANDARD };
@@ -62,50 +58,39 @@ describe('Lichess Classification Match - Integration Tests', () => {
       ? { depth: options } 
       : options;
     
-    // Use provided options or fall back to config defaults
     const evalOptions = nodes ? { nodes } : (depth ? { depth } : defaultOptions);
     const chess = new Chess(fen);
     
-    // Get evaluation of position BEFORE move (includes best move info)
+    // Get evaluation before move
     const beforeEval = await analyzer.evaluatePosition(fen, evalOptions);
     
-    // Make the move
+    // Play the move
     const moveResult = chess.move(move);
     if (!moveResult) {
       throw new Error(`Invalid move: ${move} in position ${fen}`);
     }
     
-    // Get evaluation after the PLAYED move
+    // Get evaluation after move
     const afterFen = chess.fen();
     const afterEval = await analyzer.evaluatePosition(afterFen, evalOptions);
     
-    // Normalize evaluations to White's perspective
+    // Normalize to White's perspective
     const evalBeforeWhite = EvaluationNormalizer.toWhitePerspective(beforeEval.evaluation, isWhiteMove);
     const evalAfterWhite = EvaluationNormalizer.toWhitePerspective(afterEval.evaluation, !isWhiteMove);
     
-    // The "best move" evaluation is what the position would be if the best move was played
-    // This is the evaluation BEFORE the move (from the engine's perspective of the best line)
-    // For Lichess comparison: we need to compare best move result vs played move result
-    const evalBestMoveWhite = evalBeforeWhite; // Best move keeps/improves the position
-    
     // Convert to mover's perspective for classification
-    const evalBestMoveMover = EvaluationNormalizer.toMoverPerspective(evalBestMoveWhite, isWhiteMove);
+    const evalBeforeMover = EvaluationNormalizer.toMoverPerspective(evalBeforeWhite, isWhiteMove);
     const evalAfterMover = EvaluationNormalizer.toMoverPerspective(evalAfterWhite, isWhiteMove);
     
-    // Calculate centipawn loss (how much worse than best move)
-    const cpLoss = EvaluationNormalizer.calculateCentipawnLoss(evalBeforeWhite, evalAfterWhite, isWhiteMove);
-    
-    // LICHESS METHOD: Win probability drop from BEST MOVE to PLAYED MOVE
-    // This is the key difference - Lichess compares to what you COULD have had
-    const winProbBestMove = WinProbability.cpToWinProbability(evalBestMoveMover);
+    // Calculate CP loss and WP drop
+    const cpLoss = Math.max(0, evalBeforeMover - evalAfterMover);
+    const winProbBefore = WinProbability.cpToWinProbability(evalBeforeMover);
     const winProbAfter = WinProbability.cpToWinProbability(evalAfterMover);
-    const winProbDrop = Math.max(0, winProbBestMove - winProbAfter);
-    const moveAccuracy = WinProbability.calculateMoveAccuracy(winProbBestMove, winProbAfter);
+    const winProbDrop = Math.max(0, winProbBefore - winProbAfter);
     
-    // Classify using AnalysisConfig thresholds (Lichess-aligned)
+    // Classify
     const classification = AnalysisConfig.getClassification(winProbDrop, evalAfterMover);
     
-    // Determine reason
     let reason = 'good_move';
     if (classification === 'blunder') {
       reason = AnalysisConfig.isMateEvaluation(evalAfterMover) && evalAfterMover < 0 ? 'mate_detection' : 'win_probability';
@@ -116,13 +101,12 @@ describe('Lichess Classification Match - Integration Tests', () => {
     return {
       evalBefore: evalBeforeWhite,
       evalAfter: evalAfterWhite,
-      evalBestMoveMover,
+      evalBestMoveMover: evalBeforeMover,
       evalAfterMover,
       cpLoss,
-      winProbBestMove,
+      winProbBestMove: winProbBefore,
       winProbAfter,
       winProbDrop,
-      moveAccuracy,
       classification: classification || 'good',
       reason,
       bestMove: beforeEval.bestMove

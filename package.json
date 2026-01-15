@@ -35,7 +35,6 @@
     "pg": "^8.16.3",
     "pg-hstore": "^2.3.4",
     "sqlite3": "^5.1.7",
-    "stockfish": "^17.1.0",
     "unbzip2-stream": "^1.4.3"
   },
   "devDependencies": {

@@ -1,0 +1,160 @@
+{
+  "description": "Lichess reference games for ADR 006 evaluation alignment testing",
+  "version": "1.0",
+  "games": [
+    {
+      "id": "ErSfVbRk",
+      "dbId": 84,
+      "name": "Eric Rosen vs Alireza - Lost",
+      "pgnFile": "tests/fixtures/1-eric-rossen-lost.pgn",
+      "white": "EricRosen",
+      "black": "alireza2003",
+      "result": "0-1",
+      "criticalMoves": [
+        { "moveNumber": 6, "move": "a3", "san": "a3", "color": "white", "lichessEval": -0.91, "lichessClass": "mistake", "notes": "e5 was best" },
+        { "moveNumber": 7, "move": "e5", "san": "e5", "color": "black", "lichessEval": 0.26, "lichessClass": "mistake", "notes": "Nxe4 was best" },
+        { "moveNumber": 12, "move": "Qe2", "san": "Qe2", "color": "white", "lichessEval": -1.57, "lichessClass": "inaccuracy", "notes": "Ne2 was best" },
+        { "moveNumber": 15, "move": "Qe3", "san": "Qe3", "color": "white", "lichessEval": -1.89, "lichessClass": "inaccuracy", "notes": "Ba2 was best" },
+        { "moveNumber": 18, "move": "h6", "san": "h6", "color": "black", "lichessEval": -1.11, "lichessClass": "inaccuracy", "notes": "Kh8 was best" },
+        { "moveNumber": 19, "move": "Ne2", "san": "Ne2", "color": "white", "lichessEval": -2.24, "lichessClass": "inaccuracy", "notes": "Na2 was best" },
+        { "moveNumber": 20, "move": "c3", "san": "c3", "color": "white", "lichessEval": -3.00, "lichessClass": "mistake", "notes": "Nc1 was best" },
+        { "moveNumber": 21, "move": "Nh4", "san": "Nh4", "color": "white", "lichessEval": -5.95, "lichessClass": "mistake", "notes": "Bd5 was best" },
+        { "moveNumber": 26, "move": "Qg5", "san": "Qg5", "color": "white", "lichessEval": -7.36, "lichessClass": "mistake", "notes": "Bb1 was best" },
+        { "moveNumber": 30, "move": "Nh6+", "san": "Nh6+", "color": "white", "lichessEval": -7.28, "lichessClass": "mistake", "notes": "Qh4 was best" },
+        { "moveNumber": 38, "move": "Rxd1", "san": "Rxd1", "color": "white", "lichessEval": -800, "lichessClass": "blunder", "notes": "Mate in 8, Qg4 was best", "isMate": true, "mateIn": -8 }
+      ]
+    },
+    {
+      "id": "KxLtTGUG",
+      "dbId": 85,
+      "name": "Eric Rosen vs Alireza - Won (Englund Gambit)",
+      "pgnFile": "tests/fixtures/2-eric-rossen-won.pgn",
+      "white": "EricRosen",
+      "black": "alireza2003",
+      "result": "1-0",
+      "criticalMoves": [
+        { "moveNumber": 1, "move": "e5", "san": "e5", "color": "black", "lichessEval": 1.74, "lichessClass": "blunder", "notes": "Englund Gambit - Nf6 was best" },
+        { "moveNumber": 2, "move": "Qe7", "san": "Qe7", "color": "black", "lichessEval": 2.48, "lichessClass": "inaccuracy", "notes": "Nc6 was best" },
+        { "moveNumber": 3, "move": "Nf3", "san": "Nf3", "color": "white", "lichessEval": 1.51, "lichessClass": "inaccuracy", "notes": "Nc3 was best" },
+        { "moveNumber": 5, "move": "Qxb2", "san": "Qxb2", "color": "black", "lichessEval": 2.27, "lichessClass": "inaccuracy", "notes": "Qc5 was best" },
+        { "moveNumber": 7, "move": "Qxc3", "san": "Qxc3", "color": "black", "lichessEval": 2.64, "lichessClass": "inaccuracy", "notes": "Qa3 was best" },
+        { "moveNumber": 9, "move": "Nxe5", "san": "Nxe5", "color": "black", "lichessEval": 4.18, "lichessClass": "inaccuracy", "notes": "Bxe5 was best" },
+        { "moveNumber": 13, "move": "Ne7", "san": "Ne7", "color": "black", "lichessEval": 6.68, "lichessClass": "inaccuracy", "notes": "d6 was best" },
+        { "moveNumber": 39, "move": "Bf5", "san": "Bf5", "color": "black", "lichessEval": 900, "lichessClass": "blunder", "notes": "Mate in 9, Kh7 was best", "isMate": true, "mateIn": 9 }
+      ]
+    },
+    {
+      "id": "wmc9QOP2",
+      "dbId": 86,
+      "name": "Eric Rosen vs Alireza - Draw (Sicilian)",
+      "pgnFile": "tests/fixtures/3-eric-rossen-draw.pgn",
+      "white": "EricRosen",
+      "black": "alireza2003",
+      "result": "1/2-1/2",
+      "criticalMoves": [
+        { "moveNumber": 8, "move": "Na5", "san": "Na5", "color": "black", "lichessEval": 0.43, "lichessClass": "inaccuracy", "notes": "Bg4 was best" },
+        { "moveNumber": 16, "move": "Ne3", "san": "Ne3", "color": "black", "lichessEval": 2.14, "lichessClass": "mistake", "notes": "Ne5 was best" },
+        { "moveNumber": 21, "move": "Kg8", "san": "Kg8", "color": "black", "lichessEval": 4.08, "lichessClass": "blunder", "notes": "e6 was best" },
+        { "moveNumber": 32, "move": "Kf7", "san": "Kf7", "color": "black", "lichessEval": 1.95, "lichessClass": "blunder", "notes": "Rxf6 was best" },
+        { "moveNumber": 40, "move": "Rg1", "san": "Rg1", "color": "black", "lichessEval": 7.21, "lichessClass": "blunder", "notes": "Rf1+ was best" },
+        { "moveNumber": 49, "move": "h6", "san": "h6", "color": "white", "lichessEval": 0.00, "lichessClass": "blunder", "notes": "Rf2+ was best - throws away win" }
+      ]
+    },
+    {
+      "id": "5Aa4ie3y",
+      "dbId": 87,
+      "name": "Advait vs heyitsme2024 - Lost (Caro-Kann)",
+      "pgnFile": "tests/fixtures/4-advait-black-lost.pgn",
+      "white": "heyitsme2024",
+      "black": "AdvaitKumar1213",
+      "result": "1-0",
+      "criticalMoves": [
+        { "moveNumber": 8, "move": "Bg6", "san": "Bg6", "color": "black", "lichessEval": 1.73, "lichessClass": "mistake", "notes": "Bxb1 was best" },
+        { "moveNumber": 9, "move": "Bb5+", "san": "Bb5+", "color": "white", "lichessEval": 0.38, "lichessClass": "mistake", "notes": "Nc3 was best" },
+        { "moveNumber": 16, "move": "Kc6", "san": "Kc6", "color": "black", "lichessEval": 2.71, "lichessClass": "blunder", "notes": "Nd5 was best" },
+        { "moveNumber": 19, "move": "Rc1", "san": "Rc1", "color": "white", "lichessEval": 1.65, "lichessClass": "inaccuracy", "notes": "Rad1 was best" },
+        { "moveNumber": 21, "move": "f3", "san": "f3", "color": "white", "lichessEval": 0.72, "lichessClass": "mistake", "notes": "Ne2 was best" },
+        { "moveNumber": 22, "move": "b4", "san": "b4", "color": "white", "lichessEval": 0.09, "lichessClass": "inaccuracy", "notes": "Bh4 was best" },
+        { "moveNumber": 23, "move": "Kc7", "san": "Kc7", "color": "black", "lichessEval": 1.51, "lichessClass": "mistake", "notes": "h6 was best" },
+        { "moveNumber": 24, "move": "f6", "san": "f6", "color": "black", "lichessEval": 2.01, "lichessClass": "inaccuracy", "notes": "Kb8 was best" },
+        { "moveNumber": 25, "move": "Kb6", "san": "Kb6", "color": "black", "lichessEval": 5.78, "lichessClass": "blunder", "notes": "Rhd8 was best" },
+        { "moveNumber": 27, "move": "Rxd4", "san": "Rxd4", "color": "black", "lichessEval": 8.28, "lichessClass": "inaccuracy", "notes": "Bxc6 was best" },
+        { "moveNumber": 28, "move": "Ka7", "san": "Ka7", "color": "black", "lichessEval": 10000, "lichessClass": "blunder", "notes": "Mate in 3, Kb5 was best", "isMate": true, "mateIn": 3 }
+      ]
+    },
+    {
+      "id": "dVOcv18q",
+      "dbId": 89,
+      "name": "Macko09 vs EricRosen - Won (Sicilian)",
+      "pgnFile": "tests/fixtures/5th-eric-rossen-won.pgn",
+      "white": "Macko09",
+      "black": "EricRosen",
+      "result": "0-1",
+      "criticalMoves": [
+        { "moveNumber": 13, "move": "Nf1", "san": "Nf1", "color": "white", "lichessEval": -0.14, "lichessClass": "inaccuracy", "notes": "e5 was best" },
+        { "moveNumber": 25, "move": "Rae1", "san": "Rae1", "color": "white", "lichessEval": -1.35, "lichessClass": "inaccuracy", "notes": "Kf1 was best" },
+        { "moveNumber": 30, "move": "a5", "san": "a5", "color": "black", "lichessEval": 2.58, "lichessClass": "blunder", "notes": "h5 was best" },
+        { "moveNumber": 32, "move": "b3", "san": "b3", "color": "white", "lichessEval": -0.29, "lichessClass": "blunder", "notes": "a3 was best" },
+        { "moveNumber": 33, "move": "b4", "san": "b4", "color": "white", "lichessEval": -2.80, "lichessClass": "blunder", "notes": "Re1 was best" },
+        { "moveNumber": 40, "move": "Kf6", "san": "Kf6", "color": "black", "lichessEval": -0.06, "lichessClass": "blunder", "notes": "h5 was best" },
+        { "moveNumber": 62, "move": "Rg5", "san": "Rg5", "color": "white", "lichessEval": -4.14, "lichessClass": "blunder", "notes": "Rh8+ was best" },
+        { "moveNumber": 75, "move": "Re4", "san": "Re4", "color": "white", "lichessEval": -8.48, "lichessClass": "mistake", "notes": "gxf4 was best" },
+        { "moveNumber": 77, "move": "g4", "san": "g4", "color": "white", "lichessEval": -10000, "lichessClass": "blunder", "notes": "Mate in 7", "isMate": true, "mateIn": -7 }
+      ]
+    },
+    {
+      "id": "6c2h8kVM",
+      "dbId": 90,
+      "name": "EricRosen vs Ram777 - Won (Scandinavian)",
+      "pgnFile": "tests/fixtures/6th-eric-rossen-won.pgn",
+      "white": "EricRosen",
+      "black": "Ram777",
+      "result": "1-0",
+      "criticalMoves": [
+        { "moveNumber": 4, "move": "b4", "san": "b4", "color": "white", "lichessEval": -0.13, "lichessClass": "inaccuracy", "notes": "Nf3 was best" },
+        { "moveNumber": 4, "move": "Qb6", "san": "Qb6", "color": "black", "lichessEval": 0.47, "lichessClass": "inaccuracy", "notes": "Qxb4 was best" },
+        { "moveNumber": 10, "move": "Bg5", "san": "Bg5", "color": "white", "lichessEval": 0.29, "lichessClass": "inaccuracy", "notes": "Ne4 was best" },
+        { "moveNumber": 16, "move": "c5", "san": "c5", "color": "black", "lichessEval": 4.55, "lichessClass": "blunder", "notes": "a5 was best" }
+      ]
+    },
+    {
+      "id": "ZgJZ9lXt",
+      "dbId": 93,
+      "name": "EricRosen vs Var_Vlad - Won (Caro-Kann)",
+      "pgnFile": "tests/fixtures/10th-eric-rossen-won.pgn",
+      "white": "EricRosen",
+      "black": "Var_Vlad",
+      "result": "1-0",
+      "criticalMoves": [
+        { "moveNumber": 5, "move": "Nd7", "san": "Nd7", "color": "black", "lichessEval": 1.92, "lichessClass": "mistake", "notes": "e6 was best" },
+        { "moveNumber": 7, "move": "Ngf6", "san": "Ngf6", "color": "black", "lichessEval": 2.62, "lichessClass": "inaccuracy", "notes": "Qc7 was best" },
+        { "moveNumber": 11, "move": "Bb4", "san": "Bb4", "color": "black", "lichessEval": 3.56, "lichessClass": "inaccuracy", "notes": "Ne5 was best" },
+        { "moveNumber": 12, "move": "Bg5", "san": "Bg5", "color": "white", "lichessEval": 1.39, "lichessClass": "blunder", "notes": "Bxd7 was best" },
+        { "moveNumber": 12, "move": "Rb8", "san": "Rb8", "color": "black", "lichessEval": 2.87, "lichessClass": "mistake", "notes": "Qa5 was best" },
+        { "moveNumber": 13, "move": "Qxd7", "san": "Qxd7", "color": "black", "lichessEval": 3.14, "lichessClass": "inaccuracy", "notes": "Nxd7 was best" },
+        { "moveNumber": 15, "move": "Ne4", "san": "Ne4", "color": "white", "lichessEval": 2.08, "lichessClass": "inaccuracy", "notes": "Rfc1 was best" },
+        { "moveNumber": 16, "move": "Ba5", "san": "Ba5", "color": "black", "lichessEval": 3.44, "lichessClass": "inaccuracy", "notes": "f5 was best" },
+        { "moveNumber": 30, "move": "Re7", "san": "Re7", "color": "black", "lichessEval": 19.91, "lichessClass": "mistake", "notes": "Rxe8 was best" }
+      ]
+    },
+    {
+      "id": "9eTxgfrP",
+      "dbId": 94,
+      "name": "EricRosen vs AleksMink - Won (Pirc)",
+      "pgnFile": "tests/fixtures/9th-eric-rossen-won.pgn",
+      "white": "EricRosen",
+      "black": "AleksMink",
+      "result": "1-0",
+      "criticalMoves": [
+        { "moveNumber": 12, "move": "Ng3", "san": "Ng3", "color": "white", "lichessEval": 0.44, "lichessClass": "inaccuracy", "notes": "Qd2 was best" },
+        { "moveNumber": 15, "move": "Qc7", "san": "Qc7", "color": "black", "lichessEval": 1.77, "lichessClass": "inaccuracy", "notes": "b5 was best" },
+        { "moveNumber": 16, "move": "hxg5", "san": "hxg5", "color": "black", "lichessEval": 3.20, "lichessClass": "mistake", "notes": "exf4 was best" }
+      ]
+    }
+  ],
+  "thresholds": {
+    "evalTolerance": 50,
+    "classificationMatchTarget": 0.85,
+    "notes": "evalTolerance is in centipawns (50cp = 0.50 pawns)"
+  }
+}

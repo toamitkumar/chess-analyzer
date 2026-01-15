@@ -1,6 +1,6 @@
 {
     "kiroAgent.enableTabAutocomplete": true,
-    "kiroAgent.modelSelection": "auto",
+    "kiroAgent.modelSelection": "claude-opus-4.5",
     "kiroAgent.trustedCommands": [
         "`git *`",
         "",

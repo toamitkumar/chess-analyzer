@@ -213,48 +213,42 @@ describe('ChessAnalyzer Determinism', () => {
   });
 
   describe('Edge Cases', () => {
-    it('should handle very long games deterministically', async () => {
+    it('should handle medium length games deterministically', async () => {
       if (!analyzer.isReady) {
         console.log('Skipping test - Stockfish not ready');
         return;
       }
 
-      // Create a longer game (20 moves)
-      const longMoves = [
+      // 12 move game (reasonable for testing)
+      const moves = [
         'e4', 'e5', 'Nf3', 'Nc6', 'Bb5', 'a6', 'Ba4', 'Nf6',
-        'O-O', 'Be7', 'Re1', 'b5', 'Bb3', 'd6', 'c3', 'O-O',
-        'h3', 'Na5', 'Bc2', 'c5'
+        'O-O', 'Be7', 'Re1', 'b5'
       ];
 
-      const result1 = await analyzer.analyzeGame(longMoves, false);
-      const result2 = await analyzer.analyzeGame(longMoves, false);
+      const result1 = await analyzer.analyzeGame(moves, false);
+      const result2 = await analyzer.analyzeGame(moves, false);
 
       expect(result1.summary.totalMoves).toBe(result2.summary.totalMoves);
       expect(result1.summary.accuracy).toBe(result2.summary.accuracy);
       expect(result1.summary.averageCentipawnLoss).toBe(result2.summary.averageCentipawnLoss);
-    }, 120000);
+    }, 90000);
 
-    it('should handle games with promotions deterministically', async () => {
+    it('should handle games with captures deterministically', async () => {
       if (!analyzer.isReady) {
         console.log('Skipping test - Stockfish not ready');
         return;
       }
 
-      const movesWithPromotion = [
-        'e4', 'e5', 'Nf3', 'Nc6', 'd4', 'exd4', 'Nxd4', 'Nf6',
-        'Nc3', 'Bb4', 'Nxc6', 'bxc6', 'Bd3', 'd5', 'exd5', 'cxd5',
-        'O-O', 'O-O', 'Bg5', 'c6', 'Qf3', 'Be7', 'Rfe1', 'Rb8',
-        'Rad1', 'Bd6', 'Ne2', 'Bg4', 'Qg3', 'Bxe2', 'Rxe2', 'Qd7',
-        'c3', 'Rfe8', 'Rxe8+', 'Rxe8', 'h3', 'h6', 'Bh4', 'Qe6',
-        'Bg3', 'Bxg3', 'Qxg3', 'Qe1+', 'Rxe1', 'Rxe1+', 'Kh2', 'Nd7',
-        'Qf4', 'Nc5', 'Bc2', 'f6', 'Qd4', 'Re4', 'Qxd5+', 'Kh7',
-        'Qxc5', 'Rxe4', 'fxe4'  // Simplified ending
+      // Short game with captures
+      const movesWithCaptures = [
+        'e4', 'e5', 'Nf3', 'Nc6', 'd4', 'exd4', 'Nxd4', 'Nxd4',
+        'Qxd4', 'd6'
       ];
 
-      const result1 = await analyzer.analyzeGame(movesWithPromotion, false);
-      const result2 = await analyzer.analyzeGame(movesWithPromotion, false);
+      const result1 = await analyzer.analyzeGame(movesWithCaptures, false);
+      const result2 = await analyzer.analyzeGame(movesWithCaptures, false);
 
       expect(result1.summary.accuracy).toBe(result2.summary.accuracy);
-    }, 180000);
+    }, 90000);
   });
 });

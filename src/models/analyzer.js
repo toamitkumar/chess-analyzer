@@ -5,6 +5,8 @@ const { spawn } = require('child_process');
 const BlunderCategorizer = require('./blunder-categorizer');
 const TacticalDetector = require('./tactical-detector');
 const WinProbability = require('./win-probability');
+const EvaluationNormalizer = require('./evaluation-normalizer');
+const AnalysisConfig = require('./analysis-config');
 
 class ChessAnalyzer {
   constructor() {
@@ -16,6 +18,17 @@ class ChessAnalyzer {
     this.activeProcesses = new Set(); // Track all active Stockfish processes
     this.timeouts = new Set(); // Track all active timeouts
     this.setupEngine();
+  }
+
+  /**
+   * Get evaluation options based on config
+   * Uses nodes-based analysis if USE_NODES is true (Lichess-compatible)
+   */
+  getEvalOptions(quality = 'STANDARD') {
+    if (AnalysisConfig.USE_NODES) {
+      return { nodes: AnalysisConfig.NODES[quality] || AnalysisConfig.NODES.STANDARD };
+    }
+    return { depth: AnalysisConfig.DEPTH[quality] || AnalysisConfig.DEPTH.STANDARD };
   }
 
   // Convert win probability to centipawn equivalent
@@ -64,9 +77,9 @@ class ChessAnalyzer {
           // Set Threads to 1 for deterministic analysis results
           console.log('🔧 [DETERMINISM] Setting Threads=1 for deterministic analysis');
           this.engine.stdin.write('setoption name Threads value 1\n');
-          // Set Hash to a fixed size for consistency
-          console.log('🔧 [DETERMINISM] Setting Hash=128MB for consistency');
-          this.engine.stdin.write('setoption name Hash value 128\n');
+          // Set Hash size from config for better evaluation quality
+          console.log(`🔧 [CONFIG] Setting Hash=${AnalysisConfig.ENGINE.HASH_MB}MB`);
+          this.engine.stdin.write(`setoption name Hash value ${AnalysisConfig.ENGINE.HASH_MB}\n`);
           // Now check if ready
           this.engine.stdin.write('isready\n');
         }
@@ -209,6 +222,9 @@ class ChessAnalyzer {
       let totalCentipawnLoss = 0;
       const blunders = [];
 
+      // Get evaluation options based on config
+      const evalOptions = this.getEvalOptions('STANDARD');
+
       for (let i = 0; i < moves.length; i++) {
         const move = moves[i];
 
@@ -222,13 +238,13 @@ class ChessAnalyzer {
           const beforeFen = chess.fen();
 
           // Get best move evaluation before the actual move
-          const beforeEval = await this.evaluatePosition(beforeFen, 12);
+          const beforeEval = await this.evaluatePosition(beforeFen, evalOptions);
 
           // Fetch up to 10 alternative moves for each position
           let alternatives = [];
           if (fetchAlternatives) {
             console.log(`🔄 Fetching alternatives for move ${i + 1}...`);
-            alternatives = await this.generateAlternatives(beforeFen, 12, 10);
+            alternatives = await this.generateAlternatives(beforeFen, evalOptions, 10);
             console.log(`✅ Found ${alternatives.length} alternatives for move ${i + 1}`);
           } else {
             // Fallback to just the best move - convert UCI to SAN
@@ -270,7 +286,7 @@ class ChessAnalyzer {
 
           // Get evaluation after the move
           const afterFen = chess.fen();
-          const afterEval = await this.evaluatePosition(afterFen, 12);
+          const afterEval = await this.evaluatePosition(afterFen, evalOptions);
 
           // Calculate centipawn loss using direct evaluation comparison (most accurate)
           const isWhiteMove = i % 2 === 0;
@@ -304,9 +320,19 @@ class ChessAnalyzer {
           centipawnLoss = Math.min(centipawnLoss, 500); // Cap at 500cp (5 pawns)
           totalCentipawnLoss += centipawnLoss;
 
+          // ADR 006 Phase 1: Normalize evaluations to White's perspective (Lichess convention)
+          // Stockfish returns eval from side-to-move's perspective
+          // Before move: mover's turn, so beforeEval is from mover's perspective
+          // After move: opponent's turn, so afterEval is from opponent's perspective
+          const evalBeforeWhite = EvaluationNormalizer.toWhitePerspective(beforeEval.evaluation, isWhiteMove);
+          const evalAfterWhite = EvaluationNormalizer.toWhitePerspective(afterEval.evaluation, !isWhiteMove);
+
           // Calculate per-move accuracy and win probabilities using win-probability algorithm (ADR 005)
-          const winProbBefore = WinProbability.cpToWinProbability(beforeEval.evaluation);
-          const winProbAfter = WinProbability.cpToWinProbability(-afterEval.evaluation);
+          // Win probability should be calculated from the mover's perspective for accuracy
+          const evalBeforeMover = EvaluationNormalizer.toMoverPerspective(evalBeforeWhite, isWhiteMove);
+          const evalAfterMover = EvaluationNormalizer.toMoverPerspective(evalAfterWhite, isWhiteMove);
+          const winProbBefore = WinProbability.cpToWinProbability(evalBeforeMover);
+          const winProbAfter = WinProbability.cpToWinProbability(evalAfterMover);
           const moveAccuracy = WinProbability.calculateMoveAccuracy(winProbBefore, winProbAfter);
 
           // Tactical blunder detection (ADR 005 Phase 2)
@@ -314,18 +340,20 @@ class ChessAnalyzer {
           let moveClassification = null;
           if (alternatives.length > 0) {
             // Analyze for tactical blunders and missed opportunities
+            // Use mover's perspective for tactical analysis
             const moveData = {
-              evaluation: -afterEval.evaluation, // From mover's perspective
+              evaluation: evalAfterMover, // From mover's perspective
               centipawnLoss: centipawnLoss
             };
             tacticalAnalysis = TacticalDetector.analyzeTacticalBlunder(moveData, alternatives);
 
             // Classify move using tactical detection + win probability
+            // Use mover's perspective evaluations for classification
             moveClassification = TacticalDetector.classifyMoveWithTactics(
               moveAccuracy,
               tacticalAnalysis,
-              beforeEval.evaluation,
-              -afterEval.evaluation,
+              evalBeforeMover,
+              evalAfterMover,
               centipawnLoss,
               winProbBefore, // Pass pre-calculated win probability
               winProbAfter   // Pass pre-calculated win probability
@@ -424,8 +452,8 @@ class ChessAnalyzer {
                 moveNumber: Math.ceil((i + 1) / 2),
                 playerMove: playedMoveUci,
                 bestMove: beforeEval.bestMove,
-                evaluationBefore: beforeEval.evaluation,
-                evaluationAfter: -afterEval.evaluation, // From mover's perspective
+                evaluationBefore: evalBeforeMover, // From mover's perspective
+                evaluationAfter: evalAfterMover, // From mover's perspective
                 centipawnLoss: centipawnLoss
               }, tempChess);
             } catch (error) {
@@ -443,11 +471,23 @@ class ChessAnalyzer {
             });
           }
 
+          // Convert best_move from UCI to SAN format (ADR 006 Phase 5)
+          let bestMoveSan = beforeEval.bestMove;
+          try {
+            const tempChess = new Chess(beforeFen);
+            const moveResult = tempChess.move(beforeEval.bestMove);
+            if (moveResult) {
+              bestMoveSan = moveResult.san;
+            }
+          } catch (e) {
+            // Keep UCI format if conversion fails
+          }
+
           const moveAnalysis = {
             move_number: i + 1,
             move: move,
-            evaluation: -afterEval.evaluation, // From mover's perspective (negated from opponent's view)
-            best_move: beforeEval.bestMove,
+            evaluation: evalAfterWhite, // ADR 006: White's perspective (Lichess convention)
+            best_move: bestMoveSan, // ADR 006 Phase 5: SAN format
             centipawn_loss: centipawnLoss,
             move_accuracy: Math.round(moveAccuracy * 10) / 10, // Per-move accuracy
             move_quality: moveQuality, // best/excellent/good/inaccuracy/mistake/blunder
@@ -517,12 +557,18 @@ class ChessAnalyzer {
     }
   }
 
-  async evaluatePosition(fen, depth = 12) {
-    // DETERMINISM FIX: Use fresh engine instance for each evaluation
-    return this._evaluateWithFreshEngine(fen, depth);
+  async evaluatePosition(fen, depthOrOptions = 12) {
+    // Support both legacy depth parameter and new options object
+    const options = typeof depthOrOptions === 'object' 
+      ? depthOrOptions 
+      : { depth: depthOrOptions };
+    
+    return this._evaluateWithFreshEngine(fen, options);
   }
 
-  async _evaluateWithFreshEngine(fen, depth) {
+  async _evaluateWithFreshEngine(fen, options = {}) {
+    const { depth = 12, nodes = null } = options;
+    
     return new Promise((resolve, reject) => {
       // Spawn fresh Stockfish instance
       const { spawn } = require('child_process');
@@ -555,7 +601,7 @@ class ChessAnalyzer {
           if (line.includes('uciok')) {
             // Engine acknowledged UCI protocol
             engine.stdin.write('setoption name Threads value 1\n');
-            engine.stdin.write('setoption name Hash value 128\n');
+            engine.stdin.write(`setoption name Hash value ${AnalysisConfig.ENGINE.HASH_MB}\n`);
             engine.stdin.write('isready\n');
           }
           
@@ -563,7 +609,12 @@ class ChessAnalyzer {
             engineReady = true;
             // Engine is ready, start analysis
             engine.stdin.write(`position fen ${fen}\n`);
-            engine.stdin.write(`go depth ${depth}\n`);
+            // Use nodes-based analysis if specified (Lichess-compatible), otherwise depth
+            if (nodes) {
+              engine.stdin.write(`go nodes ${nodes}\n`);
+            } else {
+              engine.stdin.write(`go depth ${depth}\n`);
+            }
           }
           
           if (line.startsWith('bestmove') && !resolved) {
@@ -622,19 +673,23 @@ class ChessAnalyzer {
   }
 
   calculateCentipawnLoss(beforeEval, afterEval, isWhiteMove) {
-    // Stockfish evaluates from the perspective of the side to move
-    // Before: evaluation is from the moving player's perspective
-    // After: evaluation is from the opponent's perspective (since they move next)
+    // ADR 006 Phase 1: Use EvaluationNormalizer for consistent perspective handling
+    //
+    // Stockfish evaluates from the perspective of the side to move:
+    // - beforeEval: from the moving player's perspective (before they move)
+    // - afterEval: from the opponent's perspective (after the move, opponent to move)
+    //
+    // We need to normalize both to White's perspective first, then calculate loss
+    // from the mover's perspective.
 
-    // Convert both to the moving player's perspective
-    const beforeFromMoverView = beforeEval; // Already from mover's perspective
-    const afterFromMoverView = -afterEval; // Negate because it's opponent's turn
+    // Convert to White's perspective
+    // Before: it's the mover's turn, so if White moves, eval is from White's perspective
+    const beforeWhitePerspective = EvaluationNormalizer.toWhitePerspective(beforeEval, isWhiteMove);
+    // After: it's the opponent's turn, so if White moved, it's now Black's turn
+    const afterWhitePerspective = EvaluationNormalizer.toWhitePerspective(afterEval, !isWhiteMove);
 
-    // Centipawn loss is how much the position worsened for the mover
-    // A good move should have afterFromMoverView >= beforeFromMoverView (improvement or same)
-    // A bad move has afterFromMoverView < beforeFromMoverView (loss)
-    const loss = Math.max(0, beforeFromMoverView - afterFromMoverView);
-    return Math.round(loss);
+    // Calculate centipawn loss from mover's perspective
+    return EvaluationNormalizer.calculateCentipawnLoss(beforeWhitePerspective, afterWhitePerspective, isWhiteMove);
   }
 
   async analyzePGN(pgnContent) {
@@ -710,12 +765,13 @@ class ChessAnalyzer {
         }
         
         const beforeFen = chess.fen();
-        const beforeEval = await this.evaluatePosition(beforeFen, 15);
+        const evalOptions = this.getEvalOptions('STANDARD');
+        const beforeEval = await this.evaluatePosition(beforeFen, evalOptions);
         
         // Generate alternatives for significant positions
         let alternatives = [];
         if (i % 3 === 0 || i < 10) { // Every 3rd move or first 10 moves
-          alternatives = await this.generateAlternatives(beforeFen, 12);
+          alternatives = await this.generateAlternatives(beforeFen, evalOptions);
         }
         
         const moveResult = chess.move(move);
@@ -725,12 +781,18 @@ class ChessAnalyzer {
         }
         
         const afterFen = chess.fen();
-        const afterEval = await this.evaluatePosition(afterFen, 15);
+        const afterEval = await this.evaluatePosition(afterFen, evalOptions);
         
         const isWhiteMove = i % 2 === 0;
         const centipawnLoss = this.calculateCentipawnLoss(beforeEval.evaluation, afterEval.evaluation, isWhiteMove);
         const cappedCentipawnLoss = Math.min(centipawnLoss, 500);
         const isBlunder = cappedCentipawnLoss > 200;
+
+        // ADR 006: Normalize evaluations to White's perspective
+        const evalBeforeWhite = EvaluationNormalizer.toWhitePerspective(beforeEval.evaluation, isWhiteMove);
+        const evalAfterWhite = EvaluationNormalizer.toWhitePerspective(afterEval.evaluation, !isWhiteMove);
+        const evalBeforeMover = EvaluationNormalizer.toMoverPerspective(evalBeforeWhite, isWhiteMove);
+        const evalAfterMover = EvaluationNormalizer.toMoverPerspective(evalAfterWhite, isWhiteMove);
 
         // Categorize blunders with enhanced details
         let categorization = null;
@@ -743,8 +805,8 @@ class ChessAnalyzer {
               moveNumber: Math.ceil((i + 1) / 2),
               playerMove: playedMoveUci,
               bestMove: beforeEval.bestMove,
-              evaluationBefore: beforeEval.evaluation,
-              evaluationAfter: -afterEval.evaluation,
+              evaluationBefore: evalBeforeMover,
+              evaluationAfter: evalAfterMover,
               centipawnLoss: cappedCentipawnLoss
             }, tempChess);
           } catch (error) {
@@ -769,7 +831,7 @@ class ChessAnalyzer {
           centipawnLoss: cappedCentipawnLoss,
           isBlunder: isBlunder,
           bestMove: beforeEval.bestMove,
-          evaluation: afterEval.evaluation,
+          evaluation: evalAfterWhite, // ADR 006: White's perspective
           alternatives: alternatives,
           categorization: categorization
         });
@@ -806,12 +868,18 @@ class ChessAnalyzer {
     return result;
   }
 
-  async generateAlternatives(fen, depth = 12, maxAlternatives = 15) {
-    // DETERMINISM FIX: Use fresh engine instance for each alternatives generation
-    return this._generateAlternativesWithFreshEngine(fen, depth, maxAlternatives);
+  async generateAlternatives(fen, depthOrOptions = 12, maxAlternatives = 15) {
+    // Support both legacy depth parameter and new options object
+    const options = typeof depthOrOptions === 'object' 
+      ? depthOrOptions 
+      : { depth: depthOrOptions };
+    
+    return this._generateAlternativesWithFreshEngine(fen, options, maxAlternatives);
   }
 
-  async _generateAlternativesWithFreshEngine(fen, depth, maxAlternatives) {
+  async _generateAlternativesWithFreshEngine(fen, options, maxAlternatives) {
+    const { depth = 12, nodes = null } = options;
+    
     return new Promise((resolve, reject) => {
       // Spawn fresh Stockfish instance
       const { spawn } = require('child_process');
@@ -849,7 +917,7 @@ class ChessAnalyzer {
           if (line.includes('uciok')) {
             // Engine acknowledged UCI protocol
             engine.stdin.write('setoption name Threads value 1\n');
-            engine.stdin.write('setoption name Hash value 128\n');
+            engine.stdin.write(`setoption name Hash value ${AnalysisConfig.ENGINE.HASH_MB}\n`);
             engine.stdin.write(`setoption name MultiPV value ${maxAlternatives}\n`);
             engine.stdin.write('isready\n');
           }
@@ -858,7 +926,12 @@ class ChessAnalyzer {
             engineReady = true;
             // Engine is ready, start analysis
             engine.stdin.write(`position fen ${fen}\n`);
-            engine.stdin.write(`go depth ${depth}\n`);
+            // Use nodes-based analysis if specified (Lichess-compatible), otherwise depth
+            if (nodes) {
+              engine.stdin.write(`go nodes ${nodes}\n`);
+            } else {
+              engine.stdin.write(`go depth ${depth}\n`);
+            }
           }
 
           // Look for multipv lines with score cp or score mate

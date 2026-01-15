@@ -702,8 +702,11 @@ After:  best_move = "e4", "Nc3", "Bd6"
 **Status:** [ ] Not Started  [ ] In Progress  [ ] Complete  
 **Duration:** 2-3 days
 **Priority:** Low (code quality, no functional impact)
+**Deferred:** Yes - to be done in separate branch to avoid risk to working system
 
 **Objective:** Extract `analyzer.js` (1110 lines) into focused, single-responsibility modules
+
+**Note:** Test suite has hanging issues with Stockfish engine cleanup. Refactoring should address this as part of the `StockfishEngine` module extraction. Recommend doing this work in isolation on a feature branch with careful validation.
 
 #### Current State: God Class Anti-Pattern
 

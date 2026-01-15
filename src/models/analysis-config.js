@@ -11,7 +11,7 @@ const AnalysisConfig = {
    * Stockfish engine settings
    */
   ENGINE: {
-    HASH_MB: 512,       // Hash table size in MB (was 128, increased for better eval)
+    HASH_MB: process.env.NODE_ENV === 'test' ? 64 : 512,  // Lower for tests, higher for production
     THREADS: 1,         // Number of threads (1 for determinism)
   },
 

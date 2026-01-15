@@ -15,10 +15,10 @@ describe('AnalysisConfig', () => {
     });
 
     test('should have classification thresholds defined', () => {
-      // Calibrated thresholds (70% of Lichess values for depth 12 analysis)
-      expect(AnalysisConfig.CLASSIFICATION.WIN_PROB_INACCURACY).toBe(7);
-      expect(AnalysisConfig.CLASSIFICATION.WIN_PROB_MISTAKE).toBe(14);
-      expect(AnalysisConfig.CLASSIFICATION.WIN_PROB_BLUNDER).toBe(21);
+      // Lichess thresholds (ADR 006)
+      expect(AnalysisConfig.CLASSIFICATION.WIN_PROB_INACCURACY).toBe(5);
+      expect(AnalysisConfig.CLASSIFICATION.WIN_PROB_MISTAKE).toBe(10);
+      expect(AnalysisConfig.CLASSIFICATION.WIN_PROB_BLUNDER).toBe(15);
       expect(AnalysisConfig.CLASSIFICATION.MATE_THRESHOLD).toBe(9000);
     });
 
@@ -54,28 +54,28 @@ describe('AnalysisConfig', () => {
   });
 
   describe('getClassification()', () => {
-    describe('Win probability based classification (calibrated for depth 12)', () => {
-      test('should return blunder for >= 21% win prob drop', () => {
-        expect(AnalysisConfig.getClassification(21)).toBe('blunder');
-        expect(AnalysisConfig.getClassification(25)).toBe('blunder');
+    describe('Win probability based classification (Lichess thresholds)', () => {
+      test('should return blunder for >= 15% win prob drop', () => {
+        expect(AnalysisConfig.getClassification(15)).toBe('blunder');
+        expect(AnalysisConfig.getClassification(20)).toBe('blunder');
         expect(AnalysisConfig.getClassification(50)).toBe('blunder');
       });
 
-      test('should return mistake for 14-20% win prob drop', () => {
+      test('should return mistake for 10-14% win prob drop', () => {
+        expect(AnalysisConfig.getClassification(10)).toBe('mistake');
+        expect(AnalysisConfig.getClassification(12)).toBe('mistake');
         expect(AnalysisConfig.getClassification(14)).toBe('mistake');
-        expect(AnalysisConfig.getClassification(17)).toBe('mistake');
-        expect(AnalysisConfig.getClassification(20)).toBe('mistake');
       });
 
-      test('should return inaccuracy for 7-13% win prob drop', () => {
+      test('should return inaccuracy for 5-9% win prob drop', () => {
+        expect(AnalysisConfig.getClassification(5)).toBe('inaccuracy');
         expect(AnalysisConfig.getClassification(7)).toBe('inaccuracy');
-        expect(AnalysisConfig.getClassification(10)).toBe('inaccuracy');
-        expect(AnalysisConfig.getClassification(13)).toBe('inaccuracy');
+        expect(AnalysisConfig.getClassification(9)).toBe('inaccuracy');
       });
 
-      test('should return null for < 7% win prob drop', () => {
-        expect(AnalysisConfig.getClassification(6)).toBeNull();
-        expect(AnalysisConfig.getClassification(3)).toBeNull();
+      test('should return null for < 5% win prob drop', () => {
+        expect(AnalysisConfig.getClassification(4)).toBeNull();
+        expect(AnalysisConfig.getClassification(2)).toBeNull();
         expect(AnalysisConfig.getClassification(0)).toBeNull();
       });
     });

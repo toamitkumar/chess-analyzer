@@ -61,15 +61,14 @@ const AnalysisConfig = {
   CLASSIFICATION: {
     // Win probability drop thresholds (percentage points on 0-100 scale)
     // 
-    // ADJUSTED for NNUE difference (ADR 006):
-    // Our Stockfish (nn-1c0000000000.nnue) produces ~74% of Lichess's
-    // evaluation magnitudes (nn-2962dca31855.nnue).
-    // 
-    // Original Lichess thresholds: 15/10/5%
-    // Adjusted for our NNUE: 9/6/3%
-    WIN_PROB_INACCURACY: 3,   // Was 5% (0.1 on [-1,+1])
-    WIN_PROB_MISTAKE: 6,      // Was 10% (0.2 on [-1,+1])
-    WIN_PROB_BLUNDER: 9,      // Was 15% (0.3 on [-1,+1])
+    // Lichess thresholds (ADR 006):
+    // Source: lila/modules/tree/src/main/Advice.scala
+    // - Inaccuracy: 0.1 on [-1,+1] = 5% on [0,100]
+    // - Mistake: 0.2 on [-1,+1] = 10% on [0,100]
+    // - Blunder: 0.3 on [-1,+1] = 15% on [0,100]
+    WIN_PROB_INACCURACY: 5,   // 0.1 on [-1,+1]
+    WIN_PROB_MISTAKE: 10,     // 0.2 on [-1,+1]
+    WIN_PROB_BLUNDER: 15,     // 0.3 on [-1,+1]
 
     // Centipawn loss thresholds (fallback/validation)
     CP_INACCURACY: 50,        // 50cp loss

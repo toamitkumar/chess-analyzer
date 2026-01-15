@@ -471,11 +471,23 @@ class ChessAnalyzer {
             });
           }
 
+          // Convert best_move from UCI to SAN format (ADR 006 Phase 5)
+          let bestMoveSan = beforeEval.bestMove;
+          try {
+            const tempChess = new Chess(beforeFen);
+            const moveResult = tempChess.move(beforeEval.bestMove);
+            if (moveResult) {
+              bestMoveSan = moveResult.san;
+            }
+          } catch (e) {
+            // Keep UCI format if conversion fails
+          }
+
           const moveAnalysis = {
             move_number: i + 1,
             move: move,
             evaluation: evalAfterWhite, // ADR 006: White's perspective (Lichess convention)
-            best_move: beforeEval.bestMove,
+            best_move: bestMoveSan, // ADR 006 Phase 5: SAN format
             centipawn_loss: centipawnLoss,
             move_accuracy: Math.round(moveAccuracy * 10) / 10, // Per-move accuracy
             move_quality: moveQuality, // best/excellent/good/inaccuracy/mistake/blunder

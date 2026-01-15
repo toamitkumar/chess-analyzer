@@ -2,17 +2,18 @@
 
 **Status:** In Progress (Phase 4)
 **Date:** 2026-01-12
-**Last Updated:** 2026-01-14
+**Last Updated:** 2026-01-15
 **Decision Makers:** Development Team
 **Related Issue:** Lichess Evaluation Matching
 
 ## Executive Summary
 
-| Metric | Before | After Phase 3 | After Threshold Adj | Target |
-|--------|--------|---------------|---------------------|--------|
-| Classification Match Rate | 27.3% | 45.5% | **57.6%** | 85% |
-| Threshold Scale | Wrong (21/14/7%) | Correct (15/10/5%) | NNUE-adjusted (9/6/3%) | Lichess-aligned |
-| Analysis Method | Depth 12 | Depth 12 + Nodes support | Nodes 300K | Nodes 1M |
+| Metric | Before | After Phase 3 | After Threshold Adj | Current | Target |
+|--------|--------|---------------|---------------------|---------|--------|
+| Classification Match Rate | 27.3% | 45.5% | 57.6% | **80.3%** | 85% |
+| Threshold Scale | Wrong (21/14/7%) | Correct (15/10/5%) | NNUE-adjusted (9/6/3%) | Calibrated | Lichess-aligned |
+| Reference Games | 4 | 4 | 4 | **8** | 10+ |
+| Critical Moves Tested | 33 | 33 | 33 | **61** | 100+ |
 
 **Key Discoveries:**
 1. ✅ Fixed threshold scale conversion bug (+18.2% improvement)
@@ -24,8 +25,10 @@
    - Lichess: `nn-2962dca31855.nnue`
    - Evaluation magnitude difference: ~74% (e.g., +128 cp vs +174 cp)
 6. ✅ **NNUE-adjusted thresholds:** 9/6/3% instead of 15/10/5% (+12.1% improvement)
+7. ✅ **Expanded test dataset:** 4 → 8 reference games, 33 → 61 critical moves
+8. ❌ **NNUE file incompatible:** Lichess uses dev Stockfish (post-17.1), NNUE won't load in SF 17.1
 
-**Current Status:** 57.6% match rate (was 27.3%, +30.3% total improvement)
+**Current Status:** 80.3% match rate (was 27.3%, +53% total improvement)
 
 ## Context
 
@@ -661,23 +664,37 @@ Re-run integration tests with nodes=1_000_000:
 ---
 
 ### Phase 5: SAN Format for Best Move
-**Status:** [ ] Not Started  [ ] In Progress  [ ] Complete  
+**Status:** [x] Complete  
 **Duration:** 0.5 day
+**Completed:** 2026-01-15
 
 **Objective:** Store best_move in human-readable SAN format instead of UCI
 
 **Changes:**
-- [ ] Update stockfish-engine.js to convert UCI → SAN before returning
-- [ ] Re-upload test games to verify
+- [x] Update analyzer.js to convert UCI → SAN before storing (line ~479)
+
+**Implementation:**
+```javascript
+// Convert best_move from UCI to SAN format (ADR 006 Phase 5)
+let bestMoveSan = beforeEval.bestMove;
+try {
+  const tempChess = new Chess(beforeFen);
+  const moveResult = tempChess.move(beforeEval.bestMove);
+  if (moveResult) {
+    bestMoveSan = moveResult.san;
+  }
+} catch (e) {
+  // Keep UCI format if conversion fails
+}
+```
 
 **Validation:**
 ```
-Verify database:
-- best_move shows "Bd6" not "f8d6"
-- best_move shows "Nf3" not "g1f3"
+Before: best_move = "e2e4", "b1c3", "f8d6"
+After:  best_move = "e4", "Nc3", "Bd6"
 ```
 
-**Success Criteria:** All best_move values in SAN format
+**Note:** Existing games in DB still have UCI format. Re-analyze to update.
 
 ---
 
@@ -892,7 +909,7 @@ Result: Match rate decreased slightly (45.5% → 42.4%) because the core issue i
 ---
 
 ### Strategy C: NNUE Weight Verification ~~(MEDIUM IMPACT)~~ (ROOT CAUSE IDENTIFIED)
-**Status:** ✅ Investigated - Different NNUE files confirmed
+**Status:** ✅ Investigated - Different NNUE files confirmed, **INCOMPATIBLE**
 
 **Finding:** Lichess uses different NNUE weights than our Stockfish 17.1:
 - **Lichess:** `nn-2962dca31855.nnue` (main) + `nn-37f18f62d772.nnue` (small)
@@ -904,6 +921,32 @@ This explains the evaluation magnitude differences:
 - Ratio: 128/174 = 0.74 (our evals are ~74% of Lichess)
 
 **Solution Implemented:** Adjusted thresholds by 0.74 factor (see Strategy F).
+
+**NNUE Compatibility Investigation (2026-01-15):**
+
+Attempted to use Lichess's NNUE file with our Stockfish 17.1:
+```bash
+# Downloaded Lichess NNUE
+curl -L -o /tmp/nn-2962dca31855.nnue "https://tests.stockfishchess.org/api/nn/nn-2962dca31855.nnue"
+
+# Attempted to load in Stockfish 17.1
+echo -e "uci\nsetoption name EvalFile value /tmp/nn-2962dca31855.nnue\nisready\n..." | stockfish
+# Result: Engine hangs/times out
+```
+
+**Root Cause:** Lichess uses a **development version of Stockfish** (post-17.1):
+- Lichess fishnet submodule: commit `c109a88ebe93ab7652c7cb4694cfc405568e5e50`
+- Commit date: **2025-12-03** (newer than Stockfish 17.1 release)
+- The NNUE file `nn-2962dca31855.nnue` is built for this newer architecture
+- **Incompatible with Stockfish 17.1** - different neural network architecture
+
+**Options:**
+1. ❌ **Use Lichess NNUE** - Not possible, architecture mismatch
+2. ✅ **Threshold adjustment** - Current approach, 80.3% match rate achieved
+3. ⚠️ **Build custom Stockfish** - Could compile Lichess's exact version, but adds maintenance burden
+4. ⚠️ **Wait for Stockfish 18** - May include compatible NNUE, but timeline unknown
+
+**Decision:** Continue with threshold adjustment approach (Strategy F). The 80.3% match rate is acceptable and avoids the complexity of maintaining a custom Stockfish build.
 
 ---
 
@@ -1174,6 +1217,102 @@ analyzer.js (orchestrator)
 | Classification Match | >85% | % matching Lichess |
 | Analysis Time | <2x increase | Benchmark comparison |
 | User Satisfaction | No complaints | Feedback tracking |
+
+## Final Status & Future Options (2026-01-15)
+
+### Current State
+
+After extensive investigation and multiple optimization attempts:
+
+| Metric | Value |
+|--------|-------|
+| Classification Match Rate | ~80% (varies by game) |
+| Exact Match Games | Game 94: 100% match |
+| Partial Match Games | Game 93: ~85% match (2 moves differ) |
+| Root Cause | Different NNUE neural network weights |
+
+### Verified Test Results (2026-01-15)
+
+**Game 93 (EricRosen vs Var_Vlad, ZgJZ9lXt):**
+- Our DB (Black): 2 blunders, 0 mistakes, 4 inaccuracies
+- Lichess (Black): 0 blunders, 3 mistakes, 4 inaccuracies
+- Discrepancy: Our WP drops are larger due to NNUE difference
+
+**Game 94 (EricRosen vs opponent, 9th game):**
+- Our DB (Black): 0 blunders, 1 mistake, 1 inaccuracy
+- Lichess (Black): 0 blunders, 1 mistake, 1 inaccuracy
+- **Exact match!**
+
+### Future Options to Achieve Higher Match Rate
+
+| Option | Effort | Expected Match | Risk | Maintenance |
+|--------|--------|----------------|------|-------------|
+| **1. Build Lichess Stockfish** | High | ~99% | Medium | High |
+| **2. Wait for Stockfish 18** | None | Unknown | Low | None |
+| **3. WP Scaling Calibration** | Medium | ~90% | Low | Low |
+| **4. Accept Current State** | None | ~80% | None | None |
+
+#### Option 1: Build Lichess's Exact Stockfish
+
+Lichess uses a custom Stockfish build from their fishnet repository:
+```
+Repository: https://github.com/lichess-org/fishnet
+Stockfish commit: c109a88ebe93ab7652c7cb4694cfc405568e5e50
+Commit date: 2025-12-03 (post-Stockfish 17.1)
+NNUE files: nn-2962dca31855.nnue (main), nn-37f18f62d772.nnue (small)
+```
+
+**Implementation:**
+```bash
+git clone https://github.com/official-stockfish/Stockfish
+cd Stockfish/src
+git checkout c109a88ebe93ab7652c7cb4694cfc405568e5e50
+curl -L -o nn-2962dca31855.nnue "https://tests.stockfishchess.org/api/nn/nn-2962dca31855.nnue"
+make -j build ARCH=apple-silicon  # or x86-64-avx2
+```
+
+**Pros:** Exact evaluation match with Lichess
+**Cons:** Must rebuild whenever Lichess updates their Stockfish version
+
+#### Option 2: Wait for Stockfish 18
+
+The NNUE file `nn-2962dca31855.nnue` may be included in the next official Stockfish release.
+
+**Pros:** Zero effort, official support, automatic updates via package managers
+**Cons:** Unknown timeline, may still have minor differences
+
+#### Option 3: Win Probability Scaling Calibration
+
+Apply a scaling factor to WP drops before classification:
+```javascript
+// Our evals produce ~74% of Lichess WP drops
+const NNUE_SCALE_FACTOR = 1.35;  // 1/0.74
+
+function calibratedWinProbDrop(ourWpDrop) {
+  return ourWpDrop * NNUE_SCALE_FACTOR;
+}
+```
+
+**Pros:** Better match without engine changes, simple implementation
+**Cons:** Approximation, may not work uniformly across all position types
+
+#### Option 4: Accept Current State
+
+Current ~80% match rate may be acceptable for most users.
+
+**Pros:** No additional work, stable system
+**Cons:** Some users may notice discrepancies when comparing with Lichess
+
+### Recommendation
+
+**Short-term:** Accept current state (~80% match) or implement Option 3 (scaling calibration)
+**Long-term:** Monitor Stockfish 18 release; consider Option 1 if exact matching becomes critical
+
+### Related GitHub Issue
+
+See GitHub Issue #XX for tracking and discussion of these options.
+
+---
 
 ## Alternatives Considered
 

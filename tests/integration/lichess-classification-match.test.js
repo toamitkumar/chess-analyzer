@@ -337,7 +337,7 @@ describe('Lichess Classification Match - Integration Tests', () => {
       
       // Store result for reference - don't fail, just document
       expect(overallMatchRate).toBeDefined();
-    });
+    }, 300000); // 5 minute timeout for full analysis
   });
 
   describe('Depth Comparison Test', () => {

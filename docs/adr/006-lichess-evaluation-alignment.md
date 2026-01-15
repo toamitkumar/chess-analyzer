@@ -701,23 +701,165 @@ After:  best_move = "e4", "Nc3", "Bd6"
 ### Phase 6: Code Refactoring (SRP)
 **Status:** [ ] Not Started  [ ] In Progress  [ ] Complete  
 **Duration:** 2-3 days
+**Priority:** Low (code quality, no functional impact)
 
-**Objective:** Extract analyzer.js God class into focused modules
+**Objective:** Extract `analyzer.js` (1110 lines) into focused, single-responsibility modules
 
-**Changes:**
-- [ ] Create `src/models/stockfish-engine.js` (engine I/O)
-- [ ] Create `src/models/move-classifier.js` (classification logic)
-- [ ] Refactor analyzer.js to orchestrator only (~300 lines)
-- [ ] Update all imports and tests
+#### Current State: God Class Anti-Pattern
 
-**Validation:**
+`analyzer.js` currently handles too many responsibilities:
+1. Stockfish engine lifecycle (spawn, communicate, close)
+2. Position evaluation
+3. Move classification (blunder/mistake/inaccuracy)
+4. PGN parsing
+5. Game analysis orchestration
+6. Alternative move generation
+7. Accuracy calculation
+8. Queue management
+
+#### Target Architecture
+
 ```
-- All existing tests pass
-- No functional changes (same analysis results)
-- analyzer.js < 400 lines
+src/models/
+├── analyzer.js              # Orchestrator only (~250 lines)
+├── stockfish-engine.js      # NEW: Engine I/O (~300 lines)
+├── move-classifier.js       # NEW: Classification logic (~150 lines)
+├── analysis-config.js       # Existing: Configuration
+├── evaluation-normalizer.js # Existing: Perspective handling
+├── win-probability.js       # Existing: WP calculations
+├── tactical-detector.js     # Existing: Tactical analysis
+└── blunder-categorizer.js   # Existing: Blunder details
 ```
 
-**Success Criteria:** Clean separation of concerns, all tests green
+#### New Module: `stockfish-engine.js` (~300 lines)
+
+**Responsibility:** All Stockfish process management and communication
+
+```javascript
+class StockfishEngine {
+  constructor(config = {}) { }
+  
+  // Lifecycle
+  async initialize()              // Spawn and configure engine
+  async close()                   // Clean shutdown
+  async restart()                 // Fresh engine for determinism
+  
+  // Evaluation
+  async evaluate(fen, options)    // Single position evaluation
+  async evaluateMultiPV(fen, options, lines)  // Multi-PV analysis
+  
+  // Internal
+  _sendCommand(cmd)               // Write to stdin
+  _parseEvaluation(output)        // Parse bestmove/info lines
+  _waitForReady()                 // Wait for 'readyok'
+}
+```
+
+**Extracts from analyzer.js:**
+- `setupEngine()` (lines 63-120)
+- `evaluatePosition()` (lines 560-568)
+- `_evaluateWithFreshEngine()` (lines 569-694)
+- `generateAlternatives()` (lines 871-879)
+- `_generateAlternativesWithFreshEngine()` (lines 880-1000)
+- Engine restart logic
+- Process tracking (`activeProcesses`, `timeouts`)
+
+#### New Module: `move-classifier.js` (~150 lines)
+
+**Responsibility:** Classify moves based on evaluation and win probability
+
+```javascript
+class MoveClassifier {
+  constructor(config = AnalysisConfig) { }
+  
+  // Main classification
+  classify(moveData) {
+    // Returns: { quality, isBlunder, isMistake, isInaccuracy, isBest, isExcellent, isGood }
+  }
+  
+  // Helpers
+  _classifyByWinProbability(wpBefore, wpAfter)
+  _classifyByAccuracy(accuracy)
+  _isMatePosition(evaluation)
+}
+```
+
+**Extracts from analyzer.js:**
+- Move classification switch statement (lines 360-425)
+- Win probability threshold checks
+- Mate detection logic
+- Accuracy-based classification
+
+#### Refactored `analyzer.js` (~250 lines)
+
+**Responsibility:** Orchestrate analysis workflow only
+
+```javascript
+class ChessAnalyzer {
+  constructor() {
+    this.engine = new StockfishEngine();
+    this.classifier = new MoveClassifier();
+    this.categorizer = new BlunderCategorizer();
+  }
+  
+  // Public API (unchanged)
+  async analyzeGame(moves, fetchAlternatives)
+  async analyzePGN(pgnContent)
+  async close()
+  
+  // Internal orchestration
+  async _analyzeMove(chess, move, index)
+  _calculateGameStats(analysis)
+}
+```
+
+**Keeps:**
+- Queue management (`analyzeGame`, `_processQueue`)
+- PGN parsing (`analyzePGN`)
+- Game-level orchestration (`_analyzeGameInternal`)
+- Stats calculation
+
+#### Migration Steps
+
+1. **Create `stockfish-engine.js`**
+   - Extract engine code
+   - Add unit tests
+   - Verify determinism preserved
+
+2. **Create `move-classifier.js`**
+   - Extract classification logic
+   - Add unit tests
+   - Verify thresholds match
+
+3. **Refactor `analyzer.js`**
+   - Import new modules
+   - Replace inline code with module calls
+   - Verify all existing tests pass
+
+4. **Update imports**
+   - Any file importing analyzer.js should still work
+   - No public API changes
+
+#### Success Criteria
+
+| Metric | Before | After |
+|--------|--------|-------|
+| analyzer.js lines | 1110 | <300 |
+| Modules | 1 | 3 |
+| Test coverage | Same | Same or better |
+| Analysis results | Baseline | Identical |
+
+#### Validation
+
+```bash
+# All tests must pass
+npm test
+
+# Analysis output must be identical
+node -e "..." # Compare game 95 analysis before/after
+```
+
+**Note:** This is a pure refactoring - no functional changes. Can be deferred if not blocking other work.
 
 ---
 

@@ -29,6 +29,8 @@ interface GameData {
   date_played: string;
   opening_name?: string;
   time_control?: string;
+  white_elo?: number;
+  black_elo?: number;
 }
 
 interface MovePair {
@@ -54,144 +56,85 @@ interface PlayerStats {
   template: `
     <app-layout>
       <div class="lichess-layout">
-        <!-- Left: Chess Board -->
+        <!-- Left Panel: Player Stats -->
+        <div class="analysis-panel left-panel">
+          <div class="panel-header">Player Stats</div>
+          <div class="stats-panel">
+            <div class="stat-row">
+              <span class="piece white"></span>
+              <span class="name">{{ game?.white_player || 'White' }}</span>
+              <div class="badges">
+                <span class="badge inaccuracy" *ngIf="whiteStats.inaccuracies" title="Inaccuracies">{{ whiteStats.inaccuracies }}</span>
+                <span class="badge mistake" *ngIf="whiteStats.mistakes" title="Mistakes">{{ whiteStats.mistakes }}</span>
+                <span class="badge blunder" *ngIf="whiteStats.blunders" title="Blunders">{{ whiteStats.blunders }}</span>
+              </div>
+            </div>
+            <div class="stat-row">
+              <span class="piece black"></span>
+              <span class="name">{{ game?.black_player || 'Black' }}</span>
+              <div class="badges">
+                <span class="badge inaccuracy" *ngIf="blackStats.inaccuracies" title="Inaccuracies">{{ blackStats.inaccuracies }}</span>
+                <span class="badge mistake" *ngIf="blackStats.mistakes" title="Mistakes">{{ blackStats.mistakes }}</span>
+                <span class="badge blunder" *ngIf="blackStats.blunders" title="Blunders">{{ blackStats.blunders }}</span>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <!-- Center: Chess Board with Eval Bar -->
         <div class="board-section">
-          <!-- Top Player Bar -->
-          <div class="player-bar">
-            <span class="player-name">{{ orientation === 'white' ? (game?.black_player || 'Black') : (game?.white_player || 'White') }}</span>
-            <span class="player-score">{{ getPlayerScore(orientation === 'white' ? 'black' : 'white') }}</span>
-          </div>
-
-          <!-- Board -->
-          <div class="board-wrapper">
-            <div #chessboard class="cg-wrap"></div>
-          </div>
-
-          <!-- Bottom Player Bar -->
-          <div class="player-bar">
-            <span class="player-name">{{ orientation === 'white' ? (game?.white_player || 'White') : (game?.black_player || 'Black') }}</span>
-            <span class="player-score">{{ getPlayerScore(orientation === 'white' ? 'white' : 'black') }}</span>
+          <!-- Board with Vertical Eval Bar -->
+          <div class="board-with-eval">
+            <div class="eval-bar-vertical" [class.flipped]="orientation === 'black'">
+              <div class="eval-bar-white" [style.height.%]="orientation === 'white' ? getWhiteWinPercent() : 100 - getWhiteWinPercent()"></div>
+              <div class="eval-bar-black" [style.height.%]="orientation === 'white' ? 100 - getWhiteWinPercent() : getWhiteWinPercent()"></div>
+              <span class="eval-text" [class.eval-white]="currentEval >= 0" [class.eval-black]="currentEval < 0">
+                {{ formatEval(currentEval) }}
+              </span>
+            </div>
+            <div class="board-wrapper">
+              <div #chessboard class="cg-wrap"></div>
+            </div>
           </div>
 
           <!-- Controls -->
           <div class="board-controls">
-            <button class="control-btn" (click)="goToStart()" title="Start (Home)">
-              <svg viewBox="0 0 24 24"><path d="M6 6h2v12H6zm3.5 6l8.5 6V6z" transform="rotate(180 12 12)"/></svg>
-            </button>
-            <button class="control-btn" (click)="goToPrevious()" title="Previous (Left Arrow)">
-              <svg viewBox="0 0 24 24"><path d="M15.41 7.41L14 6l-6 6 6 6 1.41-1.41L10.83 12z"/></svg>
-            </button>
-            <button class="control-btn flip-btn" (click)="flipBoard()" title="Flip Board (F)">
-              <svg viewBox="0 0 24 24"><path d="M7 7h10v3l4-4-4-4v3H5v6h2V7zm10 10H7v-3l-4 4 4 4v-3h12v-6h-2v4z"/></svg>
-            </button>
-            <button class="control-btn" (click)="goToNext()" title="Next (Right Arrow)">
-              <svg viewBox="0 0 24 24"><path d="M8.59 16.59L10 18l6-6-6-6-1.41 1.41L13.17 12z"/></svg>
-            </button>
-            <button class="control-btn" (click)="goToEnd()" title="End (End)">
-              <svg viewBox="0 0 24 24"><path d="M6 18l8.5-6L6 6v12zM16 6v12h2V6h-2z"/></svg>
-            </button>
+            <button class="ctrl-btn" (click)="goToStart()" title="Start"><svg viewBox="0 0 24 24"><path d="M6 6h2v12H6zm3.5 6l8.5 6V6z" transform="rotate(180 12 12)"/></svg></button>
+            <button class="ctrl-btn" (click)="goToPrevious()" title="Previous"><svg viewBox="0 0 24 24"><path d="M15.41 7.41L14 6l-6 6 6 6 1.41-1.41L10.83 12z"/></svg></button>
+            <button class="ctrl-btn" (click)="flipBoard()" title="Flip"><svg viewBox="0 0 24 24"><path d="M7 7h10v3l4-4-4-4v3H5v6h2V7zm10 10H7v-3l-4 4 4 4v-3h12v-6h-2v4z"/></svg></button>
+            <button class="ctrl-btn" (click)="goToNext()" title="Next"><svg viewBox="0 0 24 24"><path d="M8.59 16.59L10 18l6-6-6-6-1.41 1.41L13.17 12z"/></svg></button>
+            <button class="ctrl-btn" (click)="goToEnd()" title="End"><svg viewBox="0 0 24 24"><path d="M6 18l8.5-6L6 6v12zM16 6v12h2V6h-2z"/></svg></button>
           </div>
         </div>
 
-        <!-- Right: Analysis Panel -->
-        <div class="analysis-panel">
-          <!-- Engine Eval -->
-          <div class="eval-header">
-            <span class="eval-value" [class.winning-white]="currentEval > 0" [class.winning-black]="currentEval < 0">
-              {{ formatEval(currentEval) }}
-            </span>
-            <span class="opening-name" *ngIf="game?.opening_name">{{ game.opening_name }}</span>
-          </div>
+        <!-- Right Panel: Move List -->
+        <div class="analysis-panel right-panel">
+          <!-- Opening -->
+          <div class="opening-bar" *ngIf="game?.opening_name">{{ game.opening_name }}</div>
 
-          <!-- Move List -->
-          <div class="moves-container">
-            <table class="moves-table">
+          <!-- Move List (Lichess style) -->
+          <div class="moves-container" #movesContainer>
+            <div class="moves-list">
               <ng-container *ngFor="let pair of movePairs">
-                <tr class="move-row">
-                  <td class="move-number">{{ pair.moveNumber }}.</td>
-                  <td class="move-cell"
-                      [class.current]="currentMoveIndex === pair.whiteIndex"
-                      [class.blunder]="pair.white?.is_blunder"
-                      [class.mistake]="pair.white?.is_mistake"
-                      [class.inaccuracy]="pair.white?.is_inaccuracy"
-                      (click)="pair.white && goToMove(pair.whiteIndex)">
-                    <span class="move-san" *ngIf="pair.white">{{ pair.white.move }}</span>
-                    <span class="move-nag" *ngIf="pair.white && getMoveAnnotation(pair.white)">{{ getMoveAnnotation(pair.white) }}</span>
-                    <span class="move-eval" *ngIf="pair.white">{{ formatEval(pair.white.evaluation) }}</span>
-                  </td>
-                  <td class="move-cell"
-                      [class.current]="currentMoveIndex === pair.blackIndex"
-                      [class.blunder]="pair.black?.is_blunder"
-                      [class.mistake]="pair.black?.is_mistake"
-                      [class.inaccuracy]="pair.black?.is_inaccuracy"
-                      (click)="pair.black && goToMove(pair.blackIndex)">
-                    <span class="move-san" *ngIf="pair.black">{{ pair.black.move }}</span>
-                    <span class="move-nag" *ngIf="pair.black && getMoveAnnotation(pair.black)">{{ getMoveAnnotation(pair.black) }}</span>
-                    <span class="move-eval" *ngIf="pair.black">{{ formatEval(pair.black.evaluation) }}</span>
-                  </td>
-                </tr>
-                <!-- Annotation for white -->
-                <tr class="annotation-row" *ngIf="pair.white && (pair.white.is_blunder || pair.white.is_mistake || pair.white.is_inaccuracy)">
-                  <td colspan="3">
-                    <div class="annotation" [ngClass]="getAnnotationClass(pair.white)">
-                      {{ getAnnotationLabel(pair.white) }} <span *ngIf="pair.white.best_move">{{ pair.white.best_move }} was best.</span>
-                    </div>
-                  </td>
-                </tr>
-                <!-- Annotation for black -->
-                <tr class="annotation-row" *ngIf="pair.black && (pair.black.is_blunder || pair.black.is_mistake || pair.black.is_inaccuracy)">
-                  <td colspan="3">
-                    <div class="annotation" [ngClass]="getAnnotationClass(pair.black)">
-                      {{ getAnnotationLabel(pair.black) }} <span *ngIf="pair.black.best_move">{{ pair.black.best_move }} was best.</span>
-                    </div>
-                  </td>
-                </tr>
+                <span class="move-index">{{ pair.moveNumber }}</span>
+                <span class="move" [class.current]="currentMoveIndex === pair.whiteIndex" (click)="pair.white && goToMove(pair.whiteIndex)">
+                  <span class="san">{{ pair.white?.move }}</span><span class="nag blunder" *ngIf="pair.white?.is_blunder" title="Blunder">??</span><span class="nag mistake" *ngIf="pair.white?.is_mistake && !pair.white?.is_blunder" title="Mistake">?</span><span class="nag inaccuracy" *ngIf="pair.white?.is_inaccuracy && !pair.white?.is_mistake && !pair.white?.is_blunder" title="Inaccuracy">?!</span>
+                  <span class="eval">{{ formatInlineEval(pair.white?.evaluation) }}</span>
+                </span>
+                <div class="annotation" *ngIf="pair.white && (pair.white.is_blunder || pair.white.is_mistake || pair.white.is_inaccuracy)">
+                  <span class="annotation-text">{{ getAnnotationLabel(pair.white) }} {{ pair.white.best_move }} was best.</span>
+                </div>
+                <span class="move" *ngIf="pair.black" [class.current]="currentMoveIndex === pair.blackIndex" (click)="goToMove(pair.blackIndex)">
+                  <span class="san">{{ pair.black?.move }}</span><span class="nag blunder" *ngIf="pair.black?.is_blunder" title="Blunder">??</span><span class="nag mistake" *ngIf="pair.black?.is_mistake && !pair.black?.is_blunder" title="Mistake">?</span><span class="nag inaccuracy" *ngIf="pair.black?.is_inaccuracy && !pair.black?.is_mistake && !pair.black?.is_blunder" title="Inaccuracy">?!</span>
+                  <span class="eval">{{ formatInlineEval(pair.black?.evaluation) }}</span>
+                </span>
+                <div class="annotation" *ngIf="pair.black && (pair.black.is_blunder || pair.black.is_mistake || pair.black.is_inaccuracy)">
+                  <span class="annotation-text">{{ getAnnotationLabel(pair.black) }} {{ pair.black.best_move }} was best.</span>
+                </div>
               </ng-container>
-            </table>
-
-            <!-- Result -->
-            <div class="result-box" *ngIf="game?.result">
-              <div class="result-score">{{ game.result }}</div>
-              <div class="result-text">{{ getResultText() }}</div>
+              <span class="result" *ngIf="game?.result">{{ game.result }}</span>
             </div>
           </div>
-
-          <!-- Player Stats - Lichess style -->
-          <div class="stats-container">
-            <div class="player-stats">
-              <div class="stats-row">
-                <span class="color-dot white"></span>
-                <span class="name">{{ game?.white_player || 'White' }}</span>
-              </div>
-              <div class="stats-numbers">
-                <span class="stat inaccuracy">{{ whiteStats.inaccuracies }} <small>Inaccuracies</small></span>
-                <span class="stat mistake">{{ whiteStats.mistakes }} <small>Mistakes</small></span>
-                <span class="stat blunder">{{ whiteStats.blunders }} <small>Blunders</small></span>
-              </div>
-              <span class="accuracy">{{ whiteStats.accuracy }}%</span>
-            </div>
-
-            <div class="player-stats">
-              <div class="stats-row">
-                <span class="color-dot black"></span>
-                <span class="name">{{ game?.black_player || 'Black' }}</span>
-              </div>
-              <div class="stats-numbers">
-                <span class="stat inaccuracy">{{ blackStats.inaccuracies }} <small>Inaccuracies</small></span>
-                <span class="stat mistake">{{ blackStats.mistakes }} <small>Mistakes</small></span>
-                <span class="stat blunder">{{ blackStats.blunders }} <small>Blunders</small></span>
-              </div>
-              <span class="accuracy">{{ blackStats.accuracy }}%</span>
-            </div>
-          </div>
-
-          <!-- Back Button -->
-          <button class="back-btn" (click)="goBack()">
-            <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-              <path d="m15 18-6-6 6-6"/>
-            </svg>
-            Back to Games
-          </button>
         </div>
       </div>
     </app-layout>
@@ -201,400 +144,276 @@ interface PlayerStats {
       --color-inaccuracy: #56b4e9;
       --color-mistake: #e69f00;
       --color-blunder: #db3434;
+      --board-size: min(720px, calc(100vh - 140px));
     }
 
     .lichess-layout {
-      display: grid;
-      grid-template-columns: 1fr 360px;
-      height: calc(100vh - 64px);
-      max-height: calc(100vh - 64px);
-      overflow: hidden;
-      background: hsl(var(--background));
-      color: hsl(var(--foreground));
-      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+      display: flex;
+      justify-content: center;
+      align-items: stretch;
+      gap: 0;
+      padding: 16px;
+      min-height: calc(100vh - 64px);
+      background: #edebe9;
+      color: #333;
+      font-family: 'Noto Sans', sans-serif;
     }
+
+    /* Analysis Panels */
+    .analysis-panel {
+      width: 318px;
+      display: flex;
+      flex-direction: column;
+      background: #d0d0d0;
+      border-radius: 3px;
+      overflow: hidden;
+    }
+
+    .left-panel { border-right: 1px solid #bbb; margin-right: 8px; }
+    .right-panel { border-left: 1px solid #bbb; margin-left: 8px; height: calc(var(--board-size) + 40px); }
 
     /* Board Section */
     .board-section {
       display: flex;
       flex-direction: column;
       align-items: center;
-      justify-content: center;
-      padding: 16px;
-      background: hsl(var(--background));
-      overflow: hidden;
     }
 
     .player-bar {
+      width: var(--board-size);
+      padding: 3px 0;
       display: flex;
-      justify-content: space-between;
       align-items: center;
-      width: 100%;
-      max-width: min(calc(100vh - 200px), 100%);
-      padding: 10px 14px;
-      background: hsl(var(--card));
-      color: hsl(var(--card-foreground));
-      font-size: 14px;
-      border: 1px solid hsl(var(--border));
-      flex-shrink: 0;
     }
 
-    .player-bar:first-child {
-      border-radius: 6px 6px 0 0;
-      border-bottom: none;
+    .player-info {
+      display: flex;
+      align-items: center;
+      gap: 8px;
     }
 
-    .player-bar:nth-of-type(3) {
-      border-radius: 0 0 6px 6px;
-      border-top: none;
+    .player-piece {
+      width: 18px;
+      height: 18px;
+      border-radius: 2px;
     }
+    .player-piece.white { background: #fff; border: 1px solid #ccc; }
+    .player-piece.black { background: #333; }
 
     .player-name {
       font-weight: 600;
+      font-size: 14px;
+      color: #333;
     }
 
-    .player-score {
-      font-weight: bold;
-      opacity: 0.7;
+    .player-rating {
+      font-size: 13px;
+      color: #666;
     }
+
+    .board-with-eval {
+      display: flex;
+      width: calc(var(--board-size) + 24px);
+      height: var(--board-size);
+    }
+
+    .eval-bar-vertical {
+      width: 20px;
+      display: flex;
+      flex-direction: column;
+      border-radius: 3px;
+      overflow: hidden;
+      position: relative;
+      margin-right: 4px;
+    }
+
+    .eval-bar-white {
+      background: #fff;
+      transition: height 0.3s;
+    }
+
+    .eval-bar-black {
+      background: #333;
+      flex: 1;
+    }
+
+    .eval-text {
+      position: absolute;
+      left: 50%;
+      top: 50%;
+      transform: translate(-50%, -50%) rotate(-90deg);
+      font-size: 10px;
+      font-weight: bold;
+      font-family: monospace;
+      white-space: nowrap;
+    }
+    .eval-text.eval-white { color: #333; }
+    .eval-text.eval-black { color: #fff; }
 
     .board-wrapper {
-      width: 100%;
-      max-width: min(calc(100vh - 200px), 100%);
+      flex: 1;
       aspect-ratio: 1;
-      border-left: 1px solid hsl(var(--border));
-      border-right: 1px solid hsl(var(--border));
-      flex-shrink: 0;
     }
 
-    .cg-wrap {
-      width: 100%;
-      height: 100%;
-    }
+    .cg-wrap { width: 100%; height: 100%; }
 
     .board-controls {
       display: flex;
-      justify-content: center;
-      gap: 6px;
-      margin-top: 12px;
-      flex-shrink: 0;
-    }
-
-    .control-btn {
-      width: 40px;
-      height: 36px;
-      border: 1px solid hsl(var(--border));
-      background: hsl(var(--card));
-      color: hsl(var(--card-foreground));
-      cursor: pointer;
-      border-radius: 6px;
-      display: flex;
-      align-items: center;
-      justify-content: center;
-      transition: all 0.15s;
-    }
-
-    .control-btn:hover {
-      background: hsl(var(--muted));
-      border-color: hsl(var(--primary));
-    }
-
-    .control-btn svg {
-      width: 22px;
-      height: 22px;
-      fill: hsl(var(--card-foreground));
-    }
-
-    .flip-btn svg {
-      width: 18px;
-      height: 18px;
-    }
-
-    /* Analysis Panel */
-    .analysis-panel {
-      display: flex;
-      flex-direction: column;
-      background: hsl(var(--card));
-      color: hsl(var(--card-foreground));
-      border-left: 1px solid hsl(var(--border));
-      overflow: hidden;
-      height: 100%;
-    }
-
-    .eval-header {
-      display: flex;
-      align-items: center;
-      gap: 12px;
-      padding: 12px 14px;
-      background: hsl(var(--card));
-      border-bottom: 1px solid hsl(var(--border));
-      flex-shrink: 0;
-    }
-
-    .eval-value {
-      font-size: 22px;
-      font-weight: bold;
-      font-family: monospace;
-    }
-
-    .eval-value.winning-white { color: hsl(var(--card-foreground)); }
-    .eval-value.winning-black { opacity: 0.6; }
-
-    .opening-name {
-      font-size: 13px;
-      opacity: 0.7;
-      white-space: nowrap;
-      overflow: hidden;
-      text-overflow: ellipsis;
-    }
-
-    .moves-container {
-      flex: 1;
-      overflow-y: auto;
-      scrollbar-width: thin;
-      scrollbar-color: hsl(var(--border)) transparent;
-    }
-
-    .moves-container::-webkit-scrollbar {
-      width: 8px;
-    }
-
-    .moves-container::-webkit-scrollbar-track {
-      background: transparent;
-    }
-
-    .moves-container::-webkit-scrollbar-thumb {
-      background-color: hsl(var(--border));
-      border-radius: 4px;
-    }
-
-    .moves-container::-webkit-scrollbar-thumb:hover {
-      background-color: hsl(var(--muted-foreground));
-    }
-
-    .moves-table {
-      width: 100%;
-      border-collapse: collapse;
-      font-size: 14px;
-    }
-
-    .move-row {
-      border-bottom: 1px solid hsl(var(--border) / 0.5);
-    }
-
-    .move-row:hover {
-      background: hsl(var(--muted) / 0.5);
-    }
-
-    .move-number {
-      width: 32px;
-      padding: 6px 8px;
-      text-align: right;
-      opacity: 0.5;
-      font-weight: 600;
-      font-size: 13px;
-      vertical-align: top;
-    }
-
-    .move-cell {
-      padding: 6px 8px;
-      cursor: pointer;
-      transition: background 0.1s;
-      position: relative;
-      vertical-align: top;
-      width: 45%;
-    }
-
-    .move-cell:hover {
-      background: hsl(var(--muted) / 0.7);
-    }
-
-    .move-cell.current {
-      background: hsl(var(--primary));
-      color: hsl(var(--primary-foreground));
-    }
-
-    .move-cell.current .move-eval {
-      opacity: 0.8;
-    }
-
-    .move-san {
-      font-weight: 500;
-    }
-
-    .move-nag {
-      margin-left: 1px;
-      font-weight: bold;
-    }
-
-    .move-cell.blunder .move-san,
-    .move-cell.blunder .move-nag { color: var(--color-blunder); }
-    .move-cell.mistake .move-san,
-    .move-cell.mistake .move-nag { color: var(--color-mistake); }
-    .move-cell.inaccuracy .move-san,
-    .move-cell.inaccuracy .move-nag { color: var(--color-inaccuracy); }
-
-    .move-cell.current.blunder .move-san,
-    .move-cell.current.blunder .move-nag,
-    .move-cell.current.mistake .move-san,
-    .move-cell.current.mistake .move-nag,
-    .move-cell.current.inaccuracy .move-san,
-    .move-cell.current.inaccuracy .move-nag {
-      color: inherit;
-    }
-
-    .move-eval {
-      float: right;
-      opacity: 0.5;
-      font-size: 11px;
-      font-family: 'JetBrains Mono', monospace;
-      padding-left: 8px;
-    }
-
-    .annotation-row td {
-      padding: 0;
-    }
-
-    .annotation {
-      padding: 8px 12px;
-      font-size: 13px;
-      font-weight: 500;
-    }
-
-    .annotation.blunder {
-      background: rgba(219, 52, 52, 0.15);
-      color: var(--color-blunder);
-    }
-    .annotation.mistake {
-      background: rgba(230, 159, 0, 0.15);
-      color: var(--color-mistake);
-    }
-    .annotation.inaccuracy {
-      background: rgba(86, 180, 233, 0.15);
-      color: var(--color-inaccuracy);
-    }
-
-    .annotation span {
-      opacity: 0.85;
-      font-weight: 400;
-    }
-
-    .result-box {
-      text-align: center;
-      padding: 24px;
-      border-top: 1px solid hsl(var(--border));
-      background: hsl(var(--muted));
-    }
-
-    .result-score {
-      font-size: 28px;
-      font-weight: bold;
-    }
-
-    .result-text {
-      font-size: 13px;
-      opacity: 0.7;
-      font-style: italic;
+      gap: 2px;
       margin-top: 4px;
     }
 
-    /* Stats - Lichess style */
-    .stats-container {
-      border-top: 1px solid hsl(var(--border));
-      padding: 12px;
-      display: flex;
-      flex-direction: column;
-      gap: 8px;
-      background: hsl(var(--card));
-    }
-
-    .player-stats {
-      display: flex;
-      align-items: center;
-      gap: 12px;
-      padding: 8px 0;
-    }
-
-    .stats-row {
-      display: flex;
-      align-items: center;
-      gap: 6px;
-      min-width: 120px;
-    }
-
-    .color-dot {
-      width: 10px;
-      height: 10px;
-      border-radius: 50%;
-      flex-shrink: 0;
-    }
-
-    .color-dot.white { background: #fff; border: 1px solid hsl(var(--border)); }
-    .color-dot.black { background: #000; }
-
-    .name {
-      font-weight: 600;
-      font-size: 13px;
-      white-space: nowrap;
-      overflow: hidden;
-      text-overflow: ellipsis;
-    }
-
-    .stats-numbers {
-      display: flex;
-      gap: 8px;
-      flex: 1;
-    }
-
-    .stat {
-      font-size: 13px;
-      display: flex;
-      align-items: baseline;
-      gap: 3px;
-    }
-
-    .stat small {
-      font-size: 11px;
-      font-weight: normal;
-      opacity: 0.7;
-    }
-
-    .stat.inaccuracy { color: var(--color-inaccuracy); }
-    .stat.mistake { color: var(--color-mistake); }
-    .stat.blunder { color: var(--color-blunder); }
-
-    .stats-summary {
-      display: none;
-    }
-
-    .accuracy {
-      color: hsl(var(--success));
-      font-weight: 600;
-      font-size: 12px;
-      margin-left: auto;
-    }
-
-    .back-btn {
+    .ctrl-btn {
+      width: 36px;
+      height: 32px;
+      background: #d1d1d1;
+      border: none;
+      border-radius: 3px;
+      cursor: pointer;
       display: flex;
       align-items: center;
       justify-content: center;
-      gap: 8px;
-      margin: 14px;
-      padding: 10px 16px;
-      background: hsl(var(--card));
-      border: 1px solid hsl(var(--border));
-      border-radius: 6px;
-      color: hsl(var(--card-foreground));
-      cursor: pointer;
+    }
+    .ctrl-btn:hover { background: #bbb; }
+    .ctrl-btn svg { width: 20px; height: 20px; fill: #333; }
+
+    .panel-header {
+      padding: 6px 10px;
       font-size: 13px;
-      font-weight: 500;
-      transition: all 0.15s;
+      font-weight: 600;
+      color: #333;
+      background: #c4c4c4;
+      border-bottom: 1px solid #bbb;
+      flex-shrink: 0;
     }
 
-    .back-btn:hover {
-      background: hsl(var(--muted));
-      border-color: hsl(var(--primary));
+    .opening-bar {
+      padding: 6px 10px;
+      font-size: 13px;
+      color: #b58900;
+      background: #c4c4c4;
+      border-bottom: 1px solid #bbb;
+      flex-shrink: 0;
     }
+
+    /* Move List */
+    .moves-container {
+      flex: 1;
+      overflow-y: auto;
+      padding: 0;
+    }
+
+    .moves-list {
+      display: flex;
+      flex-wrap: wrap;
+      align-items: baseline;
+      font-size: 15px;
+      line-height: 1.7;
+      padding: 5px;
+    }
+
+    .move-index {
+      color: #999;
+      font-size: 12px;
+      min-width: 20px;
+      text-align: right;
+      padding-right: 5px;
+    }
+
+    .move {
+      display: inline-flex;
+      align-items: baseline;
+      padding: 1px 3px;
+      border-radius: 2px;
+      cursor: pointer;
+      font-family: inherit;
+    }
+    .move:hover { background: rgba(0,0,0,0.1); }
+    .move.current { background: #3893e8; color: #fff; }
+    .move.current .eval { color: rgba(255,255,255,0.7); }
+
+    .move .san { font-weight: 500; }
+
+    .move .nag {
+      font-size: 11px;
+      font-weight: bold;
+      padding: 0 3px;
+      border-radius: 2px;
+      margin-left: 1px;
+    }
+    .move .nag.blunder { background: var(--color-blunder); color: #fff; }
+    .move .nag.mistake { background: var(--color-mistake); color: #fff; }
+    .move .nag.inaccuracy { background: var(--color-inaccuracy); color: #fff; }
+
+    .move .eval {
+      font-size: 11px;
+      color: #999;
+      margin-left: 3px;
+      font-family: monospace;
+    }
+
+    .annotation {
+      width: 100%;
+      background: rgba(0,0,0,0.05);
+      border-left: 3px solid #888;
+      margin: 3px 0 5px 0;
+      padding: 4px 8px;
+      font-size: 13px;
+    }
+
+    .annotation-text {
+      color: #555;
+      font-style: italic;
+    }
+
+    .result {
+      display: block;
+      width: 100%;
+      font-weight: bold;
+      color: #333;
+      margin-top: 8px;
+      padding: 8px 5px;
+      border-top: 1px solid #bbb;
+    }
+
+    /* Stats Panel */
+    .stats-panel {
+      padding: 6px 10px;
+      background: #d0d0d0;
+    }
+
+    .stat-row {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      padding: 4px 0;
+    }
+
+    .piece {
+      width: 14px;
+      height: 14px;
+      border-radius: 2px;
+    }
+    .piece.white { background: #fff; border: 1px solid #ccc; }
+    .piece.black { background: #333; }
+
+    .name {
+      flex: 1;
+      font-size: 13px;
+      color: #333;
+    }
+
+    .badges { display: flex; gap: 4px; }
+
+    .badge {
+      padding: 2px 6px;
+      border-radius: 3px;
+      font-size: 11px;
+      font-weight: 600;
+    }
+    .badge.inaccuracy { background: rgba(86,180,233,0.2); color: var(--color-inaccuracy); }
+    .badge.mistake { background: rgba(230,159,0,0.2); color: var(--color-mistake); }
+    .badge.blunder { background: rgba(219,52,52,0.2); color: var(--color-blunder); }
 
     /* Chessground */
     :host ::ng-deep cg-board { background-color: #b58863; }
@@ -615,54 +434,34 @@ interface PlayerStats {
     :host ::ng-deep .cg-wrap square.dark { background-color: #b58863; }
     :host ::ng-deep .cg-wrap square.last-move { background-color: rgba(155, 199, 0, 0.41); }
 
-    /* Responsive */
     @media (max-width: 900px) {
       .lichess-layout {
-        grid-template-columns: 1fr;
-        grid-template-rows: auto 1fr;
-        min-height: auto;
+        flex-direction: column;
+        align-items: center;
       }
-
-      .board-section {
-        padding: 16px;
-      }
-
-      .board-wrapper {
-        max-width: min(90vw, 500px);
-      }
-
-      .player-bar {
-        max-width: min(90vw, 500px);
-      }
-
       .analysis-panel {
+        width: 100%;
+        max-width: var(--board-size);
+        height: auto;
+        max-height: 200px;
+      }
+      .left-panel {
+        order: 2;
+        border-right: none;
+        border-top: 1px solid #bbb;
+      }
+      .board-section { order: 1; }
+      .right-panel {
+        order: 3;
         border-left: none;
-        border-top: 1px solid hsl(var(--border));
-      }
-
-      .moves-container {
-        max-height: 300px;
-      }
-    }
-
-    @media (max-width: 500px) {
-      .stats-numbers {
-        gap: 10px;
-      }
-
-      .stat {
-        font-size: 16px;
-      }
-
-      .control-btn {
-        width: 40px;
-        height: 36px;
+        border-top: 1px solid #bbb;
       }
     }
   `]
 })
 export class GameDetailV2Component implements OnInit, OnDestroy, AfterViewInit {
   @ViewChild('chessboard', { static: false }) chessboardElement!: ElementRef;
+  @ViewChild('movesContainer', { static: false }) movesContainer!: ElementRef;
 
   gameId: string = '';
   game: GameData | null = null;
@@ -821,6 +620,46 @@ export class GameDetailV2Component implements OnInit, OnDestroy, AfterViewInit {
     return val >= 0 ? `+${val.toFixed(1)}` : val.toFixed(1);
   }
 
+  formatInlineEval(evaluation: number | undefined): string {
+    if (evaluation === undefined || evaluation === null) return '';
+    if (Math.abs(evaluation) > 1000) {
+      const mateIn = Math.ceil((10000 - Math.abs(evaluation)) / 100);
+      return evaluation > 0 ? `#${mateIn}` : `#-${mateIn}`;
+    }
+    const val = evaluation / 100;
+    return val >= 0 ? `+${val.toFixed(1)}` : val.toFixed(1);
+  }
+
+  getWhiteWinPercent(): number {
+    const cp = this.currentEval;
+    return 50 + 50 * (2 / (1 + Math.exp(-0.00368208 * cp)) - 1);
+  }
+
+  getPlayerRating(color: 'white' | 'black'): string {
+    if (!this.game) return '';
+    const rating = color === 'white' ? this.game.white_elo : this.game.black_elo;
+    return rating ? rating.toString() : '';
+  }
+
+  formatGameDate(): string {
+    if (!this.game?.date_played) return '';
+    try {
+      const date = new Date(this.game.date_played);
+      const now = new Date();
+      const diffMs = now.getTime() - date.getTime();
+      const diffDays = Math.floor(diffMs / (1000 * 60 * 60 * 24));
+
+      if (diffDays === 0) return 'Today';
+      if (diffDays === 1) return 'Yesterday';
+      if (diffDays < 7) return `${diffDays} days ago`;
+      if (diffDays < 30) return `${Math.floor(diffDays / 7)} weeks ago`;
+      if (diffDays < 365) return `${Math.floor(diffDays / 30)} months ago`;
+      return `${Math.floor(diffDays / 365)} years ago`;
+    } catch {
+      return this.game.date_played;
+    }
+  }
+
   getMoveAnnotation(move: MoveAnalysis): string {
     if (move.is_blunder) return '??';
     if (move.is_mistake) return '?';
@@ -833,6 +672,16 @@ export class GameDetailV2Component implements OnInit, OnDestroy, AfterViewInit {
     if (move.is_mistake) return 'Mistake.';
     if (move.is_inaccuracy) return 'Inaccuracy.';
     return '';
+  }
+
+  getEvalChange(moveIndex: number): string {
+    if (moveIndex < 0 || moveIndex >= this.moves.length) return '';
+    const move = this.moves[moveIndex];
+    const prevEval = moveIndex > 0 ? this.moves[moveIndex - 1]?.evaluation || 0 : 0;
+    const currEval = move?.evaluation || 0;
+    const prev = (prevEval / 100).toFixed(2);
+    const curr = (currEval / 100).toFixed(2);
+    return `(${prev >= '0' ? '+' + prev : prev} → ${curr >= '0' ? '+' + curr : curr})`;
   }
 
   getAnnotationClass(move: MoveAnalysis): string {
@@ -856,7 +705,7 @@ export class GameDetailV2Component implements OnInit, OnDestroy, AfterViewInit {
     if (!this.game?.result) return '';
     if (this.game.result === '1-0') return color === 'white' ? '1' : '0';
     if (this.game.result === '0-1') return color === 'white' ? '0' : '1';
-    if (this.game.result === '1/2-1/2') return '1/2';
+    if (this.game.result === '1/2-1/2') return '½';
     return '';
   }
 
@@ -869,6 +718,7 @@ export class GameDetailV2Component implements OnInit, OnDestroy, AfterViewInit {
     this.currentMoveIndex = index;
     this.currentEval = this.moves[index]?.evaluation || 0;
     this.updateChessboard();
+    this.scrollToCurrentMove();
   }
 
   goToStart() {
@@ -876,6 +726,7 @@ export class GameDetailV2Component implements OnInit, OnDestroy, AfterViewInit {
     this.currentEval = 0;
     this.chess.reset();
     this.updateBoardPosition();
+    this.scrollToCurrentMove();
   }
 
   goToPrevious() {
@@ -883,6 +734,7 @@ export class GameDetailV2Component implements OnInit, OnDestroy, AfterViewInit {
       this.currentMoveIndex--;
       this.currentEval = this.currentMoveIndex >= 0 ? (this.moves[this.currentMoveIndex]?.evaluation || 0) : 0;
       this.updateChessboard();
+      this.scrollToCurrentMove();
     }
   }
 
@@ -891,6 +743,7 @@ export class GameDetailV2Component implements OnInit, OnDestroy, AfterViewInit {
       this.currentMoveIndex++;
       this.currentEval = this.moves[this.currentMoveIndex]?.evaluation || 0;
       this.updateChessboard();
+      this.scrollToCurrentMove();
     }
   }
 
@@ -899,7 +752,28 @@ export class GameDetailV2Component implements OnInit, OnDestroy, AfterViewInit {
       this.currentMoveIndex = this.moves.length - 1;
       this.currentEval = this.moves[this.currentMoveIndex]?.evaluation || 0;
       this.updateChessboard();
+      this.scrollToCurrentMove();
     }
+  }
+
+  private scrollToCurrentMove() {
+    if (!this.movesContainer) return;
+
+    setTimeout(() => {
+      const container = this.movesContainer.nativeElement;
+      const currentMove = container.querySelector('.move.current');
+
+      if (currentMove) {
+        const containerRect = container.getBoundingClientRect();
+        const moveRect = currentMove.getBoundingClientRect();
+
+        if (moveRect.top < containerRect.top || moveRect.bottom > containerRect.bottom) {
+          currentMove.scrollIntoView({ behavior: 'smooth', block: 'center' });
+        }
+      } else if (this.currentMoveIndex === -1) {
+        container.scrollTop = 0;
+      }
+    }, 50);
   }
 
   flipBoard() {

@@ -14,28 +14,28 @@ export const MOVE_QUALITY_COLORS = {
     border: '#357ABD'
   },
   [MoveQuality.EXCELLENT]: {
-    background: '#7ED321', // Bright green for excellent moves
+    background: '#7ED321',
     text: '#FFFFFF', 
     border: '#5BA617'
   },
   [MoveQuality.GOOD]: {
-    background: '#B8E986', // Light green for good moves
+    background: '#B8E986',
     text: '#2D5016',
     border: '#9ADB5C'
   },
   [MoveQuality.INACCURACY]: {
-    background: '#F8A532', // Orange for inaccuracies
+    background: '#56b4e9', // Lichess light blue
     text: '#FFFFFF',
-    border: '#E8941A'
+    border: '#3a9fd5'
   },
   [MoveQuality.MISTAKE]: {
-    background: '#FF6B35', // Red-orange for mistakes
+    background: '#e69f00', // Lichess orange
     text: '#FFFFFF',
-    border: '#E8941A'
+    border: '#cc8a00'
   },
   [MoveQuality.BLUNDER]: {
-    background: '#D0021B', // Dark red for blunders
+    background: '#db3434', // Lichess red
     text: '#FFFFFF',
-    border: '#B8021A'
+    border: '#c02020'
   }
 };

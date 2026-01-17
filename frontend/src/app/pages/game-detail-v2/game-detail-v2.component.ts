@@ -10,6 +10,7 @@ import { LayoutComponent } from '../../components/layout/layout.component';
 import { ChessApiService } from '../../services/chess-api.service';
 import { MoveAnalysis, GameData, MovePair, PlayerStats, PhaseStats, MoveQualityStats } from './game-detail.models';
 import { EvalGraphComponent, BoardControlsComponent, ShareExportComponent, PlayerStatsCardComponent, PhaseAnalysisComponent, MoveQualityComponent } from './components';
+import { MoveQuality, MOVE_QUALITY_COLORS } from '../../constants/move-quality.constants';
 
 @Component({
   selector: 'app-game-detail-v2',
@@ -62,7 +63,7 @@ export class GameDetailV2Component implements OnInit, OnDestroy, AfterViewInit {
 
   // Graph dimensions (passed to EvalGraphComponent)
   graphWidth = 600;
-  graphHeight = 60;
+  graphHeight = 100;
 
   constructor(
     private route: ActivatedRoute,
@@ -412,11 +413,94 @@ export class GameDetailV2Component implements OnInit, OnDestroy, AfterViewInit {
     if (!this.chessground) return;
     const lastMove = this.getLastMoveSquares();
     this.currentFen = this.chess.fen();
+    
+    // Get move quality annotation
+    const currentMove = this.currentMoveIndex >= 0 ? this.moves[this.currentMoveIndex] : null;
+    const autoShapes = this.getMoveQualityShape(currentMove, lastMove);
+    
     this.chessground.set({
       fen: this.currentFen,
       lastMove: lastMove,
-      check: this.chess.isCheck() ? this.getKingSquare() : undefined
+      check: this.chess.isCheck() ? this.getKingSquare() : undefined,
+      drawable: { 
+        autoShapes,
+        brushes: {
+          paleGreen: { key: 'paleGreen', color: '#15781B', opacity: 0.4, lineWidth: 10 }
+        }
+      }
     });
+  }
+
+  private getMoveQualityShape(move: MoveAnalysis | null, lastMove: [Key, Key] | undefined): any[] {
+    if (!move || !lastMove) return [];
+    
+    const shapes: any[] = [];
+    
+    let quality = '';
+    if (move.is_blunder) quality = MoveQuality.BLUNDER;
+    else if (move.is_mistake) quality = MoveQuality.MISTAKE;
+    else if (move.is_inaccuracy) quality = MoveQuality.INACCURACY;
+    
+    if (!quality) return [];
+    
+    // Add best move arrow
+    if (move.best_move) {
+      const bestMoveSquares = this.parseMoveToSquares(move.best_move);
+      if (bestMoveSquares) {
+        shapes.push({
+          orig: bestMoveSquares[0],
+          dest: bestMoveSquares[1],
+          brush: 'paleGreen'
+        });
+      }
+    }
+    
+    // Add move quality icon
+    const icons: { [key: string]: string } = {
+      [MoveQuality.INACCURACY]: '?!',
+      [MoveQuality.MISTAKE]: '?',
+      [MoveQuality.BLUNDER]: '??'
+    };
+    const icon = icons[quality] || '';
+    const color = MOVE_QUALITY_COLORS[quality as MoveQuality]?.background || '#666';
+    const to = lastMove[1];
+    
+    shapes.push({
+      orig: to,
+      customSvg: {
+        html: `<svg viewBox="0 0 100 100">
+          <defs>
+            <filter id="shadow-${to}">
+              <feDropShadow dx="4" dy="7" flood-opacity="0.5" stdDeviation="5"/>
+            </filter>
+          </defs>
+          <g transform="matrix(.4 0 0 .4 71 -12)">
+            <circle cx="50" cy="50" r="50" fill="${color}" filter="url(#shadow-${to})"/>
+            <text x="50" y="54" text-anchor="middle" dominant-baseline="middle" 
+                  font-size="55" font-weight="bold" fill="white" font-family="Arial, sans-serif">
+              ${icon}
+            </text>
+          </g>
+        </svg>`
+      }
+    });
+    
+    return shapes;
+  }
+
+  private parseMoveToSquares(san: string): [Key, Key] | null {
+    // Create a temp chess instance at position before the bad move was played
+    const tempChess = new Chess();
+    const history = this.chess.history({ verbose: true });
+    // Replay up to but not including the current move
+    for (let i = 0; i < this.currentMoveIndex; i++) {
+      tempChess.move(history[i].san);
+    }
+    try {
+      const parsed = tempChess.move(san);
+      if (parsed) return [parsed.from as Key, parsed.to as Key];
+    } catch {}
+    return null;
   }
 
   private getLastMoveSquares(): [Key, Key] | undefined {

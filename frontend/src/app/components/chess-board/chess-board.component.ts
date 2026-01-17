@@ -483,18 +483,27 @@ export class ChessBoardComponent implements OnInit, AfterViewInit, OnDestroy, On
     const color = this.getMoveQualityColor(quality);
     
     if (icon) {
-      // Add move quality annotation at top-right corner of square
+      // Lichess-style annotation: circle with drop shadow in top-right corner
       this.board.set({
         drawable: {
           autoShapes: [
             {
               orig: to,
               customSvg: {
-                html: `<circle cx="85%" cy="15%" r="24" fill="${color}" stroke="white" stroke-width="3" opacity="0.95"/>
-                       <text x="85%" y="18%" text-anchor="middle" dominant-baseline="middle" 
-                             font-size="26" font-weight="bold" fill="white" font-family="Arial, sans-serif">
-                         ${icon}
-                       </text>`
+                html: `<svg viewBox="0 0 100 100" width="100%" height="100%">
+                  <defs>
+                    <filter id="shadow-${to}" x="-50%" y="-50%" width="200%" height="200%">
+                      <feDropShadow dx="2" dy="3" flood-opacity="0.4" stdDeviation="2"/>
+                    </filter>
+                  </defs>
+                  <g transform="translate(70, 5)">
+                    <circle cx="15" cy="15" r="14" fill="${color}" filter="url(#shadow-${to})"/>
+                    <text x="15" y="16" text-anchor="middle" dominant-baseline="middle" 
+                          font-size="14" font-weight="bold" fill="white" font-family="Arial, sans-serif">
+                      ${icon}
+                    </text>
+                  </g>
+                </svg>`
               }
             }
           ]
@@ -536,7 +545,10 @@ export class ChessBoardComponent implements OnInit, AfterViewInit, OnDestroy, On
   }
 
   getMoveQuality(): string {
-    // DISABLED: Return empty to hide all chess board move quality indicators
+    if (!this.currentMove) return '';
+    if (this.currentMove.is_blunder) return MoveQuality.BLUNDER;
+    if (this.currentMove.is_mistake) return MoveQuality.MISTAKE;
+    if (this.currentMove.is_inaccuracy) return MoveQuality.INACCURACY;
     return '';
   }
 

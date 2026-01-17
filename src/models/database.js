@@ -716,7 +716,13 @@ class Database {
       ORDER BY a.move_number
     `, [gameId, userId]);
 
-    return { game, analysis };
+    // Parse JSON fields
+    const parsedAnalysis = analysis.map(move => ({
+      ...move,
+      alternatives: move.alternatives ? JSON.parse(move.alternatives) : []
+    }));
+
+    return { game, analysis: parsedAnalysis };
   }
 
   async close() {

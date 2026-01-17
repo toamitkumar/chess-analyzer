@@ -1,0 +1,133 @@
+<app-layout>
+  <!-- Page Header with Back Button -->
+  <div class="flex items-center gap-4 px-4 py-4">
+    <button
+      (click)="goBack()"
+      class="inline-flex items-center justify-center rounded-md text-sm font-medium ring-offset-background transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 hover:bg-accent hover:text-accent-foreground h-10 w-10">
+      <svg class="h-4 w-4" xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+        <path d="m12 19-7-7 7-7"/><path d="M19 12H5"/>
+      </svg>
+    </button>
+    <div class="flex-1">
+      <h1 class="text-2xl sm:text-3xl font-bold text-foreground">Game Analysis</h1>
+      <p class="text-sm text-muted-foreground">Review moves, accuracy, and engine evaluation</p>
+    </div>
+  </div>
+
+  <div class="lichess-layout">
+    <!-- Left Panel: Player Stats, Phase Analysis, Move Quality -->
+    <div class="analysis-panel left-panel">
+      <!-- Back to Games Button -->
+      <button
+        (click)="navigateTo('/games')"
+        class="w-full mb-3 inline-flex items-center justify-center gap-2 rounded-lg border border-border bg-card px-4 py-2 text-sm font-medium text-muted-foreground hover:bg-accent hover:text-foreground transition-colors">
+        <svg class="h-4 w-4" xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+          <path d="m12 19-7-7 7-7"/><path d="M19 12H5"/>
+        </svg>
+        Back to Games
+      </button>
+      <!-- Player Stats -->
+      <app-player-stats-card
+        [whiteName]="game?.white_player || 'White'"
+        [blackName]="game?.black_player || 'Black'"
+        [whiteStats]="whiteStats"
+        [blackStats]="blackStats">
+      </app-player-stats-card>
+
+      <!-- Phase Analysis -->
+      <app-phase-analysis
+        [opening]="phaseStats.opening"
+        [middlegame]="phaseStats.middlegame"
+        [endgame]="phaseStats.endgame"
+        (phaseClick)="goToPhase($event)">
+      </app-phase-analysis>
+
+      <!-- Move Quality Distribution -->
+      <app-move-quality
+        [white]="moveQuality.white"
+        [black]="moveQuality.black">
+      </app-move-quality>
+    </div>
+
+    <!-- Center: Chess Board with Eval Bar -->
+    <div class="board-section">
+      <div class="board-with-eval">
+        <div class="eval-bar-vertical" [class.flipped]="orientation === 'black'">
+          <div class="eval-bar-white" [style.height.%]="orientation === 'white' ? getWhiteWinPercent() : 100 - getWhiteWinPercent()"></div>
+          <div class="eval-bar-black" [style.height.%]="orientation === 'white' ? 100 - getWhiteWinPercent() : getWhiteWinPercent()"></div>
+          <span class="eval-text" [class.eval-white]="currentEval >= 0" [class.eval-black]="currentEval < 0">
+            {{ formatEval(currentEval) }}
+          </span>
+        </div>
+        <div class="board-wrapper">
+          <div #chessboard class="cg-wrap"></div>
+        </div>
+      </div>
+      <!-- Tabs below board -->
+      <div class="board-tabs">
+        <div class="tabs-header">
+          <button class="tab-btn" [class.active]="activeTab === 'analysis'" (click)="activeTab = 'analysis'">Computer analysis</button>
+          <button class="tab-btn" [class.active]="activeTab === 'share'" (click)="activeTab = 'share'">Share & export</button>
+        </div>
+        <div class="tabs-content">
+          <div *ngIf="activeTab === 'analysis'" class="tab-panel">
+            <app-eval-graph
+              [moves]="moves"
+              [currentMoveIndex]="currentMoveIndex"
+              [width]="graphWidth"
+              [height]="graphHeight"
+              (moveSelected)="goToMove($event)">
+            </app-eval-graph>
+          </div>
+          <div *ngIf="activeTab === 'share'" class="tab-panel">
+            <app-share-export
+              [fen]="currentFen"
+              [shareUrl]="getShareUrl()"
+              [pgn]="getPgn()">
+            </app-share-export>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Right Panel: Move List with Controls at Bottom -->
+    <div class="analysis-panel right-panel">
+      <div class="opening-bar" *ngIf="game?.opening_name">{{ game.opening_name }}</div>
+      <div class="moves-container" #movesContainer>
+        <div class="moves-list">
+          <ng-container *ngFor="let pair of movePairs">
+            <span class="move-index">{{ pair.moveNumber }}</span>
+            <span class="move" [class.current]="currentMoveIndex === pair.whiteIndex" (click)="pair.white && goToMove(pair.whiteIndex)">
+              <span class="san">{{ pair.white?.move }}</span><span class="nag blunder" *ngIf="pair.white?.is_blunder" title="Blunder">??</span><span class="nag mistake" *ngIf="pair.white?.is_mistake && !pair.white?.is_blunder" title="Mistake">?</span><span class="nag inaccuracy" *ngIf="pair.white?.is_inaccuracy && !pair.white?.is_mistake && !pair.white?.is_blunder" title="Inaccuracy">?!</span>
+              <span class="eval">{{ formatInlineEval(pair.white?.evaluation) }}</span>
+            </span>
+            <div class="annotation" *ngIf="pair.white && (pair.white.is_blunder || pair.white.is_mistake || pair.white.is_inaccuracy)">
+              <span class="annotation-text">{{ getAnnotationLabel(pair.white) }} {{ pair.white.best_move }} was best.</span>
+              <span class="best-line" *ngIf="getBestLine(pair.white) as line">
+                <span class="line-move" [class.current]="isAltLineCurrent(pair.whiteIndex, i)" *ngFor="let m of line; let i = index" (click)="playBestLine(pair.whiteIndex, i, $event)">{{ formatLineMove(pair.moveNumber, i, true, m) }}</span>
+              </span>
+            </div>
+            <span class="move" *ngIf="pair.black" [class.current]="currentMoveIndex === pair.blackIndex" (click)="goToMove(pair.blackIndex)">
+              <span class="san">{{ pair.black?.move }}</span><span class="nag blunder" *ngIf="pair.black?.is_blunder" title="Blunder">??</span><span class="nag mistake" *ngIf="pair.black?.is_mistake && !pair.black?.is_blunder" title="Mistake">?</span><span class="nag inaccuracy" *ngIf="pair.black?.is_inaccuracy && !pair.black?.is_mistake && !pair.black?.is_blunder" title="Inaccuracy">?!</span>
+              <span class="eval">{{ formatInlineEval(pair.black?.evaluation) }}</span>
+            </span>
+            <div class="annotation" *ngIf="pair.black && (pair.black.is_blunder || pair.black.is_mistake || pair.black.is_inaccuracy)">
+              <span class="annotation-text">{{ getAnnotationLabel(pair.black) }} {{ pair.black.best_move }} was best.</span>
+              <span class="best-line" *ngIf="getBestLine(pair.black) as line">
+                <span class="line-move" [class.current]="isAltLineCurrent(pair.blackIndex, i)" *ngFor="let m of line; let i = index" (click)="playBestLine(pair.blackIndex, i, $event)">{{ formatLineMove(pair.moveNumber, i, false, m) }}</span>
+              </span>
+            </div>
+          </ng-container>
+          <span class="result" *ngIf="game?.result">{{ game.result }}</span>
+        </div>
+      </div>
+      <app-board-controls
+        (start)="goToStart()"
+        (previous)="goToPrevious()"
+        (flip)="flipBoard()"
+        (next)="goToNext()"
+        (end)="goToEnd()">
+      </app-board-controls>
+    </div>
+  </div>
+</app-layout>

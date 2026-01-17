@@ -1,0 +1,481 @@
+:host {
+  --color-inaccuracy: #56b4e9;
+  --color-mistake: #e69f00;
+  --color-blunder: #db3434;
+  --board-size: min(620px, calc(100vh - 100px));
+}
+
+.lichess-layout {
+  display: flex;
+  justify-content: center;
+  align-items: flex-start;
+  gap: 0;
+  padding: 8px 16px;
+  min-height: calc(100vh - 64px);
+  color: #333;
+  font-family: 'Noto Sans', sans-serif;
+}
+
+/* Analysis Panels */
+.analysis-panel {
+  width: 318px;
+  display: flex;
+  flex-direction: column;
+  background: #d0d0d0;
+  border-radius: 3px;
+  overflow: hidden;
+}
+
+.left-panel {
+  border-right: 1px solid #bbb;
+  margin-right: 8px;
+  display: flex;
+  flex-direction: column;
+  padding: 8px;
+  background: transparent;
+  border: none;
+}
+
+.right-panel {
+  border-left: 1px solid #bbb;
+  margin-left: 8px;
+  height: var(--board-size);
+  display: flex;
+  flex-direction: column;
+}
+
+/* Board Section */
+.board-section {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+}
+
+/* Board Tabs */
+.board-tabs {
+  width: 100%;
+  max-width: var(--board-size);
+  margin-top: 8px;
+}
+
+.tabs-header {
+  display: flex;
+  border-bottom: 1px solid #ccc;
+}
+
+.tab-btn {
+  padding: 8px 16px;
+  background: none;
+  border: none;
+  cursor: pointer;
+  font-size: 13px;
+  color: #666;
+  border-bottom: 2px solid transparent;
+  transition: all 0.2s;
+
+  &:hover { color: #333; }
+  &.active {
+    color: #333;
+    border-bottom-color: #333;
+    font-weight: 500;
+  }
+}
+
+.tabs-content {
+  padding: 12px 0;
+}
+
+.tab-panel {
+  font-size: 13px;
+}
+
+.eval-graph-container {
+  width: 100%;
+  border-radius: 4px;
+  overflow: hidden;
+  cursor: pointer;
+}
+
+.eval-graph {
+  width: 100%;
+  display: block;
+}
+
+.eval-dot {
+  cursor: pointer;
+  transition: r 0.15s;
+
+  &:hover { r: 6; }
+}
+
+.analysis-summary {
+  display: flex;
+  gap: 24px;
+}
+
+.player-analysis {
+  flex: 1;
+  padding: 8px 12px;
+  background: rgba(0,0,0,0.03);
+  border-radius: 6px;
+
+  .player-name { font-weight: 600; }
+}
+
+.player-header {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-bottom: 8px;
+}
+
+.player-icon {
+  width: 14px;
+  height: 14px;
+  border-radius: 2px;
+
+  &.white-icon { background: #fff; border: 1px solid #ccc; }
+  &.black-icon { background: #333; }
+}
+
+.stats-row {
+  display: flex;
+  gap: 12px;
+  flex-wrap: wrap;
+
+  .stat {
+    color: #555;
+    strong { margin-right: 2px; }
+  }
+}
+
+.acpl {
+  margin-top: 6px;
+  color: #555;
+  strong { margin-right: 4px; }
+}
+
+.share-section {
+  margin-bottom: 12px;
+  strong {
+    display: block;
+    margin-bottom: 4px;
+    color: #333;
+  }
+}
+
+.share-row {
+  display: flex;
+  gap: 4px;
+}
+
+.share-input {
+  flex: 1;
+  padding: 6px 8px;
+  border: 1px solid #ccc;
+  border-radius: 4px;
+  font-size: 12px;
+  background: #fff;
+}
+
+.copy-btn {
+  padding: 6px 10px;
+  border: 1px solid #ccc;
+  border-radius: 4px;
+  background: #fff;
+  cursor: pointer;
+
+  &:hover { background: #f0f0f0; }
+  &.full-width { width: 100%; margin-top: 6px; }
+}
+
+.pgn-textarea {
+  width: 100%;
+  height: 80px;
+  padding: 8px;
+  border: 1px solid #ccc;
+  border-radius: 4px;
+  font-size: 11px;
+  font-family: monospace;
+  resize: vertical;
+}
+
+.player-info {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.player-piece {
+  width: 18px;
+  height: 18px;
+  border-radius: 2px;
+
+  &.white { background: #fff; border: 1px solid #ccc; }
+  &.black { background: #333; }
+}
+
+.player-name {
+  font-weight: 600;
+  font-size: 14px;
+  color: #333;
+}
+
+.player-rating {
+  font-size: 13px;
+  color: #666;
+}
+
+.board-with-eval {
+  display: flex;
+  width: calc(var(--board-size) + 24px);
+  height: var(--board-size);
+}
+
+.eval-bar-vertical {
+  width: 20px;
+  display: flex;
+  flex-direction: column;
+  border-radius: 3px;
+  overflow: hidden;
+  position: relative;
+  margin-right: 4px;
+}
+
+.eval-bar-white {
+  background: #fff;
+  transition: height 0.3s;
+}
+
+.eval-bar-black {
+  background: #888;
+  flex: 1;
+}
+
+.eval-text {
+  position: absolute;
+  left: 50%;
+  top: 50%;
+  transform: translate(-50%, -50%) rotate(-90deg);
+  font-size: 10px;
+  font-weight: bold;
+  font-family: monospace;
+  white-space: nowrap;
+
+  &.eval-white { color: #333; }
+  &.eval-black { color: #fff; }
+}
+
+.board-wrapper {
+  flex: 1;
+  aspect-ratio: 1;
+}
+
+.cg-wrap {
+  width: 100%;
+  height: 100%;
+}
+
+.board-controls {
+  display: flex;
+  gap: 2px;
+  padding: 4px;
+  background: #c4c4c4;
+  border-top: 1px solid #bbb;
+  flex-shrink: 0;
+}
+
+.ctrl-btn {
+  flex: 1;
+  height: 32px;
+  background: #d1d1d1;
+  border: none;
+  border-radius: 3px;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+
+  &:hover { background: hsl(var(--accent)); }
+  svg { width: 20px; height: 20px; fill: #333; }
+}
+
+.opening-bar {
+  padding: 6px 10px;
+  font-size: 13px;
+  color: #b58900;
+  background: #c4c4c4;
+  border-bottom: 1px solid #bbb;
+  flex-shrink: 0;
+}
+
+/* Move List */
+.moves-container {
+  flex: 1;
+  overflow-y: auto;
+  padding: 0;
+}
+
+.moves-list {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  font-size: 15px;
+  line-height: 1.7;
+  padding: 5px;
+}
+
+.move-index {
+  color: #999;
+  font-size: 12px;
+  min-width: 20px;
+  text-align: right;
+  padding-right: 5px;
+}
+
+.move {
+  display: inline-flex;
+  align-items: baseline;
+  padding: 1px 3px;
+  border-radius: 2px;
+  cursor: pointer;
+  font-family: inherit;
+
+  &:hover { background: rgba(0,0,0,0.1); }
+  &.current {
+    background: #3893e8;
+    color: #fff;
+    .eval { color: rgba(255,255,255,0.7); }
+  }
+
+  .san { font-weight: 500; }
+
+  .nag {
+    font-size: 11px;
+    font-weight: bold;
+    padding: 0 3px;
+    border-radius: 2px;
+    margin-left: 1px;
+
+    &.blunder { background: var(--color-blunder); color: #fff; }
+    &.mistake { background: var(--color-mistake); color: #fff; }
+    &.inaccuracy { background: var(--color-inaccuracy); color: #fff; }
+  }
+
+  .eval {
+    font-size: 11px;
+    color: #999;
+    margin-left: 3px;
+    font-family: monospace;
+  }
+}
+
+.annotation {
+  width: 100%;
+  background: rgba(0,0,0,0.05);
+  border-left: 3px solid #888;
+  margin: 3px 0 5px 0;
+  padding: 4px 8px;
+  font-size: 13px;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.annotation-text {
+  color: #555;
+  font-style: italic;
+}
+
+.best-line {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 2px;
+}
+
+.line-move {
+  color: #3893e8;
+  cursor: pointer;
+  padding: 1px 3px;
+  border-radius: 2px;
+
+  &:hover { background: rgba(56, 147, 232, 0.15); }
+  &.current { background: #3893e8; color: #fff; }
+}
+
+.result {
+  display: block;
+  width: 100%;
+  font-weight: bold;
+  color: #333;
+  margin-top: 8px;
+  padding: 8px 5px;
+  border-top: 1px solid #bbb;
+}
+
+/* Chessground */
+::ng-deep {
+  cg-board { background-color: #b58863; }
+  .cg-wrap piece { background-size: cover; }
+  .cg-wrap piece.pawn.white { background-image: url('https://lichess1.org/assets/piece/cburnett/wP.svg'); }
+  .cg-wrap piece.knight.white { background-image: url('https://lichess1.org/assets/piece/cburnett/wN.svg'); }
+  .cg-wrap piece.bishop.white { background-image: url('https://lichess1.org/assets/piece/cburnett/wB.svg'); }
+  .cg-wrap piece.rook.white { background-image: url('https://lichess1.org/assets/piece/cburnett/wR.svg'); }
+  .cg-wrap piece.queen.white { background-image: url('https://lichess1.org/assets/piece/cburnett/wQ.svg'); }
+  .cg-wrap piece.king.white { background-image: url('https://lichess1.org/assets/piece/cburnett/wK.svg'); }
+  .cg-wrap piece.pawn.black { background-image: url('https://lichess1.org/assets/piece/cburnett/bP.svg'); }
+  .cg-wrap piece.knight.black { background-image: url('https://lichess1.org/assets/piece/cburnett/bN.svg'); }
+  .cg-wrap piece.bishop.black { background-image: url('https://lichess1.org/assets/piece/cburnett/bB.svg'); }
+  .cg-wrap piece.rook.black { background-image: url('https://lichess1.org/assets/piece/cburnett/bR.svg'); }
+  .cg-wrap piece.queen.black { background-image: url('https://lichess1.org/assets/piece/cburnett/bQ.svg'); }
+  .cg-wrap piece.king.black { background-image: url('https://lichess1.org/assets/piece/cburnett/bK.svg'); }
+  .cg-wrap square.light { background-color: #f0d9b5; }
+  .cg-wrap square.dark { background-color: #b58863; }
+  .cg-wrap square.last-move { background-color: rgba(155, 199, 0, 0.41); }
+}
+
+@media (max-width: 900px) {
+  :host { --board-size: calc(100vw - 16px); }
+
+  .lichess-layout {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    padding: 8px;
+
+    > * { order: 0; }
+  }
+
+  .analysis-panel {
+    width: calc(100vw - 16px);
+    max-width: none;
+    height: auto;
+    margin: 0;
+    border: none;
+  }
+
+  .board-section {
+    order: -2 !important;
+    width: 100%;
+  }
+
+  .board-with-eval {
+    width: calc(100vw - 16px);
+    margin: 0 auto;
+  }
+
+  .eval-bar-vertical { display: none; }
+
+  .right-panel {
+    order: -1 !important;
+    border-top: 1px solid #bbb;
+    height: auto;
+    max-height: 300px;
+  }
+
+  .left-panel {
+    order: 0 !important;
+    border-top: 1px solid #bbb;
+    max-height: 250px;
+  }
+}

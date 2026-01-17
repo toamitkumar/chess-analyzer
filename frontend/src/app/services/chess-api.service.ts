@@ -36,6 +36,48 @@ export interface PerformanceData {
   }>;
 }
 
+// Chess.com Insights Dashboard Interfaces (ADR 009)
+export interface AccuracyByResultData {
+  overall: { accuracy: number; games: number; avgCentipawnLoss?: number };
+  wins: { accuracy: number; games: number; avgCentipawnLoss?: number };
+  draws: { accuracy: number; games: number; avgCentipawnLoss?: number };
+  losses: { accuracy: number; games: number; avgCentipawnLoss?: number };
+}
+
+export interface PhaseDistributionData {
+  overall: {
+    opening: { count: number; percentage: number };
+    middlegame: { count: number; percentage: number };
+    endgame: { count: number; percentage: number };
+  };
+  totalGames: number;
+}
+
+export interface AccuracyByPhaseData {
+  opening: { accuracy: number; gamesWithData: number; avgCentipawnLoss?: number };
+  middlegame: { accuracy: number; gamesWithData: number; avgCentipawnLoss?: number };
+  endgame: { accuracy: number; gamesWithData: number; avgCentipawnLoss?: number };
+  totalGames: number;
+}
+
+export interface OpeningPerformanceData {
+  ecoCode: string;
+  name: string;
+  games: number;
+  wins: number;
+  draws: number;
+  losses: number;
+  winRate: number;
+  drawRate: number;
+  lossRate: number;
+}
+
+export interface InsightsApiResponse<T> {
+  success: boolean;
+  data: T;
+  error?: string;
+}
+
 @Injectable({
   providedIn: 'root'
 })

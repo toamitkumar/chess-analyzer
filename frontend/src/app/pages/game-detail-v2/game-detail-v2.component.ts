@@ -9,6 +9,12 @@ import { Key } from '@lichess-org/chessground/types';
 import { LayoutComponent } from '../../components/layout/layout.component';
 import { ChessApiService } from '../../services/chess-api.service';
 
+interface Alternative {
+  move: string;
+  evaluation: number;
+  line?: string[];
+}
+
 interface MoveAnalysis {
   move_number: number;
   move: string;
@@ -19,6 +25,7 @@ interface MoveAnalysis {
   is_inaccuracy: boolean;
   best_move?: string;
   move_quality?: string;
+  alternatives?: Alternative[];
 }
 
 interface GameData {
@@ -123,6 +130,9 @@ interface PlayerStats {
                 </span>
                 <div class="annotation" *ngIf="pair.white && (pair.white.is_blunder || pair.white.is_mistake || pair.white.is_inaccuracy)">
                   <span class="annotation-text">{{ getAnnotationLabel(pair.white) }} {{ pair.white.best_move }} was best.</span>
+                  <span class="best-line" *ngIf="getBestLine(pair.white) as line">
+                    <span class="line-move" [class.current]="isAltLineCurrent(pair.whiteIndex, i)" *ngFor="let m of line; let i = index" (click)="playBestLine(pair.whiteIndex, i, $event)">{{ formatLineMove(pair.moveNumber, i, true, m) }}</span>
+                  </span>
                 </div>
                 <span class="move" *ngIf="pair.black" [class.current]="currentMoveIndex === pair.blackIndex" (click)="goToMove(pair.blackIndex)">
                   <span class="san">{{ pair.black?.move }}</span><span class="nag blunder" *ngIf="pair.black?.is_blunder" title="Blunder">??</span><span class="nag mistake" *ngIf="pair.black?.is_mistake && !pair.black?.is_blunder" title="Mistake">?</span><span class="nag inaccuracy" *ngIf="pair.black?.is_inaccuracy && !pair.black?.is_mistake && !pair.black?.is_blunder" title="Inaccuracy">?!</span>
@@ -130,6 +140,9 @@ interface PlayerStats {
                 </span>
                 <div class="annotation" *ngIf="pair.black && (pair.black.is_blunder || pair.black.is_mistake || pair.black.is_inaccuracy)">
                   <span class="annotation-text">{{ getAnnotationLabel(pair.black) }} {{ pair.black.best_move }} was best.</span>
+                  <span class="best-line" *ngIf="getBestLine(pair.black) as line">
+                    <span class="line-move" [class.current]="isAltLineCurrent(pair.blackIndex, i)" *ngFor="let m of line; let i = index" (click)="playBestLine(pair.blackIndex, i, $event)">{{ formatLineMove(pair.moveNumber, i, false, m) }}</span>
+                  </span>
                 </div>
               </ng-container>
               <span class="result" *ngIf="game?.result">{{ game.result }}</span>
@@ -233,7 +246,7 @@ interface PlayerStats {
     }
 
     .eval-bar-black {
-      background: #333;
+      background: #888;
       flex: 1;
     }
 
@@ -359,11 +372,36 @@ interface PlayerStats {
       margin: 3px 0 5px 0;
       padding: 4px 8px;
       font-size: 13px;
+      display: flex;
+      flex-direction: column;
+      gap: 4px;
     }
 
     .annotation-text {
       color: #555;
       font-style: italic;
+    }
+
+    .best-line {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 2px;
+    }
+
+    .line-move {
+      color: #3893e8;
+      cursor: pointer;
+      padding: 1px 3px;
+      border-radius: 2px;
+    }
+
+    .line-move:hover {
+      background: rgba(56, 147, 232, 0.15);
+    }
+
+    .line-move.current {
+      background: #3893e8;
+      color: #fff;
     }
 
     .result {
@@ -476,6 +514,14 @@ export class GameDetailV2Component implements OnInit, OnDestroy, AfterViewInit {
   whiteStats: PlayerStats = { inaccuracies: 0, mistakes: 0, blunders: 0, avgCentipawnLoss: 0, accuracy: 0 };
   blackStats: PlayerStats = { inaccuracies: 0, mistakes: 0, blunders: 0, avgCentipawnLoss: 0, accuracy: 0 };
 
+  // Alternative line navigation state
+  altLineActive = false;
+  altLineMoveIndex = -1; // The main move index where the alternative starts
+  altLinePosition = 0;   // Current position within the alternative line
+  altLine: string[] = [];
+  altLineIsWhite = true;
+  altLineMoveNumber = 1;
+
   constructor(
     private route: ActivatedRoute,
     private router: Router,
@@ -502,6 +548,23 @@ export class GameDetailV2Component implements OnInit, OnDestroy, AfterViewInit {
 
   @HostListener('window:keydown', ['$event'])
   handleKeyboard(event: KeyboardEvent) {
+    if (this.altLineActive) {
+      switch (event.key) {
+        case 'ArrowRight':
+          event.preventDefault();
+          this.altLineNext();
+          break;
+        case 'ArrowLeft':
+          event.preventDefault();
+          this.altLinePrev();
+          break;
+        case 'Escape':
+          event.preventDefault();
+          this.exitAltLine();
+          break;
+      }
+      return;
+    }
     switch (event.key) {
       case 'ArrowLeft':
         event.preventDefault();
@@ -523,6 +586,16 @@ export class GameDetailV2Component implements OnInit, OnDestroy, AfterViewInit {
         event.preventDefault();
         this.flipBoard();
         break;
+    }
+  }
+
+  @HostListener('document:click', ['$event'])
+  handleClick(event: MouseEvent) {
+    if (this.altLineActive) {
+      const target = event.target as HTMLElement;
+      if (!target.closest('.line-move') && !target.closest('.best-line')) {
+        this.exitAltLine();
+      }
     }
   }
 
@@ -674,6 +747,94 @@ export class GameDetailV2Component implements OnInit, OnDestroy, AfterViewInit {
     return '';
   }
 
+  getBestLine(move: MoveAnalysis): string[] | null {
+    if (!move.alternatives || move.alternatives.length === 0) return null;
+    const best = move.alternatives[0];
+    return best.line && best.line.length > 0 ? best.line : null;
+  }
+
+  formatLineMove(moveNumber: number, lineIndex: number, isWhite: boolean, san: string): string {
+    // First move in line: show move number with dots
+    // isWhite means the bad move was white's, so best line starts with white's alternative
+    if (lineIndex === 0) {
+      return isWhite ? `${moveNumber}.${san}` : `${moveNumber}...${san}`;
+    }
+    // Subsequent moves: show number only at start of white's move
+    const adjustedIndex = isWhite ? lineIndex : lineIndex + 1;
+    const isWhiteMove = adjustedIndex % 2 === 0;
+    if (isWhiteMove) {
+      const num = moveNumber + Math.floor((adjustedIndex + 1) / 2);
+      return `${num}.${san}`;
+    }
+    return san;
+  }
+
+  playBestLine(moveIndex: number, lineIndex: number, event: MouseEvent): void {
+    event.stopPropagation();
+    console.log('playBestLine called', moveIndex, lineIndex);
+    const move = this.moves[moveIndex];
+    const line = this.getBestLine(move);
+    console.log('line', line);
+    if (!line) return;
+
+    this.altLineActive = true;
+    this.altLineMoveIndex = moveIndex;
+    this.altLine = line;
+    this.altLinePosition = lineIndex;
+    this.altLineIsWhite = moveIndex % 2 === 0;
+    this.altLineMoveNumber = Math.floor(moveIndex / 2) + 1;
+
+    this.showAltLinePosition();
+  }
+
+  private showAltLinePosition(): void {
+    console.log('showAltLinePosition', this.altLineMoveIndex, this.altLinePosition, this.altLine);
+    // Reset to position before the bad move
+    this.chess.reset();
+    for (let i = 0; i < this.altLineMoveIndex; i++) {
+      if (this.moves[i]) {
+        try { this.chess.move(this.moves[i].move); } catch (e) { console.log('main move error', i, this.moves[i].move, e); }
+      }
+    }
+    console.log('after main moves', this.chess.fen());
+    // Play the alternative line up to current position
+    for (let i = 0; i <= this.altLinePosition; i++) {
+      try { this.chess.move(this.altLine[i]); } catch (e) { console.log('alt move error', i, this.altLine[i], e); }
+    }
+    console.log('after alt moves', this.chess.fen());
+    this.updateBoardPosition();
+  }
+
+  altLineNext(): void {
+    if (this.altLinePosition < this.altLine.length - 1) {
+      this.altLinePosition++;
+      this.showAltLinePosition();
+    } else {
+      this.exitAltLine();
+    }
+  }
+
+  altLinePrev(): void {
+    if (this.altLinePosition > 0) {
+      this.altLinePosition--;
+      this.showAltLinePosition();
+    } else {
+      this.exitAltLine();
+    }
+  }
+
+  exitAltLine(): void {
+    this.altLineActive = false;
+    this.altLine = [];
+    this.altLinePosition = 0;
+    // Restore main line position
+    this.updateChessboard();
+  }
+
+  isAltLineCurrent(moveIndex: number, lineIndex: number): boolean {
+    return this.altLineActive && this.altLineMoveIndex === moveIndex && this.altLinePosition === lineIndex;
+  }
+
   getEvalChange(moveIndex: number): string {
     if (moveIndex < 0 || moveIndex >= this.moves.length) return '';
     const move = this.moves[moveIndex];
@@ -801,11 +962,14 @@ export class GameDetailV2Component implements OnInit, OnDestroy, AfterViewInit {
     if (!this.chessground) return;
 
     const lastMove = this.getLastMoveSquares();
+    const fen = this.chess.fen();
+    console.log('updateBoardPosition called with fen:', fen);
     this.chessground.set({
-      fen: this.chess.fen(),
+      fen: fen,
       lastMove: lastMove,
       check: this.chess.isCheck() ? this.getKingSquare() : undefined
     });
+    console.log('chessground state after set', this.chessground.state.pieces);
   }
 
   private getLastMoveSquares(): [Key, Key] | undefined {

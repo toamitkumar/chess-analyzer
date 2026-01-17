@@ -365,6 +365,528 @@ class DashboardService {
     `, [ecoCode]);
     return opening ? opening.opening_name : null;
   }
+
+  // ============================================
+  // Chess.com Insights Dashboard Methods (ADR 009)
+  // ============================================
+
+  /**
+   * Get accuracy breakdown by game result (win/draw/loss)
+   * Chess.com Insights Feature: Average Accuracy Overview
+   * @param {string} userId - User ID
+   * @param {string|null} color - Optional filter by player color ('white' or 'black')
+   * @returns {Promise<Object>} Accuracy stats grouped by result
+   */
+  async getAccuracyByResult(userId, color = null) {
+    // Get all games with analysis for the user
+    let query = `
+      SELECT g.id, g.result, g.user_color
+      FROM games g
+      WHERE g.user_id = ?
+    `;
+    const params = [userId];
+
+    if (color) {
+      query += ' AND g.user_color = ?';
+      params.push(color);
+    }
+
+    const games = await this.database.all(query, params);
+
+    if (games.length === 0) {
+      return {
+        overall: { accuracy: 0, games: 0 },
+        wins: { accuracy: 0, games: 0 },
+        draws: { accuracy: 0, games: 0 },
+        losses: { accuracy: 0, games: 0 }
+      };
+    }
+
+    // Categorize games by result
+    const categorizedGames = {
+      wins: [],
+      draws: [],
+      losses: []
+    };
+
+    for (const game of games) {
+      const isPlayerWhite = game.user_color === 'white';
+      const isPlayerBlack = game.user_color === 'black';
+
+      // Determine game outcome for the player
+      let outcome;
+      if (game.result === '1/2-1/2') {
+        outcome = 'draws';
+      } else if (
+        (isPlayerWhite && game.result === '1-0') ||
+        (isPlayerBlack && game.result === '0-1')
+      ) {
+        outcome = 'wins';
+      } else {
+        outcome = 'losses';
+      }
+
+      categorizedGames[outcome].push(game);
+    }
+
+    // Calculate accuracy for each category
+    const calculateCategoryAccuracy = async (categoryGames) => {
+      if (categoryGames.length === 0) {
+        return { accuracy: 0, games: 0 };
+      }
+
+      let totalCentipawnLoss = 0;
+      let totalMoves = 0;
+
+      for (const game of categoryGames) {
+        const analysis = await this.database.all(`
+          SELECT centipawn_loss, move_number
+          FROM analysis
+          WHERE game_id = ?
+          ORDER BY move_number
+        `, [game.id]);
+
+        const isPlayerWhite = game.user_color === 'white';
+        const playerMoves = analysis.filter(move =>
+          (isPlayerWhite && move.move_number % 2 === 1) ||
+          (!isPlayerWhite && move.move_number % 2 === 0)
+        );
+
+        totalCentipawnLoss += playerMoves.reduce((sum, move) => sum + (move.centipawn_loss || 0), 0);
+        totalMoves += playerMoves.length;
+      }
+
+      const avgCentipawnLoss = totalMoves > 0 ? totalCentipawnLoss / totalMoves : 0;
+      const accuracy = AccuracyCalculator.calculateAccuracy(avgCentipawnLoss);
+
+      return {
+        accuracy,
+        games: categoryGames.length,
+        avgCentipawnLoss: Math.round(avgCentipawnLoss)
+      };
+    };
+
+    const [winsStats, drawsStats, lossesStats] = await Promise.all([
+      calculateCategoryAccuracy(categorizedGames.wins),
+      calculateCategoryAccuracy(categorizedGames.draws),
+      calculateCategoryAccuracy(categorizedGames.losses)
+    ]);
+
+    // Calculate overall accuracy
+    const overallStats = await calculateCategoryAccuracy(games);
+
+    return {
+      overall: overallStats,
+      wins: winsStats,
+      draws: drawsStats,
+      losses: lossesStats
+    };
+  }
+
+  /**
+   * Get distribution of which game phase games typically end in
+   * Chess.com Insights Feature: Game Phases Analysis
+   * @param {string} userId - User ID
+   * @param {string|null} color - Optional filter by player color ('white' or 'black')
+   * @returns {Promise<Object>} Phase distribution statistics
+   */
+  async getPhaseDistribution(userId, color = null) {
+    // Phase definitions (matching existing implementation)
+    const PHASE_BOUNDARIES = {
+      opening: { start: 1, end: 10 },
+      middlegame: { start: 11, end: 30 },
+      endgame: { start: 31, end: Infinity }
+    };
+
+    let query = `
+      SELECT g.id, g.moves_count, g.user_color
+      FROM games g
+      WHERE g.user_id = ?
+    `;
+    const params = [userId];
+
+    if (color) {
+      query += ' AND g.user_color = ?';
+      params.push(color);
+    }
+
+    const games = await this.database.all(query, params);
+
+    if (games.length === 0) {
+      return {
+        overall: {
+          opening: { count: 0, percentage: 0 },
+          middlegame: { count: 0, percentage: 0 },
+          endgame: { count: 0, percentage: 0 }
+        },
+        totalGames: 0
+      };
+    }
+
+    // Determine which phase each game ended in
+    const phaseCounts = { opening: 0, middlegame: 0, endgame: 0 };
+
+    for (const game of games) {
+      const movesCount = game.moves_count || 0;
+      // Each move_count represents half-moves (plies), so divide by 2 for full moves
+      const fullMoves = Math.ceil(movesCount / 2);
+
+      if (fullMoves <= PHASE_BOUNDARIES.opening.end) {
+        phaseCounts.opening++;
+      } else if (fullMoves <= PHASE_BOUNDARIES.middlegame.end) {
+        phaseCounts.middlegame++;
+      } else {
+        phaseCounts.endgame++;
+      }
+    }
+
+    const totalGames = games.length;
+
+    return {
+      overall: {
+        opening: {
+          count: phaseCounts.opening,
+          percentage: Math.round((phaseCounts.opening / totalGames) * 100)
+        },
+        middlegame: {
+          count: phaseCounts.middlegame,
+          percentage: Math.round((phaseCounts.middlegame / totalGames) * 100)
+        },
+        endgame: {
+          count: phaseCounts.endgame,
+          percentage: Math.round((phaseCounts.endgame / totalGames) * 100)
+        }
+      },
+      totalGames
+    };
+  }
+
+  /**
+   * Get aggregate accuracy by game phase across all games
+   * Chess.com Insights Feature: Accuracy by Game Phase
+   * @param {string} userId - User ID
+   * @param {string|null} color - Optional filter by player color ('white' or 'black')
+   * @returns {Promise<Object>} Accuracy by phase
+   */
+  async getAccuracyByPhase(userId, color = null) {
+    // Try to use pre-computed phase_stats first
+    let query = `
+      SELECT ps.*, g.user_color
+      FROM phase_stats ps
+      JOIN games g ON ps.game_id = g.id
+      WHERE g.user_id = ?
+    `;
+    const params = [userId];
+
+    if (color) {
+      query += ' AND g.user_color = ?';
+      params.push(color);
+    }
+
+    const phaseStats = await this.database.all(query, params);
+
+    if (phaseStats.length > 0) {
+      // Use pre-computed stats
+      let openingTotal = 0, middlegameTotal = 0, endgameTotal = 0;
+      let openingCount = 0, middlegameCount = 0, endgameCount = 0;
+
+      for (const stat of phaseStats) {
+        if (stat.opening_accuracy > 0) {
+          openingTotal += stat.opening_accuracy;
+          openingCount++;
+        }
+        if (stat.middlegame_accuracy > 0) {
+          middlegameTotal += stat.middlegame_accuracy;
+          middlegameCount++;
+        }
+        if (stat.endgame_accuracy > 0) {
+          endgameTotal += stat.endgame_accuracy;
+          endgameCount++;
+        }
+      }
+
+      return {
+        opening: {
+          accuracy: openingCount > 0 ? Math.round(openingTotal / openingCount) : 0,
+          gamesWithData: openingCount
+        },
+        middlegame: {
+          accuracy: middlegameCount > 0 ? Math.round(middlegameTotal / middlegameCount) : 0,
+          gamesWithData: middlegameCount
+        },
+        endgame: {
+          accuracy: endgameCount > 0 ? Math.round(endgameTotal / endgameCount) : 0,
+          gamesWithData: endgameCount
+        },
+        totalGames: phaseStats.length
+      };
+    }
+
+    // Fallback: Calculate from raw analysis data
+    const PHASE_BOUNDARIES = {
+      opening: { start: 1, end: 10 },
+      middlegame: { start: 11, end: 30 },
+      endgame: { start: 31, end: Infinity }
+    };
+
+    let gamesQuery = `
+      SELECT g.id, g.user_color
+      FROM games g
+      WHERE g.user_id = ?
+    `;
+    const gamesParams = [userId];
+
+    if (color) {
+      gamesQuery += ' AND g.user_color = ?';
+      gamesParams.push(color);
+    }
+
+    const games = await this.database.all(gamesQuery, gamesParams);
+
+    if (games.length === 0) {
+      return {
+        opening: { accuracy: 0, gamesWithData: 0 },
+        middlegame: { accuracy: 0, gamesWithData: 0 },
+        endgame: { accuracy: 0, gamesWithData: 0 },
+        totalGames: 0
+      };
+    }
+
+    const phaseAccumulator = {
+      opening: { totalCpl: 0, moveCount: 0, gamesWithData: 0 },
+      middlegame: { totalCpl: 0, moveCount: 0, gamesWithData: 0 },
+      endgame: { totalCpl: 0, moveCount: 0, gamesWithData: 0 }
+    };
+
+    for (const game of games) {
+      const analysis = await this.database.all(`
+        SELECT centipawn_loss, move_number
+        FROM analysis
+        WHERE game_id = ?
+        ORDER BY move_number
+      `, [game.id]);
+
+      const isPlayerWhite = game.user_color === 'white';
+      const playerMoves = analysis.filter(move =>
+        (isPlayerWhite && move.move_number % 2 === 1) ||
+        (!isPlayerWhite && move.move_number % 2 === 0)
+      );
+
+      // Group moves by phase
+      const gamePhaseData = { opening: [], middlegame: [], endgame: [] };
+
+      for (const move of playerMoves) {
+        // Convert half-move number to full move number
+        const fullMoveNumber = Math.ceil(move.move_number / 2);
+
+        if (fullMoveNumber <= PHASE_BOUNDARIES.opening.end) {
+          gamePhaseData.opening.push(move);
+        } else if (fullMoveNumber <= PHASE_BOUNDARIES.middlegame.end) {
+          gamePhaseData.middlegame.push(move);
+        } else {
+          gamePhaseData.endgame.push(move);
+        }
+      }
+
+      // Accumulate phase data
+      for (const phase of ['opening', 'middlegame', 'endgame']) {
+        if (gamePhaseData[phase].length > 0) {
+          const phaseCpl = gamePhaseData[phase].reduce((sum, m) => sum + (m.centipawn_loss || 0), 0);
+          phaseAccumulator[phase].totalCpl += phaseCpl;
+          phaseAccumulator[phase].moveCount += gamePhaseData[phase].length;
+          phaseAccumulator[phase].gamesWithData++;
+        }
+      }
+    }
+
+    // Calculate final accuracies
+    const result = {};
+    for (const phase of ['opening', 'middlegame', 'endgame']) {
+      const acc = phaseAccumulator[phase];
+      const avgCpl = acc.moveCount > 0 ? acc.totalCpl / acc.moveCount : 0;
+      result[phase] = {
+        accuracy: AccuracyCalculator.calculateAccuracy(avgCpl),
+        gamesWithData: acc.gamesWithData,
+        avgCentipawnLoss: Math.round(avgCpl)
+      };
+    }
+
+    result.totalGames = games.length;
+    return result;
+  }
+
+  /**
+   * Get performance statistics for most frequently played openings
+   * Chess.com Insights Feature: Opening Performance Analysis
+   * @param {string} userId - User ID
+   * @param {number} limit - Number of top openings to return (default: 10)
+   * @param {string|null} color - Optional filter by player color ('white' or 'black')
+   * @returns {Promise<Array>} Top openings with W/D/L stats
+   */
+  async getOpeningPerformance(userId, limit = 10, color = null) {
+    // Try to use opening_analysis table first (has ECO codes)
+    let query = `
+      SELECT
+        oa.eco_code,
+        oa.opening_name,
+        g.result,
+        g.user_color,
+        g.id as game_id
+      FROM opening_analysis oa
+      JOIN games g ON oa.game_id = g.id
+      WHERE g.user_id = ?
+    `;
+    const params = [userId];
+
+    if (color) {
+      query += ' AND g.user_color = ?';
+      params.push(color);
+    }
+
+    const openingGames = await this.database.all(query, params);
+
+    // If no data in opening_analysis, try to detect from PGN
+    if (openingGames.length === 0) {
+      return await this.getOpeningPerformanceFromPGN(userId, limit, color);
+    }
+
+    // Aggregate by opening
+    const openingMap = new Map();
+
+    for (const game of openingGames) {
+      const key = game.eco_code || 'Unknown';
+      const isPlayerWhite = game.user_color === 'white';
+
+      if (!openingMap.has(key)) {
+        openingMap.set(key, {
+          ecoCode: game.eco_code,
+          name: game.opening_name || 'Unknown Opening',
+          games: 0,
+          wins: 0,
+          draws: 0,
+          losses: 0
+        });
+      }
+
+      const stats = openingMap.get(key);
+      stats.games++;
+
+      if (game.result === '1/2-1/2') {
+        stats.draws++;
+      } else if (
+        (isPlayerWhite && game.result === '1-0') ||
+        (!isPlayerWhite && game.result === '0-1')
+      ) {
+        stats.wins++;
+      } else {
+        stats.losses++;
+      }
+    }
+
+    // Convert to array and sort by games played
+    const openings = Array.from(openingMap.values())
+      .map(opening => ({
+        ...opening,
+        winRate: opening.games > 0 ? Math.round((opening.wins / opening.games) * 100) : 0,
+        drawRate: opening.games > 0 ? Math.round((opening.draws / opening.games) * 100) : 0,
+        lossRate: opening.games > 0 ? Math.round((opening.losses / opening.games) * 100) : 0
+      }))
+      .sort((a, b) => b.games - a.games)
+      .slice(0, limit);
+
+    return openings;
+  }
+
+  /**
+   * Helper: Get opening performance from PGN content when opening_analysis is empty
+   * @private
+   */
+  async getOpeningPerformanceFromPGN(userId, limit = 10, color = null) {
+    const openingDetector = require('../models/opening-detector');
+
+    let query = `
+      SELECT g.id, g.pgn_content, g.result, g.user_color
+      FROM games g
+      WHERE g.user_id = ? AND g.pgn_content IS NOT NULL
+    `;
+    const params = [userId];
+
+    if (color) {
+      query += ' AND g.user_color = ?';
+      params.push(color);
+    }
+
+    const games = await this.database.all(query, params);
+
+    const openingMap = new Map();
+
+    for (const game of games) {
+      // Try to get ECO from PGN headers
+      let ecoCode = null;
+      let openingName = null;
+
+      const ecoMatch = game.pgn_content.match(/\[ECO "([^"]+)"\]/);
+      if (ecoMatch) {
+        ecoCode = ecoMatch[1];
+        openingName = await this.getOpeningName(ecoCode);
+      }
+
+      // Fallback: detect from moves
+      if (!openingName) {
+        const detected = openingDetector.detect(game.pgn_content);
+        if (detected) {
+          ecoCode = detected.eco || 'Unknown';
+          openingName = detected.name;
+        }
+      }
+
+      if (!openingName) {
+        openingName = 'Unknown Opening';
+        ecoCode = 'Unknown';
+      }
+
+      const key = ecoCode;
+      const isPlayerWhite = game.user_color === 'white';
+
+      if (!openingMap.has(key)) {
+        openingMap.set(key, {
+          ecoCode,
+          name: openingName,
+          games: 0,
+          wins: 0,
+          draws: 0,
+          losses: 0
+        });
+      }
+
+      const stats = openingMap.get(key);
+      stats.games++;
+
+      if (game.result === '1/2-1/2') {
+        stats.draws++;
+      } else if (
+        (isPlayerWhite && game.result === '1-0') ||
+        (!isPlayerWhite && game.result === '0-1')
+      ) {
+        stats.wins++;
+      } else {
+        stats.losses++;
+      }
+    }
+
+    // Convert to array and sort by games played
+    const openings = Array.from(openingMap.values())
+      .map(opening => ({
+        ...opening,
+        winRate: opening.games > 0 ? Math.round((opening.wins / opening.games) * 100) : 0,
+        drawRate: opening.games > 0 ? Math.round((opening.draws / opening.games) * 100) : 0,
+        lossRate: opening.games > 0 ? Math.round((opening.losses / opening.games) * 100) : 0
+      }))
+      .sort((a, b) => b.games - a.games)
+      .slice(0, limit);
+
+    return openings;
+  }
 }
 
 module.exports = DashboardService;

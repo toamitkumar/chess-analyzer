@@ -23,4 +23,12 @@ router.get('/heatmap-db', dashboardController.getHeatmap.bind(dashboardControlle
 // Games list
 router.get('/games', dashboardController.getGamesList.bind(dashboardController));
 
+// ============================================
+// Chess.com Insights Dashboard (ADR 009)
+// ============================================
+router.get('/insights/accuracy', dashboardController.getAccuracyByResult.bind(dashboardController));
+router.get('/insights/phases', dashboardController.getPhaseDistribution.bind(dashboardController));
+router.get('/insights/accuracy-by-phase', dashboardController.getAccuracyByPhase.bind(dashboardController));
+router.get('/insights/openings', dashboardController.getOpeningPerformance.bind(dashboardController));
+
 module.exports = router;

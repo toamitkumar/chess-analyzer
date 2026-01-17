@@ -145,6 +145,109 @@ class DashboardController {
       res.json([]);
     }
   }
+
+  // ============================================
+  // Chess.com Insights Dashboard Endpoints (ADR 009)
+  // ============================================
+
+  /**
+   * GET /api/insights/accuracy
+   * Get accuracy breakdown by game result (win/draw/loss)
+   * Query params: color (optional) - 'white' or 'black'
+   */
+  async getAccuracyByResult(req, res) {
+    try {
+      const color = req.query.color || null;
+      console.log(`📊 [INSIGHTS]: Accuracy by result requested${color ? ` for ${color}` : ''}`);
+
+      const result = await this.dashboardService.getAccuracyByResult(req.userId, color);
+      res.json({
+        success: true,
+        data: result
+      });
+    } catch (error) {
+      console.error('Accuracy by result API error:', error);
+      res.status(500).json({
+        success: false,
+        error: error.message || 'Failed to get accuracy by result'
+      });
+    }
+  }
+
+  /**
+   * GET /api/insights/phases
+   * Get distribution of which game phase games typically end in
+   * Query params: color (optional) - 'white' or 'black'
+   */
+  async getPhaseDistribution(req, res) {
+    try {
+      const color = req.query.color || null;
+      console.log(`📊 [INSIGHTS]: Phase distribution requested${color ? ` for ${color}` : ''}`);
+
+      const result = await this.dashboardService.getPhaseDistribution(req.userId, color);
+      res.json({
+        success: true,
+        data: result
+      });
+    } catch (error) {
+      console.error('Phase distribution API error:', error);
+      res.status(500).json({
+        success: false,
+        error: error.message || 'Failed to get phase distribution'
+      });
+    }
+  }
+
+  /**
+   * GET /api/insights/accuracy-by-phase
+   * Get aggregate accuracy by game phase across all games
+   * Query params: color (optional) - 'white' or 'black'
+   */
+  async getAccuracyByPhase(req, res) {
+    try {
+      const color = req.query.color || null;
+      console.log(`📊 [INSIGHTS]: Accuracy by phase requested${color ? ` for ${color}` : ''}`);
+
+      const result = await this.dashboardService.getAccuracyByPhase(req.userId, color);
+      res.json({
+        success: true,
+        data: result
+      });
+    } catch (error) {
+      console.error('Accuracy by phase API error:', error);
+      res.status(500).json({
+        success: false,
+        error: error.message || 'Failed to get accuracy by phase'
+      });
+    }
+  }
+
+  /**
+   * GET /api/insights/openings
+   * Get performance statistics for most frequently played openings
+   * Query params:
+   *   - limit (optional, default: 10) - number of openings to return
+   *   - color (optional) - 'white' or 'black'
+   */
+  async getOpeningPerformance(req, res) {
+    try {
+      const limit = req.query.limit ? parseInt(req.query.limit) : 10;
+      const color = req.query.color || null;
+      console.log(`📊 [INSIGHTS]: Opening performance requested (limit: ${limit}${color ? `, color: ${color}` : ''})`);
+
+      const result = await this.dashboardService.getOpeningPerformance(req.userId, limit, color);
+      res.json({
+        success: true,
+        data: result
+      });
+    } catch (error) {
+      console.error('Opening performance API error:', error);
+      res.status(500).json({
+        success: false,
+        error: error.message || 'Failed to get opening performance'
+      });
+    }
+  }
 }
 
 module.exports = new DashboardController();

@@ -38,6 +38,8 @@ interface GameData {
   time_control?: string;
   white_elo?: number;
   black_elo?: number;
+  tournament_id?: number;
+  event?: string;
 }
 
 interface MovePair {
@@ -54,6 +56,7 @@ interface PlayerStats {
   blunders: number;
   avgCentipawnLoss: number;
   accuracy: number;
+  acpl?: number;
 }
 
 @Component({
@@ -62,27 +65,115 @@ interface PlayerStats {
   imports: [CommonModule, HttpClientModule, LayoutComponent],
   template: `
     <app-layout>
+      <!-- Page Header with Back Button -->
+      <div class="flex items-center gap-4 px-4 py-4">
+        <button
+          (click)="goBack()"
+          class="inline-flex items-center justify-center rounded-md text-sm font-medium ring-offset-background transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 hover:bg-accent hover:text-accent-foreground h-10 w-10">
+          <svg class="h-4 w-4" xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+            <path d="m12 19-7-7 7-7"/><path d="M19 12H5"/>
+          </svg>
+        </button>
+        <div class="flex-1">
+          <h1 class="text-2xl sm:text-3xl font-bold text-foreground">Game Analysis</h1>
+          <p class="text-sm text-muted-foreground">Review moves, accuracy, and engine evaluation</p>
+        </div>
+      </div>
+
       <div class="lichess-layout">
-        <!-- Left Panel: Player Stats -->
+        <!-- Left Panel: Player Stats, Phase Analysis, Move Quality -->
         <div class="analysis-panel left-panel">
-          <div class="panel-header">Player Stats</div>
-          <div class="stats-panel">
-            <div class="stat-row">
-              <span class="piece white"></span>
-              <span class="name">{{ game?.white_player || 'White' }}</span>
-              <div class="badges">
-                <span class="badge inaccuracy" *ngIf="whiteStats.inaccuracies" title="Inaccuracies">{{ whiteStats.inaccuracies }}</span>
-                <span class="badge mistake" *ngIf="whiteStats.mistakes" title="Mistakes">{{ whiteStats.mistakes }}</span>
-                <span class="badge blunder" *ngIf="whiteStats.blunders" title="Blunders">{{ whiteStats.blunders }}</span>
+          <!-- Back to Games Button -->
+          <button
+            (click)="navigateTo('/games')"
+            class="w-full mb-3 inline-flex items-center justify-center gap-2 rounded-lg border border-border bg-card px-4 py-2 text-sm font-medium text-muted-foreground hover:bg-accent hover:text-foreground transition-colors">
+            <svg class="h-4 w-4" xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+              <path d="m12 19-7-7 7-7"/><path d="M19 12H5"/>
+            </svg>
+            Back to Games
+          </button>
+          <!-- Player Stats -->
+          <div class="rounded-xl border-2 border-border/30 bg-card/50 backdrop-blur-sm overflow-hidden mb-3">
+            <div class="px-4 py-2 bg-gradient-to-r from-muted/50 to-transparent border-b border-border/30">
+              <h3 class="text-sm font-semibold text-foreground tracking-wide">Player Stats</h3>
+            </div>
+            <div class="p-3 space-y-2">
+              <div class="flex items-center gap-3">
+                <div class="w-3 h-3 rounded-sm bg-gradient-to-br from-gray-100 to-gray-300 shadow-sm border border-gray-300"></div>
+                <span class="flex-1 text-sm font-medium text-foreground truncate">{{ game?.white_player || 'White' }}</span>
+                <div class="flex gap-1">
+                  <span class="px-2 py-0.5 rounded text-xs font-semibold bg-sky-500/20 text-sky-600" *ngIf="whiteStats.inaccuracies" title="Inaccuracies">{{ whiteStats.inaccuracies }}</span>
+                  <span class="px-2 py-0.5 rounded text-xs font-semibold bg-amber-500/20 text-amber-600" *ngIf="whiteStats.mistakes" title="Mistakes">{{ whiteStats.mistakes }}</span>
+                  <span class="px-2 py-0.5 rounded text-xs font-semibold bg-red-500/20 text-red-600" *ngIf="whiteStats.blunders" title="Blunders">{{ whiteStats.blunders }}</span>
+                </div>
+              </div>
+              <div class="flex items-center gap-3">
+                <div class="w-3 h-3 rounded-sm bg-gradient-to-br from-gray-700 to-gray-900 shadow-sm"></div>
+                <span class="flex-1 text-sm font-medium text-foreground truncate">{{ game?.black_player || 'Black' }}</span>
+                <div class="flex gap-1">
+                  <span class="px-2 py-0.5 rounded text-xs font-semibold bg-sky-500/20 text-sky-600" *ngIf="blackStats.inaccuracies" title="Inaccuracies">{{ blackStats.inaccuracies }}</span>
+                  <span class="px-2 py-0.5 rounded text-xs font-semibold bg-amber-500/20 text-amber-600" *ngIf="blackStats.mistakes" title="Mistakes">{{ blackStats.mistakes }}</span>
+                  <span class="px-2 py-0.5 rounded text-xs font-semibold bg-red-500/20 text-red-600" *ngIf="blackStats.blunders" title="Blunders">{{ blackStats.blunders }}</span>
+                </div>
               </div>
             </div>
-            <div class="stat-row">
-              <span class="piece black"></span>
-              <span class="name">{{ game?.black_player || 'Black' }}</span>
-              <div class="badges">
-                <span class="badge inaccuracy" *ngIf="blackStats.inaccuracies" title="Inaccuracies">{{ blackStats.inaccuracies }}</span>
-                <span class="badge mistake" *ngIf="blackStats.mistakes" title="Mistakes">{{ blackStats.mistakes }}</span>
-                <span class="badge blunder" *ngIf="blackStats.blunders" title="Blunders">{{ blackStats.blunders }}</span>
+          </div>
+
+          <!-- Phase Analysis -->
+          <div class="rounded-xl border-2 border-border/30 bg-card/50 backdrop-blur-sm overflow-hidden mb-3">
+            <div class="px-4 py-2 bg-gradient-to-r from-muted/50 to-transparent border-b border-border/30">
+              <h3 class="text-sm font-semibold text-foreground tracking-wide">Phase Analysis</h3>
+            </div>
+            <div class="p-3 space-y-1">
+              <div class="flex justify-between items-center px-2 py-1.5 rounded-lg hover:bg-muted/50 cursor-pointer transition-colors" (click)="goToPhase('opening')">
+                <span class="text-sm text-foreground">Opening</span>
+                <span class="text-sm font-semibold text-success">{{ phaseStats.opening.accuracy }}%</span>
+              </div>
+              <div class="flex justify-between items-center px-2 py-1.5 rounded-lg hover:bg-muted/50 cursor-pointer transition-colors" (click)="goToPhase('middlegame')">
+                <span class="text-sm text-foreground">Middlegame</span>
+                <span class="text-sm font-semibold text-success">{{ phaseStats.middlegame.accuracy }}%</span>
+              </div>
+              <div class="flex justify-between items-center px-2 py-1.5 rounded-lg hover:bg-muted/50 cursor-pointer transition-colors" (click)="goToPhase('endgame')">
+                <span class="text-sm text-foreground">Endgame</span>
+                <span class="text-sm font-semibold text-success">{{ phaseStats.endgame.accuracy }}%</span>
+              </div>
+            </div>
+          </div>
+
+          <!-- Move Quality Distribution -->
+          <div class="rounded-xl border-2 border-border/30 bg-card/50 backdrop-blur-sm overflow-hidden">
+            <div class="px-4 py-2 bg-gradient-to-r from-muted/50 to-transparent border-b border-border/30">
+              <h3 class="text-sm font-semibold text-foreground tracking-wide">Move Quality</h3>
+            </div>
+            <div class="p-3">
+              <div class="grid grid-cols-[1fr_28px_28px] gap-1 text-xs">
+                <div class="text-muted-foreground font-medium"></div>
+                <div class="text-center text-muted-foreground font-medium">W</div>
+                <div class="text-center text-muted-foreground font-medium">B</div>
+                
+                <div class="flex items-center gap-2"><span class="w-2 h-2 rounded-full bg-emerald-700"></span><span class="text-foreground">Best</span></div>
+                <div class="text-center text-foreground">{{ moveQuality.white.best }}</div>
+                <div class="text-center text-foreground">{{ moveQuality.black.best }}</div>
+                
+                <div class="flex items-center gap-2"><span class="w-2 h-2 rounded-full bg-emerald-500"></span><span class="text-foreground">Excellent</span></div>
+                <div class="text-center text-foreground">{{ moveQuality.white.excellent }}</div>
+                <div class="text-center text-foreground">{{ moveQuality.black.excellent }}</div>
+                
+                <div class="flex items-center gap-2"><span class="w-2 h-2 rounded-full bg-blue-500"></span><span class="text-foreground">Good</span></div>
+                <div class="text-center text-foreground">{{ moveQuality.white.good }}</div>
+                <div class="text-center text-foreground">{{ moveQuality.black.good }}</div>
+                
+                <div class="flex items-center gap-2"><span class="w-2 h-2 rounded-full bg-sky-500"></span><span class="text-foreground">Inaccuracy</span></div>
+                <div class="text-center text-foreground">{{ moveQuality.white.inaccuracy }}</div>
+                <div class="text-center text-foreground">{{ moveQuality.black.inaccuracy }}</div>
+                
+                <div class="flex items-center gap-2"><span class="w-2 h-2 rounded-full bg-amber-500"></span><span class="text-foreground">Mistake</span></div>
+                <div class="text-center text-foreground">{{ moveQuality.white.mistake }}</div>
+                <div class="text-center text-foreground">{{ moveQuality.black.mistake }}</div>
+                
+                <div class="flex items-center gap-2"><span class="w-2 h-2 rounded-full bg-red-500"></span><span class="text-foreground">Blunder</span></div>
+                <div class="text-center text-foreground">{{ moveQuality.white.blunder }}</div>
+                <div class="text-center text-foreground">{{ moveQuality.black.blunder }}</div>
               </div>
             </div>
           </div>
@@ -100,6 +191,54 @@ interface PlayerStats {
             </div>
             <div class="board-wrapper">
               <div #chessboard class="cg-wrap"></div>
+            </div>
+          </div>
+          <!-- Tabs below board -->
+          <div class="board-tabs">
+            <div class="tabs-header">
+              <button class="tab-btn" [class.active]="activeTab === 'analysis'" (click)="activeTab = 'analysis'">Computer analysis</button>
+              <button class="tab-btn" [class.active]="activeTab === 'share'" (click)="activeTab = 'share'">Share & export</button>
+            </div>
+            <div class="tabs-content">
+              <div *ngIf="activeTab === 'analysis'" class="tab-panel">
+                <div class="eval-graph-container" *ngIf="moves.length > 0">
+                  <svg class="eval-graph" [attr.viewBox]="'0 0 ' + graphWidth + ' ' + graphHeight">
+                    <rect x="0" y="0" [attr.width]="graphWidth" [attr.height]="graphHeight/2" fill="#fff"/>
+                    <rect x="0" [attr.y]="graphHeight/2" [attr.width]="graphWidth" [attr.height]="graphHeight/2" fill="#888"/>
+                    <line x1="0" [attr.y1]="graphHeight/2" [attr.x1]="graphWidth" [attr.y2]="graphHeight/2" stroke="#666" stroke-width="1"/>
+                    <path [attr.d]="getEvalPath()" fill="rgba(255,255,255,0.8)" stroke="#333" stroke-width="1.5"/>
+                    <ng-container *ngFor="let move of moves; let i = index">
+                      <circle *ngIf="move.is_blunder" [attr.cx]="getGraphX(i)" [attr.cy]="getGraphY(move.evaluation)" r="5" fill="#db3434" class="eval-dot" (click)="goToMove(i)"/>
+                      <circle *ngIf="move.is_mistake && !move.is_blunder" [attr.cx]="getGraphX(i)" [attr.cy]="getGraphY(move.evaluation)" r="5" fill="#e69f00" class="eval-dot" (click)="goToMove(i)"/>
+                      <circle *ngIf="move.is_inaccuracy && !move.is_mistake && !move.is_blunder" [attr.cx]="getGraphX(i)" [attr.cy]="getGraphY(move.evaluation)" r="4" fill="#56b4e9" class="eval-dot" (click)="goToMove(i)"/>
+                    </ng-container>
+                    <line *ngIf="currentMoveIndex >= 0" [attr.x1]="getGraphX(currentMoveIndex)" y1="0" [attr.x2]="getGraphX(currentMoveIndex)" [attr.y2]="graphHeight" stroke="#3893e8" stroke-width="2" opacity="0.7"/>
+                  </svg>
+                </div>
+              </div>
+              <div *ngIf="activeTab === 'share'" class="tab-panel">
+                <div class="share-section">
+                  <strong>FEN</strong>
+                  <div class="share-row">
+                    <input type="text" readonly [value]="currentFen" class="share-input" />
+                    <button class="copy-btn" (click)="copyToClipboard(currentFen, 'fen')" title="Copy">{{ copiedField === 'fen' ? '✓' : '📋' }}</button>
+                  </div>
+                </div>
+                <div class="share-section">
+                  <strong>Share</strong>
+                  <div class="share-row">
+                    <input type="text" readonly [value]="getShareUrl()" class="share-input" />
+                    <button class="copy-btn" (click)="copyToClipboard(getShareUrl(), 'url')" title="Copy">{{ copiedField === 'url' ? '✓' : '📋' }}</button>
+                  </div>
+                </div>
+                <div class="share-section" *ngIf="moves.length">
+                  <strong>PGN</strong>
+                  <div class="share-row">
+                    <input type="text" readonly [value]="getPgn()" class="share-input" />
+                    <button class="copy-btn" (click)="copyToClipboard(getPgn(), 'pgn')" title="Copy">{{ copiedField === 'pgn' ? '✓' : '📋' }}</button>
+                  </div>
+                </div>
+              </div>
             </div>
           </div>
         </div>
@@ -136,11 +275,11 @@ interface PlayerStats {
             </div>
           </div>
           <div class="board-controls">
-            <button class="ctrl-btn" (click)="goToStart()" title="Start"><svg viewBox="0 0 24 24"><path d="M6 6h2v12H6zm3.5 6l8.5 6V6z" transform="rotate(180 12 12)"/></svg></button>
-            <button class="ctrl-btn" (click)="goToPrevious()" title="Previous"><svg viewBox="0 0 24 24"><path d="M15.41 7.41L14 6l-6 6 6 6 1.41-1.41L10.83 12z"/></svg></button>
-            <button class="ctrl-btn" (click)="flipBoard()" title="Flip"><svg viewBox="0 0 24 24"><path d="M7 7h10v3l4-4-4-4v3H5v6h2V7zm10 10H7v-3l-4 4 4 4v-3h12v-6h-2v4z"/></svg></button>
-            <button class="ctrl-btn" (click)="goToNext()" title="Next"><svg viewBox="0 0 24 24"><path d="M8.59 16.59L10 18l6-6-6-6-1.41 1.41L13.17 12z"/></svg></button>
-            <button class="ctrl-btn" (click)="goToEnd()" title="End"><svg viewBox="0 0 24 24"><path d="M6 18l8.5-6L6 6v12zM16 6v12h2V6h-2z"/></svg></button>
+            <button class="ctrl-btn hover:bg-accent hover:text-accent-foreground" (click)="goToStart()" title="Start"><svg viewBox="0 0 24 24"><path d="M6 6h2v12H6zm3.5 6l8.5 6V6z" transform="rotate(180 12 12)"/></svg></button>
+            <button class="ctrl-btn hover:bg-accent hover:text-accent-foreground" (click)="goToPrevious()" title="Previous"><svg viewBox="0 0 24 24"><path d="M15.41 7.41L14 6l-6 6 6 6 1.41-1.41L10.83 12z"/></svg></button>
+            <button class="ctrl-btn hover:bg-accent hover:text-accent-foreground" (click)="flipBoard()" title="Flip"><svg viewBox="0 0 24 24"><path d="M7 7h10v3l4-4-4-4v3H5v6h2V7zm10 10H7v-3l-4 4 4 4v-3h12v-6h-2v4z"/></svg></button>
+            <button class="ctrl-btn hover:bg-accent hover:text-accent-foreground" (click)="goToNext()" title="Next"><svg viewBox="0 0 24 24"><path d="M8.59 16.59L10 18l6-6-6-6-1.41 1.41L13.17 12z"/></svg></button>
+            <button class="ctrl-btn hover:bg-accent hover:text-accent-foreground" (click)="goToEnd()" title="End"><svg viewBox="0 0 24 24"><path d="M6 18l8.5-6L6 6v12zM16 6v12h2V6h-2z"/></svg></button>
           </div>
         </div>
       </div>
@@ -161,7 +300,6 @@ interface PlayerStats {
       gap: 0;
       padding: 8px 16px;
       min-height: calc(100vh - 64px);
-      background: #edebe9;
       color: #333;
       font-family: 'Noto Sans', sans-serif;
     }
@@ -184,6 +322,120 @@ interface PlayerStats {
       display: flex;
       flex-direction: column;
       align-items: center;
+    }
+
+    /* Board Tabs */
+    .board-tabs {
+      width: 100%;
+      max-width: var(--board-size);
+      margin-top: 8px;
+    }
+    .tabs-header {
+      display: flex;
+      border-bottom: 1px solid #ccc;
+    }
+    .tab-btn {
+      padding: 8px 16px;
+      background: none;
+      border: none;
+      cursor: pointer;
+      font-size: 13px;
+      color: #666;
+      border-bottom: 2px solid transparent;
+      transition: all 0.2s;
+    }
+    .tab-btn:hover { color: #333; }
+    .tab-btn.active {
+      color: #333;
+      border-bottom-color: #333;
+      font-weight: 500;
+    }
+    .tabs-content {
+      padding: 12px 0;
+    }
+    .tab-panel { font-size: 13px; }
+    .eval-graph-container {
+      width: 100%;
+      border-radius: 4px;
+      overflow: hidden;
+      cursor: pointer;
+    }
+    .eval-graph {
+      width: 100%;
+      display: block;
+    }
+    .eval-dot {
+      cursor: pointer;
+      transition: r 0.15s;
+    }
+    .eval-dot:hover {
+      r: 6;
+    }
+    .analysis-summary {
+      display: flex;
+      gap: 24px;
+    }
+    .player-analysis {
+      flex: 1;
+      padding: 8px 12px;
+      background: rgba(0,0,0,0.03);
+      border-radius: 6px;
+    }
+    .player-header {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      margin-bottom: 8px;
+    }
+    .player-icon {
+      width: 14px;
+      height: 14px;
+      border-radius: 2px;
+    }
+    .white-icon { background: #fff; border: 1px solid #ccc; }
+    .black-icon { background: #333; }
+    .player-analysis .player-name { font-weight: 600; }
+    .stats-row {
+      display: flex;
+      gap: 12px;
+      flex-wrap: wrap;
+    }
+    .stats-row .stat { color: #555; }
+    .stats-row .stat strong { margin-right: 2px; }
+    .acpl { margin-top: 6px; color: #555; }
+    .acpl strong { margin-right: 4px; }
+    .share-section { margin-bottom: 12px; }
+    .share-section strong { display: block; margin-bottom: 4px; color: #333; }
+    .share-row {
+      display: flex;
+      gap: 4px;
+    }
+    .share-input {
+      flex: 1;
+      padding: 6px 8px;
+      border: 1px solid #ccc;
+      border-radius: 4px;
+      font-size: 12px;
+      background: #fff;
+    }
+    .copy-btn {
+      padding: 6px 10px;
+      border: 1px solid #ccc;
+      border-radius: 4px;
+      background: #fff;
+      cursor: pointer;
+    }
+    .copy-btn:hover { background: #f0f0f0; }
+    .copy-btn.full-width { width: 100%; margin-top: 6px; }
+    .pgn-textarea {
+      width: 100%;
+      height: 80px;
+      padding: 8px;
+      border: 1px solid #ccc;
+      border-radius: 4px;
+      font-size: 11px;
+      font-family: monospace;
+      resize: vertical;
     }
 
     .player-info {
@@ -277,18 +529,8 @@ interface PlayerStats {
       align-items: center;
       justify-content: center;
     }
-    .ctrl-btn:hover { background: #bbb; }
+    .ctrl-btn:hover { background: hsl(var(--accent)); }
     .ctrl-btn svg { width: 20px; height: 20px; fill: #333; }
-
-    .panel-header {
-      padding: 6px 10px;
-      font-size: 13px;
-      font-weight: 600;
-      color: #333;
-      background: #c4c4c4;
-      border-bottom: 1px solid #bbb;
-      flex-shrink: 0;
-    }
 
     .opening-bar {
       padding: 6px 10px;
@@ -404,44 +646,14 @@ interface PlayerStats {
       border-top: 1px solid #bbb;
     }
 
-    /* Stats Panel */
-    .stats-panel {
-      padding: 6px 10px;
-      background: #d0d0d0;
-    }
-
-    .stat-row {
+    /* Left Panel - Tailwind handles most styling */
+    .left-panel {
       display: flex;
-      align-items: center;
-      gap: 8px;
-      padding: 4px 0;
+      flex-direction: column;
+      padding: 8px;
+      background: transparent;
+      border: none;
     }
-
-    .piece {
-      width: 14px;
-      height: 14px;
-      border-radius: 2px;
-    }
-    .piece.white { background: #fff; border: 1px solid #ccc; }
-    .piece.black { background: #333; }
-
-    .name {
-      flex: 1;
-      font-size: 13px;
-      color: #333;
-    }
-
-    .badges { display: flex; gap: 4px; }
-
-    .badge {
-      padding: 2px 6px;
-      border-radius: 3px;
-      font-size: 11px;
-      font-weight: 600;
-    }
-    .badge.inaccuracy { background: rgba(86,180,233,0.2); color: var(--color-inaccuracy); }
-    .badge.mistake { background: rgba(230,159,0,0.2); color: var(--color-mistake); }
-    .badge.blunder { background: rgba(219,52,52,0.2); color: var(--color-blunder); }
 
     /* Chessground */
     :host ::ng-deep cg-board { background-color: #b58863; }
@@ -463,27 +675,15 @@ interface PlayerStats {
     :host ::ng-deep .cg-wrap square.last-move { background-color: rgba(155, 199, 0, 0.41); }
 
     @media (max-width: 900px) {
-      .lichess-layout {
-        flex-direction: column;
-        align-items: center;
-      }
-      .analysis-panel {
-        width: 100%;
-        max-width: var(--board-size);
-        height: auto;
-        max-height: 200px;
-      }
-      .left-panel {
-        order: 2;
-        border-right: none;
-        border-top: 1px solid #bbb;
-      }
-      .board-section { order: 1; }
-      .right-panel {
-        order: 3;
-        border-left: none;
-        border-top: 1px solid #bbb;
-      }
+      :host { --board-size: calc(100vw - 16px); }
+      .lichess-layout { display: flex; flex-direction: column; align-items: center; padding: 8px; }
+      .lichess-layout > * { order: 0; }
+      .analysis-panel { width: calc(100vw - 16px); max-width: none; height: auto; margin: 0; border: none; }
+      .board-section { order: -2 !important; width: 100%; }
+      .board-with-eval { width: calc(100vw - 16px); margin: 0 auto; }
+      .eval-bar-vertical { display: none; }
+      .right-panel { order: -1 !important; border-top: 1px solid #bbb; height: auto; max-height: 300px; }
+      .left-panel { order: 0 !important; border-top: 1px solid #bbb; max-height: 250px; }
     }
   `]
 })
@@ -492,6 +692,8 @@ export class GameDetailV2Component implements OnInit, OnDestroy, AfterViewInit {
   @ViewChild('movesContainer', { static: false }) movesContainer!: ElementRef;
 
   gameId: string = '';
+  tournamentId: number | null = null;
+  tournamentName: string = '';
   game: GameData | null = null;
   moves: MoveAnalysis[] = [];
   movePairs: MovePair[] = [];
@@ -504,6 +706,17 @@ export class GameDetailV2Component implements OnInit, OnDestroy, AfterViewInit {
   whiteStats: PlayerStats = { inaccuracies: 0, mistakes: 0, blunders: 0, avgCentipawnLoss: 0, accuracy: 0 };
   blackStats: PlayerStats = { inaccuracies: 0, mistakes: 0, blunders: 0, avgCentipawnLoss: 0, accuracy: 0 };
 
+  phaseStats = {
+    opening: { accuracy: 0, startMove: 0, endMove: 10 },
+    middlegame: { accuracy: 0, startMove: 11, endMove: 30 },
+    endgame: { accuracy: 0, startMove: 31, endMove: 999 }
+  };
+
+  moveQuality = {
+    white: { best: 0, excellent: 0, good: 0, inaccuracy: 0, mistake: 0, blunder: 0 },
+    black: { best: 0, excellent: 0, good: 0, inaccuracy: 0, mistake: 0, blunder: 0 }
+  };
+
   // Alternative line navigation state
   altLineActive = false;
   altLineMoveIndex = -1; // The main move index where the alternative starts
@@ -511,6 +724,15 @@ export class GameDetailV2Component implements OnInit, OnDestroy, AfterViewInit {
   altLine: string[] = [];
   altLineIsWhite = true;
   altLineMoveNumber = 1;
+
+  // Tab state
+  activeTab: 'analysis' | 'share' = 'analysis';
+  currentFen: string = 'rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1';
+  copiedField: string | null = null;
+
+  // Graph dimensions
+  graphWidth = 600;
+  graphHeight = 60;
 
   constructor(
     private route: ActivatedRoute,
@@ -594,6 +816,8 @@ export class GameDetailV2Component implements OnInit, OnDestroy, AfterViewInit {
       next: (data) => {
         this.game = data.game;
         this.moves = data.analysis || [];
+        this.tournamentId = data.game?.tournament_id || null;
+        this.tournamentName = data.game?.event || '';
         this.processMoves();
         this.calculateStats();
         this.cdr.detectChanges();
@@ -625,31 +849,45 @@ export class GameDetailV2Component implements OnInit, OnDestroy, AfterViewInit {
 
     this.whiteStats = { inaccuracies: 0, mistakes: 0, blunders: 0, avgCentipawnLoss: 0, accuracy: 0 };
     this.blackStats = { inaccuracies: 0, mistakes: 0, blunders: 0, avgCentipawnLoss: 0, accuracy: 0 };
+    this.moveQuality = {
+      white: { best: 0, excellent: 0, good: 0, inaccuracy: 0, mistake: 0, blunder: 0 },
+      black: { best: 0, excellent: 0, good: 0, inaccuracy: 0, mistake: 0, blunder: 0 }
+    };
+
+    const phaseCpl = { opening: { total: 0, count: 0 }, middlegame: { total: 0, count: 0 }, endgame: { total: 0, count: 0 } };
 
     this.moves.forEach((move, index) => {
       const isWhite = index % 2 === 0;
       const stats = isWhite ? this.whiteStats : this.blackStats;
+      const quality = isWhite ? this.moveQuality.white : this.moveQuality.black;
+      const moveNum = Math.floor(index / 2) + 1;
 
-      if (move.is_blunder) stats.blunders++;
-      else if (move.is_mistake) stats.mistakes++;
-      else if (move.is_inaccuracy) stats.inaccuracies++;
+      if (move.is_blunder) { stats.blunders++; quality.blunder++; }
+      else if (move.is_mistake) { stats.mistakes++; quality.mistake++; }
+      else if (move.is_inaccuracy) { stats.inaccuracies++; quality.inaccuracy++; }
+      else if (move.centipawn_loss <= 5) quality.best++;
+      else if (move.centipawn_loss <= 15) quality.excellent++;
+      else quality.good++;
 
       if (move.centipawn_loss !== undefined) {
-        if (isWhite) {
-          whiteCpl += move.centipawn_loss;
-          whiteCount++;
-        } else {
-          blackCpl += move.centipawn_loss;
-          blackCount++;
-        }
+        if (isWhite) { whiteCpl += move.centipawn_loss; whiteCount++; }
+        else { blackCpl += move.centipawn_loss; blackCount++; }
+
+        const phase = moveNum <= 10 ? 'opening' : moveNum <= 30 ? 'middlegame' : 'endgame';
+        phaseCpl[phase].total += move.centipawn_loss;
+        phaseCpl[phase].count++;
       }
     });
 
     this.whiteStats.avgCentipawnLoss = whiteCount > 0 ? Math.round(whiteCpl / whiteCount) : 0;
     this.blackStats.avgCentipawnLoss = blackCount > 0 ? Math.round(blackCpl / blackCount) : 0;
-
     this.whiteStats.accuracy = this.calculateAccuracy(this.whiteStats.avgCentipawnLoss);
     this.blackStats.accuracy = this.calculateAccuracy(this.blackStats.avgCentipawnLoss);
+
+    for (const phase of ['opening', 'middlegame', 'endgame'] as const) {
+      const avg = phaseCpl[phase].count > 0 ? phaseCpl[phase].total / phaseCpl[phase].count : 0;
+      this.phaseStats[phase].accuracy = this.calculateAccuracy(avg);
+    }
   }
 
   private calculateAccuracy(acpl: number): number {
@@ -761,10 +999,8 @@ export class GameDetailV2Component implements OnInit, OnDestroy, AfterViewInit {
 
   playBestLine(moveIndex: number, lineIndex: number, event: MouseEvent): void {
     event.stopPropagation();
-    console.log('playBestLine called', moveIndex, lineIndex);
     const move = this.moves[moveIndex];
     const line = this.getBestLine(move);
-    console.log('line', line);
     if (!line) return;
 
     this.altLineActive = true;
@@ -778,20 +1014,17 @@ export class GameDetailV2Component implements OnInit, OnDestroy, AfterViewInit {
   }
 
   private showAltLinePosition(): void {
-    console.log('showAltLinePosition', this.altLineMoveIndex, this.altLinePosition, this.altLine);
     // Reset to position before the bad move
     this.chess.reset();
     for (let i = 0; i < this.altLineMoveIndex; i++) {
       if (this.moves[i]) {
-        try { this.chess.move(this.moves[i].move); } catch (e) { console.log('main move error', i, this.moves[i].move, e); }
+        try { this.chess.move(this.moves[i].move); } catch (e) { }
       }
     }
-    console.log('after main moves', this.chess.fen());
     // Play the alternative line up to current position
     for (let i = 0; i <= this.altLinePosition; i++) {
-      try { this.chess.move(this.altLine[i]); } catch (e) { console.log('alt move error', i, this.altLine[i], e); }
+      try { this.chess.move(this.altLine[i]); } catch (e) { }
     }
-    console.log('after alt moves', this.chess.fen());
     this.updateBoardPosition();
   }
 
@@ -861,7 +1094,49 @@ export class GameDetailV2Component implements OnInit, OnDestroy, AfterViewInit {
   }
 
   goBack() {
-    this.router.navigate(['/games']);
+    if (this.tournamentId) {
+      this.router.navigate(['/tournaments', this.tournamentId]);
+    } else {
+      this.router.navigate(['/games']);
+    }
+  }
+
+  navigateTo(path: string) {
+    this.router.navigate([path]);
+  }
+
+  getShareUrl(): string {
+    return window.location.href;
+  }
+
+  copyToClipboard(text: string, field: string = '') {
+    navigator.clipboard.writeText(text);
+    this.copiedField = field;
+    setTimeout(() => this.copiedField = null, 2000);
+  }
+
+  getPgn(): string {
+    if (!this.game || !this.moves.length) return '';
+    const headers = [
+      `[Event "${this.game.event || '?'}"]`,
+      `[Date "${this.game.date_played || '?'}"]`,
+      `[White "${this.game.white_player}"]`,
+      `[Black "${this.game.black_player}"]`,
+      `[Result "${this.game.result}"]`,
+      this.game.white_elo ? `[WhiteElo "${this.game.white_elo}"]` : '',
+      this.game.black_elo ? `[BlackElo "${this.game.black_elo}"]` : '',
+      this.game.opening_name ? `[Opening "${this.game.opening_name}"]` : '',
+    ].filter(h => h).join('\n');
+    const moveText = this.movePairs.map(p => 
+      `${p.moveNumber}. ${p.white?.move || ''}${p.black ? ' ' + p.black.move : ''}`
+    ).join(' ');
+    return `${headers}\n\n${moveText} ${this.game.result}`;
+  }
+
+  goToPhase(phase: 'opening' | 'middlegame' | 'endgame') {
+    const startMove = phase === 'opening' ? 0 : phase === 'middlegame' ? 20 : 60;
+    const targetIndex = Math.min(startMove, this.moves.length - 1);
+    if (targetIndex >= 0) this.goToMove(targetIndex);
   }
 
   goToMove(index: number) {
@@ -953,13 +1228,12 @@ export class GameDetailV2Component implements OnInit, OnDestroy, AfterViewInit {
 
     const lastMove = this.getLastMoveSquares();
     const fen = this.chess.fen();
-    console.log('updateBoardPosition called with fen:', fen);
+    this.currentFen = fen;
     this.chessground.set({
       fen: fen,
       lastMove: lastMove,
       check: this.chess.isCheck() ? this.getKingSquare() : undefined
     });
-    console.log('chessground state after set', this.chessground.state.pieces);
   }
 
   private getLastMoveSquares(): [Key, Key] | undefined {
@@ -986,5 +1260,35 @@ export class GameDetailV2Component implements OnInit, OnDestroy, AfterViewInit {
       }
     }
     return undefined;
+  }
+
+  // Evaluation graph methods
+  getGraphX(moveIndex: number): number {
+    if (this.moves.length <= 1) return this.graphWidth / 2;
+    return (moveIndex / (this.moves.length - 1)) * this.graphWidth;
+  }
+
+  getGraphY(evaluation: number): number {
+    // Clamp eval to ±500cp for display, map to graph height
+    const clampedEval = Math.max(-500, Math.min(500, evaluation));
+    // Positive eval = top (white advantage), negative = bottom (black advantage)
+    return (this.graphHeight / 2) - (clampedEval / 500) * (this.graphHeight / 2);
+  }
+
+  getEvalPath(): string {
+    if (this.moves.length === 0) return '';
+    const points: string[] = [];
+    // Start at center-left
+    points.push(`M 0 ${this.graphHeight / 2}`);
+    // Line to first point
+    points.push(`L ${this.getGraphX(0)} ${this.getGraphY(this.moves[0]?.evaluation || 0)}`);
+    // Connect all points
+    for (let i = 1; i < this.moves.length; i++) {
+      points.push(`L ${this.getGraphX(i)} ${this.getGraphY(this.moves[i]?.evaluation || 0)}`);
+    }
+    // Close path back to baseline
+    points.push(`L ${this.graphWidth} ${this.graphHeight / 2}`);
+    points.push('Z');
+    return points.join(' ');
   }
 }

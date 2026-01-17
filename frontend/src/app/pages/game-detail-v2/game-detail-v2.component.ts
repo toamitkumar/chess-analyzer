@@ -90,7 +90,6 @@ interface PlayerStats {
 
         <!-- Center: Chess Board with Eval Bar -->
         <div class="board-section">
-          <!-- Board with Vertical Eval Bar -->
           <div class="board-with-eval">
             <div class="eval-bar-vertical" [class.flipped]="orientation === 'black'">
               <div class="eval-bar-white" [style.height.%]="orientation === 'white' ? getWhiteWinPercent() : 100 - getWhiteWinPercent()"></div>
@@ -103,23 +102,11 @@ interface PlayerStats {
               <div #chessboard class="cg-wrap"></div>
             </div>
           </div>
-
-          <!-- Controls -->
-          <div class="board-controls">
-            <button class="ctrl-btn" (click)="goToStart()" title="Start"><svg viewBox="0 0 24 24"><path d="M6 6h2v12H6zm3.5 6l8.5 6V6z" transform="rotate(180 12 12)"/></svg></button>
-            <button class="ctrl-btn" (click)="goToPrevious()" title="Previous"><svg viewBox="0 0 24 24"><path d="M15.41 7.41L14 6l-6 6 6 6 1.41-1.41L10.83 12z"/></svg></button>
-            <button class="ctrl-btn" (click)="flipBoard()" title="Flip"><svg viewBox="0 0 24 24"><path d="M7 7h10v3l4-4-4-4v3H5v6h2V7zm10 10H7v-3l-4 4 4 4v-3h12v-6h-2v4z"/></svg></button>
-            <button class="ctrl-btn" (click)="goToNext()" title="Next"><svg viewBox="0 0 24 24"><path d="M8.59 16.59L10 18l6-6-6-6-1.41 1.41L13.17 12z"/></svg></button>
-            <button class="ctrl-btn" (click)="goToEnd()" title="End"><svg viewBox="0 0 24 24"><path d="M6 18l8.5-6L6 6v12zM16 6v12h2V6h-2z"/></svg></button>
-          </div>
         </div>
 
-        <!-- Right Panel: Move List -->
+        <!-- Right Panel: Move List with Controls at Bottom -->
         <div class="analysis-panel right-panel">
-          <!-- Opening -->
           <div class="opening-bar" *ngIf="game?.opening_name">{{ game.opening_name }}</div>
-
-          <!-- Move List (Lichess style) -->
           <div class="moves-container" #movesContainer>
             <div class="moves-list">
               <ng-container *ngFor="let pair of movePairs">
@@ -148,6 +135,13 @@ interface PlayerStats {
               <span class="result" *ngIf="game?.result">{{ game.result }}</span>
             </div>
           </div>
+          <div class="board-controls">
+            <button class="ctrl-btn" (click)="goToStart()" title="Start"><svg viewBox="0 0 24 24"><path d="M6 6h2v12H6zm3.5 6l8.5 6V6z" transform="rotate(180 12 12)"/></svg></button>
+            <button class="ctrl-btn" (click)="goToPrevious()" title="Previous"><svg viewBox="0 0 24 24"><path d="M15.41 7.41L14 6l-6 6 6 6 1.41-1.41L10.83 12z"/></svg></button>
+            <button class="ctrl-btn" (click)="flipBoard()" title="Flip"><svg viewBox="0 0 24 24"><path d="M7 7h10v3l4-4-4-4v3H5v6h2V7zm10 10H7v-3l-4 4 4 4v-3h12v-6h-2v4z"/></svg></button>
+            <button class="ctrl-btn" (click)="goToNext()" title="Next"><svg viewBox="0 0 24 24"><path d="M8.59 16.59L10 18l6-6-6-6-1.41 1.41L13.17 12z"/></svg></button>
+            <button class="ctrl-btn" (click)="goToEnd()" title="End"><svg viewBox="0 0 24 24"><path d="M6 18l8.5-6L6 6v12zM16 6v12h2V6h-2z"/></svg></button>
+          </div>
         </div>
       </div>
     </app-layout>
@@ -157,15 +151,15 @@ interface PlayerStats {
       --color-inaccuracy: #56b4e9;
       --color-mistake: #e69f00;
       --color-blunder: #db3434;
-      --board-size: min(720px, calc(100vh - 140px));
+      --board-size: min(620px, calc(100vh - 100px));
     }
 
     .lichess-layout {
       display: flex;
       justify-content: center;
-      align-items: stretch;
+      align-items: flex-start;
       gap: 0;
-      padding: 16px;
+      padding: 8px 16px;
       min-height: calc(100vh - 64px);
       background: #edebe9;
       color: #333;
@@ -183,19 +177,12 @@ interface PlayerStats {
     }
 
     .left-panel { border-right: 1px solid #bbb; margin-right: 8px; }
-    .right-panel { border-left: 1px solid #bbb; margin-left: 8px; height: calc(var(--board-size) + 40px); }
+    .right-panel { border-left: 1px solid #bbb; margin-left: 8px; height: var(--board-size); display: flex; flex-direction: column; }
 
     /* Board Section */
     .board-section {
       display: flex;
       flex-direction: column;
-      align-items: center;
-    }
-
-    .player-bar {
-      width: var(--board-size);
-      padding: 3px 0;
-      display: flex;
       align-items: center;
     }
 
@@ -273,11 +260,14 @@ interface PlayerStats {
     .board-controls {
       display: flex;
       gap: 2px;
-      margin-top: 4px;
+      padding: 4px;
+      background: #c4c4c4;
+      border-top: 1px solid #bbb;
+      flex-shrink: 0;
     }
 
     .ctrl-btn {
-      width: 36px;
+      flex: 1;
       height: 32px;
       background: #d1d1d1;
       border: none;

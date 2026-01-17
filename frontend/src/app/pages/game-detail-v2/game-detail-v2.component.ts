@@ -9,11 +9,12 @@ import { Key } from '@lichess-org/chessground/types';
 import { LayoutComponent } from '../../components/layout/layout.component';
 import { ChessApiService } from '../../services/chess-api.service';
 import { MoveAnalysis, GameData, MovePair, PlayerStats, PhaseStats, MoveQualityStats } from './game-detail.models';
+import { EvalGraphComponent, BoardControlsComponent, ShareExportComponent, PlayerStatsCardComponent, PhaseAnalysisComponent, MoveQualityComponent } from './components';
 
 @Component({
   selector: 'app-game-detail-v2',
   standalone: true,
-  imports: [CommonModule, HttpClientModule, LayoutComponent],
+  imports: [CommonModule, HttpClientModule, LayoutComponent, EvalGraphComponent, BoardControlsComponent, ShareExportComponent, PlayerStatsCardComponent, PhaseAnalysisComponent, MoveQualityComponent],
   templateUrl: './game-detail-v2.component.html',
   styleUrls: ['./game-detail-v2.component.scss']
 })
@@ -58,9 +59,8 @@ export class GameDetailV2Component implements OnInit, OnDestroy, AfterViewInit {
   // Tab state
   activeTab: 'analysis' | 'share' = 'analysis';
   currentFen: string = 'rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1';
-  copiedField: string | null = null;
 
-  // Graph dimensions
+  // Graph dimensions (passed to EvalGraphComponent)
   graphWidth = 600;
   graphHeight = 60;
 
@@ -313,12 +313,6 @@ export class GameDetailV2Component implements OnInit, OnDestroy, AfterViewInit {
 
   getShareUrl(): string { return window.location.href; }
 
-  copyToClipboard(text: string, field: string = '') {
-    navigator.clipboard.writeText(text);
-    this.copiedField = field;
-    setTimeout(() => this.copiedField = null, 2000);
-  }
-
   getPgn(): string {
     if (!this.game || !this.moves.length) return '';
     const headers = [
@@ -447,25 +441,4 @@ export class GameDetailV2Component implements OnInit, OnDestroy, AfterViewInit {
     return undefined;
   }
 
-  // Evaluation graph methods
-  getGraphX(moveIndex: number): number {
-    if (this.moves.length <= 1) return this.graphWidth / 2;
-    return (moveIndex / (this.moves.length - 1)) * this.graphWidth;
-  }
-
-  getGraphY(evaluation: number): number {
-    const clampedEval = Math.max(-500, Math.min(500, evaluation));
-    return (this.graphHeight / 2) - (clampedEval / 500) * (this.graphHeight / 2);
-  }
-
-  getEvalPath(): string {
-    if (this.moves.length === 0) return '';
-    const points: string[] = [`M 0 ${this.graphHeight / 2}`];
-    points.push(`L ${this.getGraphX(0)} ${this.getGraphY(this.moves[0]?.evaluation || 0)}`);
-    for (let i = 1; i < this.moves.length; i++) {
-      points.push(`L ${this.getGraphX(i)} ${this.getGraphY(this.moves[i]?.evaluation || 0)}`);
-    }
-    points.push(`L ${this.graphWidth} ${this.graphHeight / 2}`, 'Z');
-    return points.join(' ');
-  }
 }

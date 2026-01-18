@@ -36,6 +36,48 @@ export interface PerformanceData {
   }>;
 }
 
+// Chess.com Insights Dashboard Interfaces (ADR 009)
+export interface AccuracyByResultData {
+  overall: { accuracy: number; games: number; avgCentipawnLoss?: number };
+  wins: { accuracy: number; games: number; avgCentipawnLoss?: number };
+  draws: { accuracy: number; games: number; avgCentipawnLoss?: number };
+  losses: { accuracy: number; games: number; avgCentipawnLoss?: number };
+}
+
+export interface PhaseDistributionData {
+  overall: {
+    opening: { count: number; percentage: number };
+    middlegame: { count: number; percentage: number };
+    endgame: { count: number; percentage: number };
+  };
+  totalGames: number;
+}
+
+export interface AccuracyByPhaseData {
+  opening: { accuracy: number; gamesWithData: number; avgCentipawnLoss?: number };
+  middlegame: { accuracy: number; gamesWithData: number; avgCentipawnLoss?: number };
+  endgame: { accuracy: number; gamesWithData: number; avgCentipawnLoss?: number };
+  totalGames: number;
+}
+
+export interface OpeningPerformanceData {
+  ecoCode: string;
+  name: string;
+  games: number;
+  wins: number;
+  draws: number;
+  losses: number;
+  winRate: number;
+  drawRate: number;
+  lossRate: number;
+}
+
+export interface InsightsApiResponse<T> {
+  success: boolean;
+  data: T;
+  error?: string;
+}
+
 @Injectable({
   providedIn: 'root'
 })
@@ -140,5 +182,62 @@ export class ChessApiService {
     if (startDate) params.startDate = startDate;
     if (endDate) params.endDate = endDate;
     return this.http.get(`${this.baseUrl}/blunders/timeline`, { params });
+  }
+
+  // ============================================
+  // Chess.com Insights Dashboard API (ADR 009)
+  // ============================================
+
+  /**
+   * Get accuracy breakdown by game result (win/draw/loss)
+   * @param color Optional filter by player color
+   */
+  getAccuracyByResult(color?: 'white' | 'black'): Observable<InsightsApiResponse<AccuracyByResultData>> {
+    const params: any = {};
+    if (color) params.color = color;
+    return this.http.get<InsightsApiResponse<AccuracyByResultData>>(
+      `${this.baseUrl}/insights/accuracy`,
+      { params }
+    );
+  }
+
+  /**
+   * Get distribution of which game phase games typically end in
+   * @param color Optional filter by player color
+   */
+  getPhaseDistribution(color?: 'white' | 'black'): Observable<InsightsApiResponse<PhaseDistributionData>> {
+    const params: any = {};
+    if (color) params.color = color;
+    return this.http.get<InsightsApiResponse<PhaseDistributionData>>(
+      `${this.baseUrl}/insights/phases`,
+      { params }
+    );
+  }
+
+  /**
+   * Get aggregate accuracy by game phase across all games
+   * @param color Optional filter by player color
+   */
+  getAccuracyByPhase(color?: 'white' | 'black'): Observable<InsightsApiResponse<AccuracyByPhaseData>> {
+    const params: any = {};
+    if (color) params.color = color;
+    return this.http.get<InsightsApiResponse<AccuracyByPhaseData>>(
+      `${this.baseUrl}/insights/accuracy-by-phase`,
+      { params }
+    );
+  }
+
+  /**
+   * Get performance statistics for most frequently played openings
+   * @param limit Number of openings to return (default: 10)
+   * @param color Optional filter by player color
+   */
+  getOpeningPerformance(limit: number = 10, color?: 'white' | 'black'): Observable<InsightsApiResponse<OpeningPerformanceData[]>> {
+    const params: any = { limit: limit.toString() };
+    if (color) params.color = color;
+    return this.http.get<InsightsApiResponse<OpeningPerformanceData[]>>(
+      `${this.baseUrl}/insights/openings`,
+      { params }
+    );
   }
 }

@@ -64,6 +64,15 @@ import { AuthService } from '../../services/auth.service';
                 </svg>
                 Blunders
               </a>
+              <a routerLink="/insights"
+                 routerLinkActive="bg-accent/10 text-accent border-accent/50 shadow-glow-accent"
+                 class="flex items-center gap-2 rounded-lg px-4 py-2 text-sm font-medium transition-all duration-300 text-muted-foreground hover:bg-accent/5 hover:text-accent hover:border-accent/30 border border-transparent">
+                <svg class="h-4 w-4" xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                  <path d="M21.21 15.89A10 10 0 1 1 8 2.83"/>
+                  <path d="M22 12A10 10 0 0 0 12 2v10z"/>
+                </svg>
+                Insights
+              </a>
 
               <!-- User Menu -->
               @if (authService.isAuthenticated()) {
@@ -109,7 +118,7 @@ import { AuthService } from '../../services/auth.service';
 
       <!-- Mobile Bottom Navigation -->
       <nav class="md:hidden fixed bottom-0 left-0 right-0 z-50 border-t-2 border-border/30 bg-card/95 backdrop-blur-lg shadow-2xl">
-        <div class="grid grid-cols-5 h-16">
+        <div class="grid grid-cols-6 h-16">
           <a routerLink="/"
              routerLinkActive="text-primary bg-primary/10"
              [routerLinkActiveOptions]="{exact: true}"
@@ -155,6 +164,16 @@ import { AuthService } from '../../services/auth.service';
               <line x1="12" y1="17" x2="12.01" y2="17"/>
             </svg>
             <span class="text-xs font-medium">Blunders</span>
+          </a>
+
+          <a routerLink="/insights"
+             routerLinkActive="text-accent bg-accent/10"
+             class="flex flex-col items-center justify-center gap-1 text-muted-foreground hover:text-accent transition-all duration-300 active:scale-95">
+            <svg class="h-5 w-5" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+              <path d="M21.21 15.89A10 10 0 1 1 8 2.83"/>
+              <path d="M22 12A10 10 0 0 0 12 2v10z"/>
+            </svg>
+            <span class="text-xs font-medium">Insights</span>
           </a>
 
           <!-- User Menu / Sign In -->

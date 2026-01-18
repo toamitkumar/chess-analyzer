@@ -39,7 +39,12 @@ describe('DashboardController', () => {
       getRatingTrends: jest.fn(),
       getCentipawnLossTrends: jest.fn(),
       generateHeatmap: jest.fn(),
-      getGamesList: jest.fn()
+      getGamesList: jest.fn(),
+      // Chess.com Insights methods (ADR 009)
+      getAccuracyByResult: jest.fn(),
+      getPhaseDistribution: jest.fn(),
+      getAccuracyByPhase: jest.fn(),
+      getOpeningPerformance: jest.fn()
     };
 
     // Mock the DashboardService constructor to return our mock
@@ -328,6 +333,193 @@ describe('DashboardController', () => {
       await dashboardController.getGamesList(mockReq, mockRes);
 
       expect(mockRes.json).toHaveBeenCalledWith([]);
+    });
+  });
+
+  // ============================================
+  // Chess.com Insights Dashboard Endpoints (ADR 009)
+  // ============================================
+
+  describe('getAccuracyByResult()', () => {
+    it('should get accuracy by result without color filter', async () => {
+      const mockData = {
+        overall: { accuracy: 75, games: 10 },
+        wins: { accuracy: 82, games: 5 },
+        draws: { accuracy: 78, games: 2 },
+        losses: { accuracy: 65, games: 3 }
+      };
+
+      mockDashboardService.getAccuracyByResult.mockResolvedValue(mockData);
+
+      await dashboardController.getAccuracyByResult(mockReq, mockRes);
+
+      expect(mockDashboardService.getAccuracyByResult).toHaveBeenCalledWith('test-user-123', null);
+      expect(mockRes.json).toHaveBeenCalledWith({
+        success: true,
+        data: mockData
+      });
+    });
+
+    it('should get accuracy by result with color filter', async () => {
+      mockReq.query.color = 'white';
+
+      mockDashboardService.getAccuracyByResult.mockResolvedValue({});
+
+      await dashboardController.getAccuracyByResult(mockReq, mockRes);
+
+      expect(mockDashboardService.getAccuracyByResult).toHaveBeenCalledWith('test-user-123', 'white');
+    });
+
+    it('should return 500 on error', async () => {
+      mockDashboardService.getAccuracyByResult.mockRejectedValue(new Error('Accuracy error'));
+
+      await dashboardController.getAccuracyByResult(mockReq, mockRes);
+
+      expect(mockRes.status).toHaveBeenCalledWith(500);
+      expect(mockRes.json).toHaveBeenCalledWith({
+        success: false,
+        error: 'Accuracy error'
+      });
+    });
+  });
+
+  describe('getPhaseDistribution()', () => {
+    it('should get phase distribution without color filter', async () => {
+      const mockData = {
+        overall: {
+          opening: { count: 2, percentage: 20 },
+          middlegame: { count: 3, percentage: 30 },
+          endgame: { count: 5, percentage: 50 }
+        },
+        totalGames: 10
+      };
+
+      mockDashboardService.getPhaseDistribution.mockResolvedValue(mockData);
+
+      await dashboardController.getPhaseDistribution(mockReq, mockRes);
+
+      expect(mockDashboardService.getPhaseDistribution).toHaveBeenCalledWith('test-user-123', null);
+      expect(mockRes.json).toHaveBeenCalledWith({
+        success: true,
+        data: mockData
+      });
+    });
+
+    it('should get phase distribution with color filter', async () => {
+      mockReq.query.color = 'black';
+
+      mockDashboardService.getPhaseDistribution.mockResolvedValue({});
+
+      await dashboardController.getPhaseDistribution(mockReq, mockRes);
+
+      expect(mockDashboardService.getPhaseDistribution).toHaveBeenCalledWith('test-user-123', 'black');
+    });
+
+    it('should return 500 on error', async () => {
+      mockDashboardService.getPhaseDistribution.mockRejectedValue(new Error('Phase error'));
+
+      await dashboardController.getPhaseDistribution(mockReq, mockRes);
+
+      expect(mockRes.status).toHaveBeenCalledWith(500);
+      expect(mockRes.json).toHaveBeenCalledWith({
+        success: false,
+        error: 'Phase error'
+      });
+    });
+  });
+
+  describe('getAccuracyByPhase()', () => {
+    it('should get accuracy by phase without color filter', async () => {
+      const mockData = {
+        opening: { accuracy: 85, gamesWithData: 10 },
+        middlegame: { accuracy: 78, gamesWithData: 10 },
+        endgame: { accuracy: 72, gamesWithData: 8 },
+        totalGames: 10
+      };
+
+      mockDashboardService.getAccuracyByPhase.mockResolvedValue(mockData);
+
+      await dashboardController.getAccuracyByPhase(mockReq, mockRes);
+
+      expect(mockDashboardService.getAccuracyByPhase).toHaveBeenCalledWith('test-user-123', null);
+      expect(mockRes.json).toHaveBeenCalledWith({
+        success: true,
+        data: mockData
+      });
+    });
+
+    it('should get accuracy by phase with color filter', async () => {
+      mockReq.query.color = 'white';
+
+      mockDashboardService.getAccuracyByPhase.mockResolvedValue({});
+
+      await dashboardController.getAccuracyByPhase(mockReq, mockRes);
+
+      expect(mockDashboardService.getAccuracyByPhase).toHaveBeenCalledWith('test-user-123', 'white');
+    });
+
+    it('should return 500 on error', async () => {
+      mockDashboardService.getAccuracyByPhase.mockRejectedValue(new Error('Phase accuracy error'));
+
+      await dashboardController.getAccuracyByPhase(mockReq, mockRes);
+
+      expect(mockRes.status).toHaveBeenCalledWith(500);
+      expect(mockRes.json).toHaveBeenCalledWith({
+        success: false,
+        error: 'Phase accuracy error'
+      });
+    });
+  });
+
+  describe('getOpeningPerformance()', () => {
+    it('should get opening performance with default limit', async () => {
+      const mockData = [
+        { ecoCode: 'C42', name: 'Russian Game', games: 5, wins: 3, draws: 1, losses: 1, winRate: 60 },
+        { ecoCode: 'B20', name: 'Sicilian Defense', games: 3, wins: 2, draws: 0, losses: 1, winRate: 67 }
+      ];
+
+      mockDashboardService.getOpeningPerformance.mockResolvedValue(mockData);
+
+      await dashboardController.getOpeningPerformance(mockReq, mockRes);
+
+      expect(mockDashboardService.getOpeningPerformance).toHaveBeenCalledWith('test-user-123', 10, null);
+      expect(mockRes.json).toHaveBeenCalledWith({
+        success: true,
+        data: mockData
+      });
+    });
+
+    it('should get opening performance with custom limit', async () => {
+      mockReq.query.limit = '5';
+
+      mockDashboardService.getOpeningPerformance.mockResolvedValue([]);
+
+      await dashboardController.getOpeningPerformance(mockReq, mockRes);
+
+      expect(mockDashboardService.getOpeningPerformance).toHaveBeenCalledWith('test-user-123', 5, null);
+    });
+
+    it('should get opening performance with color filter', async () => {
+      mockReq.query.color = 'white';
+      mockReq.query.limit = '15';
+
+      mockDashboardService.getOpeningPerformance.mockResolvedValue([]);
+
+      await dashboardController.getOpeningPerformance(mockReq, mockRes);
+
+      expect(mockDashboardService.getOpeningPerformance).toHaveBeenCalledWith('test-user-123', 15, 'white');
+    });
+
+    it('should return 500 on error', async () => {
+      mockDashboardService.getOpeningPerformance.mockRejectedValue(new Error('Opening error'));
+
+      await dashboardController.getOpeningPerformance(mockReq, mockRes);
+
+      expect(mockRes.status).toHaveBeenCalledWith(500);
+      expect(mockRes.json).toHaveBeenCalledWith({
+        success: false,
+        error: 'Opening error'
+      });
     });
   });
 });

@@ -60,6 +60,11 @@ export const routes: Routes = [
     loadComponent: () => import('./pages/blunders/blunders.component').then(m => m.BlundersComponent),
     canActivate: [authGuard]
   },
+  {
+    path: 'insights',
+    loadComponent: () => import('./pages/insights/insights.component').then(m => m.InsightsComponent),
+    canActivate: [authGuard]
+  },
 
   // 404 page
   {

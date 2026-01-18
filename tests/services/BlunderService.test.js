@@ -273,4 +273,146 @@ describe('BlunderService', () => {
       });
     });
   });
+
+  describe('getHangingPiecesByType (ADR 009 Phase 5.2)', () => {
+    it('should return breakdown of blunders by piece type', async () => {
+      const mockPieceBreakdown = [
+        { piece_type: 'N', count: 5, avgLoss: 250 },
+        { piece_type: 'P', count: 4, avgLoss: 150 },
+        { piece_type: 'B', count: 3, avgLoss: 300 },
+        { piece_type: 'R', count: 2, avgLoss: 450 },
+        { piece_type: 'Q', count: 1, avgLoss: 800 }
+      ];
+      mockDatabase.all.mockResolvedValue(mockPieceBreakdown);
+
+      const result = await blunderService.getHangingPiecesByType('user123');
+
+      expect(result.total).toBe(15);
+      expect(result.byPiece).toHaveLength(6); // All 6 piece types included
+      expect(result.mostCommon.pieceType).toBe('N');
+      expect(result.mostCommon.pieceName).toBe('Knight');
+      expect(result.mostCommon.count).toBe(5);
+
+      // Verify query includes player_color filter
+      expect(mockDatabase.all).toHaveBeenCalledWith(
+        expect.stringContaining('bd.player_color = g.user_color'),
+        ['user123']
+      );
+    });
+
+    it('should return all piece types even when some have zero count', async () => {
+      const mockPieceBreakdown = [
+        { piece_type: 'P', count: 3, avgLoss: 150 }
+      ];
+      mockDatabase.all.mockResolvedValue(mockPieceBreakdown);
+
+      const result = await blunderService.getHangingPiecesByType('user123');
+
+      expect(result.byPiece).toHaveLength(6);
+
+      // Pawn should have count 3
+      const pawn = result.byPiece.find(p => p.pieceType === 'P');
+      expect(pawn.count).toBe(3);
+      expect(pawn.pieceName).toBe('Pawn');
+
+      // Other pieces should have count 0
+      const knight = result.byPiece.find(p => p.pieceType === 'N');
+      expect(knight.count).toBe(0);
+      expect(knight.pieceName).toBe('Knight');
+    });
+
+    it('should handle empty result set', async () => {
+      mockDatabase.all.mockResolvedValue([]);
+
+      const result = await blunderService.getHangingPiecesByType('user123');
+
+      expect(result.total).toBe(0);
+      expect(result.byPiece).toHaveLength(6);
+      expect(result.mostCommon).toBeNull();
+
+      // All pieces should have 0 count
+      result.byPiece.forEach(piece => {
+        expect(piece.count).toBe(0);
+        expect(piece.percentage).toBe(0);
+      });
+    });
+
+    it('should calculate correct percentages', async () => {
+      const mockPieceBreakdown = [
+        { piece_type: 'N', count: 5, avgLoss: 250 },
+        { piece_type: 'B', count: 5, avgLoss: 300 }
+      ];
+      mockDatabase.all.mockResolvedValue(mockPieceBreakdown);
+
+      const result = await blunderService.getHangingPiecesByType('user123');
+
+      expect(result.total).toBe(10);
+
+      const knight = result.byPiece.find(p => p.pieceType === 'N');
+      expect(knight.percentage).toBe(50);
+
+      const bishop = result.byPiece.find(p => p.pieceType === 'B');
+      expect(bishop.percentage).toBe(50);
+    });
+
+    it('should map piece types to full names correctly', async () => {
+      const mockPieceBreakdown = [
+        { piece_type: 'P', count: 1, avgLoss: 100 },
+        { piece_type: 'N', count: 1, avgLoss: 300 },
+        { piece_type: 'B', count: 1, avgLoss: 320 },
+        { piece_type: 'R', count: 1, avgLoss: 500 },
+        { piece_type: 'Q', count: 1, avgLoss: 900 },
+        { piece_type: 'K', count: 1, avgLoss: 0 }
+      ];
+      mockDatabase.all.mockResolvedValue(mockPieceBreakdown);
+
+      const result = await blunderService.getHangingPiecesByType('user123');
+
+      const pieceNames = result.byPiece.reduce((acc, p) => {
+        acc[p.pieceType] = p.pieceName;
+        return acc;
+      }, {});
+
+      expect(pieceNames['P']).toBe('Pawn');
+      expect(pieceNames['N']).toBe('Knight');
+      expect(pieceNames['B']).toBe('Bishop');
+      expect(pieceNames['R']).toBe('Rook');
+      expect(pieceNames['Q']).toBe('Queen');
+      expect(pieceNames['K']).toBe('King');
+    });
+
+    it('should round average centipawn loss', async () => {
+      const mockPieceBreakdown = [
+        { piece_type: 'N', count: 3, avgLoss: 256.7 }
+      ];
+      mockDatabase.all.mockResolvedValue(mockPieceBreakdown);
+
+      const result = await blunderService.getHangingPiecesByType('user123');
+
+      const knight = result.byPiece.find(p => p.pieceType === 'N');
+      expect(knight.avgCentipawnLoss).toBe(257);
+    });
+
+    it('should filter only blunders (not mistakes or inaccuracies)', async () => {
+      mockDatabase.all.mockResolvedValue([]);
+
+      await blunderService.getHangingPiecesByType('user123');
+
+      expect(mockDatabase.all).toHaveBeenCalledWith(
+        expect.stringContaining('bd.is_blunder = TRUE'),
+        ['user123']
+      );
+    });
+
+    it('should only include records with non-null piece_type', async () => {
+      mockDatabase.all.mockResolvedValue([]);
+
+      await blunderService.getHangingPiecesByType('user123');
+
+      expect(mockDatabase.all).toHaveBeenCalledWith(
+        expect.stringContaining('bd.piece_type IS NOT NULL'),
+        ['user123']
+      );
+    });
+  });
 });

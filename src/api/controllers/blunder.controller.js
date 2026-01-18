@@ -557,6 +557,31 @@ class BlunderController {
   }
 
   /**
+   * Get blunders breakdown by piece type (ADR 009 Phase 5.2)
+   * Shows which pieces the user most commonly loses/hangs
+   * GET /api/blunders/by-piece-type
+   */
+  async getByPieceType(req, res) {
+    try {
+      console.log('📝 [BLUNDER CONTROLLER] Blunders by piece type requested');
+
+      const service = this.getBlunderService();
+      const result = await service.getHangingPiecesByType(req.userId);
+
+      res.json({
+        success: true,
+        data: result
+      });
+    } catch (error) {
+      console.error('[BLUNDER CONTROLLER] Get by piece type error:', error);
+      res.status(500).json({
+        success: false,
+        error: error.message || 'Failed to get blunders by piece type'
+      });
+    }
+  }
+
+  /**
    * Get blunder timeline
    * GET /api/blunders/timeline
    */

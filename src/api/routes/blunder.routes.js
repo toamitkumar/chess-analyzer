@@ -26,6 +26,9 @@ router.get('/dashboard', blunderController.getDashboard.bind(blunderController))
 // GET /api/blunders/timeline - Get blunder timeline analysis
 router.get('/timeline', blunderController.getTimeline.bind(blunderController));
 
+// GET /api/blunders/by-piece-type - Get blunders breakdown by piece type (ADR 009 Phase 5.2)
+router.get('/by-piece-type', blunderController.getByPieceType.bind(blunderController));
+
 // PUT /api/blunders/:id/review - Mark blunder as reviewed
 router.put('/:id/review', blunderController.markReviewed.bind(blunderController));
 

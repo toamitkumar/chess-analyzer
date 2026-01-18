@@ -8,7 +8,10 @@ import {
   AccuracyByResultData,
   PhaseDistributionData,
   AccuracyByPhaseData,
-  OpeningPerformanceData
+  OpeningPerformanceData,
+  HangingPiecesByTypeData,
+  TacticsDashboardData,
+  FreePiecesDashboardData
 } from '../../services/chess-api.service';
 import { forkJoin } from 'rxjs';
 
@@ -359,6 +362,271 @@ interface BlunderDashboardData {
             </div>
           </div>
 
+          <!-- Hanging Pieces by Type Card (ADR 009 Phase 5.2) -->
+          <div *ngIf="hangingByPieceType && hangingByPieceType.total > 0" class="group rounded-xl sm:rounded-2xl border-2 border-border/30 gradient-card text-card-foreground shadow-xl sm:shadow-2xl hover:shadow-glow-destructive hover:border-destructive/50 transition-all duration-500 backdrop-blur-sm overflow-hidden">
+            <div class="flex flex-col space-y-2 p-4 sm:p-6 bg-gradient-to-br from-destructive/5 to-transparent">
+              <div class="flex items-center gap-3">
+                <div class="p-2 rounded-lg bg-destructive/10 group-hover:bg-destructive/20 transition-colors duration-300">
+                  <svg class="w-4 h-4 sm:w-5 sm:h-5 text-destructive" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"/>
+                  </svg>
+                </div>
+                <div>
+                  <h3 class="text-lg sm:text-xl font-bold leading-none tracking-tight text-gradient">Pieces You Lose Most</h3>
+                  <p class="text-xs sm:text-sm text-muted-foreground mt-1">Which pieces you most commonly blunder</p>
+                </div>
+              </div>
+            </div>
+            <div class="p-4 sm:p-6 pt-2">
+              <div class="space-y-3 sm:space-y-4">
+                <!-- Total blunders summary -->
+                <div class="flex items-center justify-between p-2 sm:p-3 rounded-lg bg-card/50 border border-border/30">
+                  <span class="font-medium text-sm sm:text-base text-foreground">Total Piece Blunders</span>
+                  <span class="text-xl sm:text-2xl font-bold text-destructive">{{ hangingByPieceType.total }}</span>
+                </div>
+
+                <!-- Most common piece highlight -->
+                <div *ngIf="hangingByPieceType.mostCommon" class="p-3 sm:p-4 rounded-lg bg-destructive/10 border border-destructive/30">
+                  <div class="flex items-center justify-between">
+                    <div class="flex items-center gap-3">
+                      <span class="text-3xl sm:text-4xl">{{ pieceIcons[hangingByPieceType.mostCommon.pieceType] }}</span>
+                      <div>
+                        <p class="text-sm sm:text-base font-bold text-destructive">{{ hangingByPieceType.mostCommon.pieceName }}</p>
+                        <p class="text-xs text-muted-foreground">Most commonly lost</p>
+                      </div>
+                    </div>
+                    <div class="text-right">
+                      <p class="text-xl sm:text-2xl font-bold text-foreground">{{ hangingByPieceType.mostCommon.count }}</p>
+                      <p class="text-xs text-muted-foreground">{{ hangingByPieceType.mostCommon.percentage }}%</p>
+                    </div>
+                  </div>
+                </div>
+
+                <!-- Piece breakdown list -->
+                <div class="space-y-2">
+                  <h4 class="text-xs sm:text-sm font-semibold text-muted-foreground uppercase tracking-wide">Breakdown by Piece</h4>
+                  <div *ngFor="let piece of hangingByPieceType.byPiece" class="flex items-center justify-between p-2 rounded-lg hover:bg-muted/20 transition-colors">
+                    <div class="flex items-center gap-2">
+                      <span class="text-lg sm:text-xl w-6 text-center">{{ pieceIcons[piece.pieceType] }}</span>
+                      <span class="text-xs sm:text-sm font-medium">{{ piece.pieceName }}</span>
+                    </div>
+                    <div class="flex items-center gap-2 sm:gap-4">
+                      <div class="w-16 sm:w-24 h-2 rounded-full bg-muted/30 overflow-hidden">
+                        <div class="h-full bg-gradient-to-r from-destructive to-destructive/60 rounded-full transition-all duration-500"
+                          [style.width.%]="piece.percentage"></div>
+                      </div>
+                      <div class="text-right min-w-[48px] sm:min-w-[60px]">
+                        <span class="text-xs sm:text-sm font-bold">{{ piece.count }}</span>
+                        <span class="text-xs text-muted-foreground ml-1">({{ piece.percentage }}%)</span>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <!-- Found vs Missed Tactics Card (ADR 009 Phase 5.1) -->
+          <div *ngIf="tacticsData && tacticsData.overall.total > 0" class="group rounded-xl sm:rounded-2xl border-2 border-border/30 gradient-card text-card-foreground shadow-xl sm:shadow-2xl hover:shadow-glow-accent hover:border-accent/50 transition-all duration-500 backdrop-blur-sm overflow-hidden">
+            <div class="flex flex-col space-y-2 p-4 sm:p-6 bg-gradient-to-br from-accent/5 to-transparent">
+              <div class="flex items-center gap-3">
+                <div class="p-2 rounded-lg bg-accent/10 group-hover:bg-accent/20 transition-colors duration-300">
+                  <svg class="w-4 h-4 sm:w-5 sm:h-5 text-accent" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 10V3L4 14h7v7l9-11h-7z"/>
+                  </svg>
+                </div>
+                <div>
+                  <h3 class="text-lg sm:text-xl font-bold leading-none tracking-tight text-gradient">Tactical Opportunities</h3>
+                  <p class="text-xs sm:text-sm text-muted-foreground mt-1">Forks, pins, and other tactics you found or missed</p>
+                </div>
+              </div>
+            </div>
+            <div class="p-4 sm:p-6 pt-2">
+              <div class="space-y-3 sm:space-y-4">
+                <!-- Overall Found vs Missed -->
+                <div class="grid grid-cols-2 gap-3">
+                  <div class="p-3 rounded-lg bg-success/10 border border-success/30 text-center">
+                    <p class="text-2xl sm:text-3xl font-bold text-success">{{ tacticsData.overall.found }}</p>
+                    <p class="text-xs text-muted-foreground">Found</p>
+                    <p class="text-sm font-medium text-success">{{ tacticsData.overall.foundPercentage }}%</p>
+                  </div>
+                  <div class="p-3 rounded-lg bg-destructive/10 border border-destructive/30 text-center">
+                    <p class="text-2xl sm:text-3xl font-bold text-destructive">{{ tacticsData.overall.missed }}</p>
+                    <p class="text-xs text-muted-foreground">Missed</p>
+                    <p class="text-sm font-medium text-destructive">{{ tacticsData.overall.missedPercentage }}%</p>
+                  </div>
+                </div>
+
+                <!-- Progress Bar -->
+                <div class="space-y-1">
+                  <div class="flex justify-between text-xs text-muted-foreground">
+                    <span>Total: {{ tacticsData.overall.total }} opportunities</span>
+                    <span>{{ tacticsData.overall.foundPercentage }}% found</span>
+                  </div>
+                  <div class="h-3 rounded-full bg-muted/30 overflow-hidden flex">
+                    <div class="h-full bg-gradient-to-r from-success to-success/70 transition-all duration-500"
+                      [style.width.%]="tacticsData.overall.foundPercentage"></div>
+                  </div>
+                </div>
+
+                <!-- Breakdown by Tactic Type -->
+                <div class="space-y-2">
+                  <h4 class="text-xs sm:text-sm font-semibold text-muted-foreground uppercase tracking-wide">By Tactic Type</h4>
+
+                  <!-- Forks -->
+                  <div *ngIf="tacticsData.byType.forks.total > 0" class="flex items-center justify-between p-2 rounded-lg hover:bg-muted/20 transition-colors">
+                    <div class="flex items-center gap-2">
+                      <span class="text-lg">⚔️</span>
+                      <span class="text-xs sm:text-sm font-medium">Forks</span>
+                    </div>
+                    <div class="flex items-center gap-2 sm:gap-3">
+                      <span class="text-xs text-success">{{ tacticsData.byType.forks.found }} found</span>
+                      <span class="text-xs text-destructive">{{ tacticsData.byType.forks.missed }} missed</span>
+                      <span class="text-xs font-bold text-foreground">({{ tacticsData.byType.forks.foundPercentage }}%)</span>
+                    </div>
+                  </div>
+
+                  <!-- Pins -->
+                  <div *ngIf="tacticsData.byType.pins.total > 0" class="flex items-center justify-between p-2 rounded-lg hover:bg-muted/20 transition-colors">
+                    <div class="flex items-center gap-2">
+                      <span class="text-lg">📌</span>
+                      <span class="text-xs sm:text-sm font-medium">Pins</span>
+                    </div>
+                    <div class="flex items-center gap-2 sm:gap-3">
+                      <span class="text-xs text-success">{{ tacticsData.byType.pins.found }} found</span>
+                      <span class="text-xs text-destructive">{{ tacticsData.byType.pins.missed }} missed</span>
+                      <span class="text-xs font-bold text-foreground">({{ tacticsData.byType.pins.foundPercentage }}%)</span>
+                    </div>
+                  </div>
+
+                  <!-- Skewers -->
+                  <div *ngIf="tacticsData.byType.skewers.total > 0" class="flex items-center justify-between p-2 rounded-lg hover:bg-muted/20 transition-colors">
+                    <div class="flex items-center gap-2">
+                      <span class="text-lg">🔪</span>
+                      <span class="text-xs sm:text-sm font-medium">Skewers</span>
+                    </div>
+                    <div class="flex items-center gap-2 sm:gap-3">
+                      <span class="text-xs text-success">{{ tacticsData.byType.skewers.found }} found</span>
+                      <span class="text-xs text-destructive">{{ tacticsData.byType.skewers.missed }} missed</span>
+                      <span class="text-xs font-bold text-foreground">({{ tacticsData.byType.skewers.foundPercentage }}%)</span>
+                    </div>
+                  </div>
+
+                  <!-- Discovered Attacks -->
+                  <div *ngIf="tacticsData.byType.discoveredAttacks.total > 0" class="flex items-center justify-between p-2 rounded-lg hover:bg-muted/20 transition-colors">
+                    <div class="flex items-center gap-2">
+                      <span class="text-lg">💥</span>
+                      <span class="text-xs sm:text-sm font-medium">Discovered Attacks</span>
+                    </div>
+                    <div class="flex items-center gap-2 sm:gap-3">
+                      <span class="text-xs text-success">{{ tacticsData.byType.discoveredAttacks.found }} found</span>
+                      <span class="text-xs text-destructive">{{ tacticsData.byType.discoveredAttacks.missed }} missed</span>
+                      <span class="text-xs font-bold text-foreground">({{ tacticsData.byType.discoveredAttacks.foundPercentage }}%)</span>
+                    </div>
+                  </div>
+                </div>
+
+                <!-- No data message -->
+                <div *ngIf="tacticsData.byType.forks.total === 0 && tacticsData.byType.pins.total === 0 && tacticsData.byType.skewers.total === 0 && tacticsData.byType.discoveredAttacks.total === 0"
+                     class="text-center py-4">
+                  <p class="text-xs text-muted-foreground">No detailed tactic breakdown available yet.</p>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <!-- Free Pieces Card (ADR 009 Phase 5.3) -->
+          <div *ngIf="freePiecesData && freePiecesData.overall.total > 0" class="group rounded-xl sm:rounded-2xl border-2 border-border/30 gradient-card text-card-foreground shadow-xl sm:shadow-2xl hover:shadow-glow-success hover:border-success/50 transition-all duration-500 backdrop-blur-sm overflow-hidden">
+            <div class="flex flex-col space-y-2 p-4 sm:p-6 bg-gradient-to-br from-success/5 to-transparent">
+              <div class="flex items-center gap-3">
+                <div class="p-2 rounded-lg bg-success/10 group-hover:bg-success/20 transition-colors duration-300">
+                  <svg class="w-4 h-4 sm:w-5 sm:h-5 text-success" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8c-1.657 0-3 .895-3 2s1.343 2 3 2 3 .895 3 2-1.343 2-3 2m0-8c1.11 0 2.08.402 2.599 1M12 8V7m0 1v8m0 0v1m0-1c-1.11 0-2.08-.402-2.599-1M21 12a9 9 0 11-18 0 9 9 0 0118 0z"/>
+                  </svg>
+                </div>
+                <div>
+                  <h3 class="text-lg sm:text-xl font-bold leading-none tracking-tight text-gradient">Free Pieces</h3>
+                  <p class="text-xs sm:text-sm text-muted-foreground mt-1">Pieces your opponents left hanging</p>
+                </div>
+              </div>
+            </div>
+            <div class="p-4 sm:p-6 pt-2">
+              <div class="space-y-3 sm:space-y-4">
+                <!-- Captured vs Missed Stats -->
+                <div class="grid grid-cols-2 gap-3">
+                  <div class="p-3 rounded-lg bg-success/10 border border-success/30 text-center">
+                    <p class="text-2xl sm:text-3xl font-bold text-success">{{ freePiecesData.overall.captured }}</p>
+                    <p class="text-xs text-muted-foreground">Captured</p>
+                    <p class="text-sm font-medium text-success">{{ freePiecesData.overall.capturedPercentage }}%</p>
+                  </div>
+                  <div class="p-3 rounded-lg bg-destructive/10 border border-destructive/30 text-center">
+                    <p class="text-2xl sm:text-3xl font-bold text-destructive">{{ freePiecesData.overall.missed }}</p>
+                    <p class="text-xs text-muted-foreground">Missed</p>
+                    <p class="text-sm font-medium text-destructive">{{ freePiecesData.overall.missedPercentage }}%</p>
+                  </div>
+                </div>
+
+                <!-- Progress Bar -->
+                <div class="space-y-1">
+                  <div class="flex justify-between text-xs text-muted-foreground">
+                    <span>Total: {{ freePiecesData.overall.total }} free pieces</span>
+                    <span>{{ freePiecesData.overall.capturedPercentage }}% captured</span>
+                  </div>
+                  <div class="h-3 rounded-full bg-muted/30 overflow-hidden flex">
+                    <div class="h-full bg-gradient-to-r from-success to-success/70 transition-all duration-500"
+                      [style.width.%]="freePiecesData.overall.capturedPercentage"></div>
+                  </div>
+                </div>
+
+                <!-- Material Stats -->
+                <div class="grid grid-cols-2 gap-2 p-3 rounded-lg bg-card/50 border border-border/30">
+                  <div class="text-center">
+                    <p class="text-lg sm:text-xl font-bold text-success">+{{ freePiecesData.overall.materialCaptured }}</p>
+                    <p class="text-xs text-muted-foreground">Material gained</p>
+                  </div>
+                  <div class="text-center">
+                    <p class="text-lg sm:text-xl font-bold text-destructive">-{{ freePiecesData.missedMaterial.totalMissed }}</p>
+                    <p class="text-xs text-muted-foreground">Material missed</p>
+                  </div>
+                </div>
+
+                <!-- Most Missed Piece Highlight -->
+                <div *ngIf="freePiecesData.mostMissedPiece && freePiecesData.mostMissedPiece.missed > 0" class="p-3 sm:p-4 rounded-lg bg-warning/10 border border-warning/30">
+                  <div class="flex items-center justify-between">
+                    <div class="flex items-center gap-3">
+                      <span class="text-2xl sm:text-3xl">{{ pieceIcons[freePiecesData.mostMissedPiece.pieceType] }}</span>
+                      <div>
+                        <p class="text-sm sm:text-base font-bold text-warning">{{ freePiecesData.mostMissedPiece.pieceName }}</p>
+                        <p class="text-xs text-muted-foreground">Most commonly missed</p>
+                      </div>
+                    </div>
+                    <div class="text-right">
+                      <p class="text-lg sm:text-xl font-bold text-foreground">{{ freePiecesData.mostMissedPiece.missed }}</p>
+                      <p class="text-xs text-muted-foreground">times missed</p>
+                    </div>
+                  </div>
+                </div>
+
+                <!-- Breakdown by Piece Type -->
+                <div *ngIf="freePiecesData.byPieceType.length > 0" class="space-y-2">
+                  <h4 class="text-xs sm:text-sm font-semibold text-muted-foreground uppercase tracking-wide">By Opponent's Piece</h4>
+                  <div *ngFor="let piece of freePiecesData.byPieceType" class="flex items-center justify-between p-2 rounded-lg hover:bg-muted/20 transition-colors">
+                    <div class="flex items-center gap-2">
+                      <span class="text-lg sm:text-xl w-6 text-center">{{ pieceIcons[piece.pieceType] }}</span>
+                      <span class="text-xs sm:text-sm font-medium">{{ piece.pieceName }}</span>
+                      <span class="text-xs text-muted-foreground">({{ piece.pieceValue }} pts)</span>
+                    </div>
+                    <div class="flex items-center gap-2 sm:gap-3">
+                      <span class="text-xs text-success">{{ piece.captured }} taken</span>
+                      <span class="text-xs text-destructive">{{ piece.missed }} missed</span>
+                      <span class="text-xs font-bold text-foreground">({{ piece.capturedPercentage }}%)</span>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+
           <!-- Opening Performance Card (Full Width) -->
           <div *ngIf="openingPerformance && openingPerformance.length > 0" class="md:col-span-2 group rounded-xl sm:rounded-2xl border-2 border-border/30 gradient-card text-card-foreground shadow-xl sm:shadow-2xl hover:shadow-glow-primary hover:border-primary/50 transition-all duration-500 backdrop-blur-sm overflow-hidden">
             <div class="flex flex-col space-y-2 p-4 sm:p-6 bg-gradient-to-br from-primary/5 to-transparent">
@@ -493,10 +761,31 @@ export class InsightsComponent implements OnInit {
   accuracyByPhase: AccuracyByPhaseData | null = null;
   openingPerformance: OpeningPerformanceData[] = [];
   blunderData: BlunderDashboardData | null = null;
+  hangingByPieceType: HangingPiecesByTypeData | null = null;
+  tacticsData: TacticsDashboardData | null = null;
+  freePiecesData: FreePiecesDashboardData | null = null;
 
   loading = true;
   error: string | null = null;
   colorFilter: 'white' | 'black' | null = null;
+
+  // Piece type icons/symbols for display
+  pieceIcons: { [key: string]: string } = {
+    'P': '♟',
+    'N': '♞',
+    'B': '♝',
+    'R': '♜',
+    'Q': '♛',
+    'K': '♚'
+  };
+
+  // Tactical theme icons
+  tacticIcons: { [key: string]: string } = {
+    'fork': '⚔️',
+    'pin': '📌',
+    'skewer': '🔪',
+    'discovered_attack': '💥'
+  };
 
   constructor(private chessApi: ChessApiService) {}
 
@@ -520,7 +809,10 @@ export class InsightsComponent implements OnInit {
       phaseDistribution: this.chessApi.getPhaseDistribution(color),
       accuracyByPhase: this.chessApi.getAccuracyByPhase(color),
       openingPerformance: this.chessApi.getOpeningPerformance(10, color),
-      blunderDashboard: this.chessApi.getBlundersDashboard()
+      blunderDashboard: this.chessApi.getBlundersDashboard(),
+      hangingByPieceType: this.chessApi.getBlundersByPieceType(),
+      tacticsDashboard: this.chessApi.getTacticsDashboard(),
+      freePieces: this.chessApi.getFreePieces()
     }).subscribe({
       next: (results) => {
         if (results.accuracyByResult.success) {
@@ -538,6 +830,18 @@ export class InsightsComponent implements OnInit {
         // Blunder dashboard doesn't have the same response wrapper
         if (results.blunderDashboard) {
           this.blunderData = results.blunderDashboard as BlunderDashboardData;
+        }
+        // Hanging pieces by type
+        if (results.hangingByPieceType.success) {
+          this.hangingByPieceType = results.hangingByPieceType.data;
+        }
+        // Tactical opportunities (ADR 009 Phase 5.1)
+        if (results.tacticsDashboard.success) {
+          this.tacticsData = results.tacticsDashboard.data;
+        }
+        // Free pieces / opponent blunders (ADR 009 Phase 5.3)
+        if (results.freePieces.success) {
+          this.freePiecesData = results.freePieces.data;
         }
         this.loading = false;
       },

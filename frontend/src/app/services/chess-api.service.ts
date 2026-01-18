@@ -78,6 +78,127 @@ export interface InsightsApiResponse<T> {
   error?: string;
 }
 
+// ADR 009 Phase 5.2 - Hanging Pieces by Piece Type
+export interface PieceTypeBreakdownItem {
+  pieceType: string;
+  pieceName: string;
+  count: number;
+  percentage: number;
+  avgCentipawnLoss: number;
+}
+
+export interface HangingPiecesByTypeData {
+  total: number;
+  byPiece: PieceTypeBreakdownItem[];
+  mostCommon: PieceTypeBreakdownItem | null;
+}
+
+// ADR 009 Phase 5.1 - Tactical Opportunities (Found vs Missed)
+export interface TacticTypeStats {
+  tacticType: string;
+  total: number;
+  found: number;
+  missed: number;
+  foundPercentage: number;
+  missedPercentage: number;
+  avgGainWhenFound?: number;
+  avgMissedGain?: number;
+}
+
+export interface TacticalOpportunitiesData {
+  overall: {
+    total: number;
+    found: number;
+    missed: number;
+    foundPercentage: number;
+    missedPercentage: number;
+  };
+  byType: TacticTypeStats[];
+}
+
+export interface TacticsDashboardData {
+  overall: {
+    total: number;
+    found: number;
+    missed: number;
+    foundPercentage: number;
+    missedPercentage: number;
+  };
+  byType: {
+    forks: TacticTypeStats;
+    pins: TacticTypeStats;
+    skewers: TacticTypeStats;
+    discoveredAttacks: TacticTypeStats;
+  };
+  byAttackingPiece: Array<{
+    pieceType: string;
+    pieceName: string;
+    total: number;
+    found: number;
+    missed: number;
+    foundPercentage: number;
+  }>;
+  recentMissed: Array<{
+    id: number;
+    gameId: number;
+    moveNumber: number;
+    tacticType: string;
+    bestMove: string;
+    playedMove: string;
+    evalGain: number;
+  }>;
+}
+
+// ADR 009 Phase 5.3 - Free Pieces (Opponent Blunders)
+export interface FreePieceStats {
+  total: number;
+  captured: number;
+  missed: number;
+  capturedPercentage: number;
+  missedPercentage: number;
+  materialCaptured: number;
+  materialMissed: number;
+}
+
+export interface FreePieceByType {
+  pieceType: string;
+  pieceName: string;
+  pieceValue: number;
+  total: number;
+  captured: number;
+  missed: number;
+  capturedPercentage: number;
+  materialCaptured: number;
+  materialMissed: number;
+}
+
+export interface MissedFreePiece {
+  id: number;
+  gameId: number;
+  moveNumber: number;
+  opponentPiece: string;
+  pieceName: string;
+  pieceValue: number;
+  captureMove: string;
+  playedMove: string;
+  fen: string;
+  opponent: string;
+  date: string;
+  event: string;
+}
+
+export interface FreePiecesDashboardData {
+  overall: FreePieceStats;
+  byPieceType: FreePieceByType[];
+  missedMaterial: {
+    totalMissed: number;
+    missedCount: number;
+    avgMissedValue: number;
+  };
+  mostMissedPiece: FreePieceByType | null;
+  recentMissed: MissedFreePiece[];
+}
+
 @Injectable({
   providedIn: 'root'
 })
@@ -238,6 +359,94 @@ export class ChessApiService {
     return this.http.get<InsightsApiResponse<OpeningPerformanceData[]>>(
       `${this.baseUrl}/insights/openings`,
       { params }
+    );
+  }
+
+  /**
+   * Get blunders breakdown by piece type (ADR 009 Phase 5.2)
+   * Shows which pieces the user most commonly loses/hangs
+   */
+  getBlundersByPieceType(): Observable<InsightsApiResponse<HangingPiecesByTypeData>> {
+    return this.http.get<InsightsApiResponse<HangingPiecesByTypeData>>(
+      `${this.baseUrl}/blunders/by-piece-type`
+    );
+  }
+
+  // ============================================
+  // Tactical Opportunities API (ADR 009 Phase 5.1)
+  // ============================================
+
+  /**
+   * Get tactical opportunities summary (found vs missed)
+   * @param tacticType Optional filter by tactic type (fork, pin, skewer)
+   */
+  getTacticalOpportunities(tacticType?: string): Observable<InsightsApiResponse<TacticalOpportunitiesData>> {
+    const params: any = {};
+    if (tacticType) params.type = tacticType;
+    return this.http.get<InsightsApiResponse<TacticalOpportunitiesData>>(
+      `${this.baseUrl}/insights/tactics/opportunities`,
+      { params }
+    );
+  }
+
+  /**
+   * Get comprehensive tactical dashboard summary
+   */
+  getTacticsDashboard(): Observable<InsightsApiResponse<TacticsDashboardData>> {
+    return this.http.get<InsightsApiResponse<TacticsDashboardData>>(
+      `${this.baseUrl}/insights/tactics/dashboard`
+    );
+  }
+
+  /**
+   * Get fork opportunities breakdown
+   */
+  getForkOpportunities(): Observable<InsightsApiResponse<TacticalOpportunitiesData>> {
+    return this.http.get<InsightsApiResponse<TacticalOpportunitiesData>>(
+      `${this.baseUrl}/insights/tactics/forks`
+    );
+  }
+
+  /**
+   * Get pin opportunities breakdown
+   */
+  getPinOpportunities(): Observable<InsightsApiResponse<TacticalOpportunitiesData>> {
+    return this.http.get<InsightsApiResponse<TacticalOpportunitiesData>>(
+      `${this.baseUrl}/insights/tactics/pins`
+    );
+  }
+
+  // ============================================
+  // Free Pieces (Opponent Blunders) API (ADR 009 Phase 5.3)
+  // ============================================
+
+  /**
+   * Get free pieces (opponent blunders) dashboard summary
+   * Shows pieces opponents left hanging and capture rates
+   */
+  getFreePieces(): Observable<InsightsApiResponse<FreePiecesDashboardData>> {
+    return this.http.get<InsightsApiResponse<FreePiecesDashboardData>>(
+      `${this.baseUrl}/insights/tactics/free-pieces`
+    );
+  }
+
+  /**
+   * Get recent missed free pieces (captures player didn't make)
+   * @param limit Number of results to return (default: 10)
+   */
+  getMissedFreePieces(limit: number = 10): Observable<InsightsApiResponse<MissedFreePiece[]>> {
+    return this.http.get<InsightsApiResponse<MissedFreePiece[]>>(
+      `${this.baseUrl}/insights/tactics/free-pieces/missed`,
+      { params: { limit: limit.toString() } }
+    );
+  }
+
+  /**
+   * Get free pieces breakdown by opponent's piece type
+   */
+  getFreePiecesByType(): Observable<InsightsApiResponse<FreePieceByType[]>> {
+    return this.http.get<InsightsApiResponse<FreePieceByType[]>>(
+      `${this.baseUrl}/insights/tactics/free-pieces/by-piece`
     );
   }
 }

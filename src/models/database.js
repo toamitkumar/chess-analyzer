@@ -336,6 +336,9 @@ class Database {
     // Determine which player made this move (odd move_number = white, even = black)
     const playerColor = analysisData.move_number % 2 === 1 ? 'white' : 'black';
 
+    // Extract piece type from the move notation (ADR 009 Phase 5.2)
+    const pieceType = this._extractPieceTypeFromMove(analysisData.move);
+
     const sql = `
       INSERT INTO blunder_details (
         game_id, move_number, fen, phase,
@@ -344,8 +347,8 @@ class Database {
         win_probability_before, win_probability_after,
         tactical_theme, position_type, blunder_severity, difficulty_level,
         learned, review_count, mastery_score,
-        is_blunder, is_mistake, is_inaccuracy, player_color
-      ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+        is_blunder, is_mistake, is_inaccuracy, player_color, piece_type
+      ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
     `;
 
     const params = [
@@ -371,10 +374,50 @@ class Database {
       analysisData.is_blunder || false,
       analysisData.is_mistake || false,
       analysisData.is_inaccuracy || false,
-      playerColor
+      playerColor,
+      pieceType
     ];
 
     return await this.run(sql, params);
+  }
+
+  /**
+   * Extract piece type from algebraic notation move
+   * Returns: 'P' (pawn), 'N' (knight), 'B' (bishop), 'R' (rook), 'Q' (queen), 'K' (king)
+   * ADR 009 Phase 5.2: Hanging Pieces by Piece Type
+   * @private
+   */
+  _extractPieceTypeFromMove(move) {
+    if (!move || typeof move !== 'string') {
+      return null;
+    }
+
+    // Remove check/checkmate symbols and trim
+    const cleanMove = move.replace(/[+#]$/, '').trim();
+
+    if (cleanMove.length === 0) {
+      return null;
+    }
+
+    // Castling - King move
+    if (cleanMove === 'O-O' || cleanMove === 'O-O-O' || cleanMove === '0-0' || cleanMove === '0-0-0') {
+      return 'K';
+    }
+
+    const firstChar = cleanMove[0];
+
+    // Standard algebraic notation: N, B, R, Q, K prefix for pieces
+    if ('NBRQK'.includes(firstChar)) {
+      return firstChar;
+    }
+
+    // Lowercase first char (a-h) means pawn move
+    if (firstChar >= 'a' && firstChar <= 'h') {
+      return 'P';
+    }
+
+    // Unknown format
+    return null;
   }
 
   // Phase analysis operations

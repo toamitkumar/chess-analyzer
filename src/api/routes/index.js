@@ -15,6 +15,7 @@ const gameRoutes = require('./game.routes');
 const blunderRoutes = require('./blunder.routes');
 const healthRoutes = require('./health.routes');
 const dashboardRoutes = require('./dashboard.routes');
+const tacticsRoutes = require('./tactics.routes');
 const UploadController = require('../controllers/upload.controller');
 // TODO: Add other routes as they're created
 // const puzzleRoutes = require('./puzzle.routes');
@@ -41,6 +42,7 @@ function configureRoutes(middleware = {}) {
   router.use('/blunders', blunderRoutes);
   router.use('/health', healthRoutes);
   router.use('/', dashboardRoutes);  // Dashboard routes mounted at root /api/
+  router.use('/insights/tactics', tacticsRoutes);  // ADR 009 Phase 5.1 - Tactical opportunities
 
   // Mount upload routes with required middleware
   // Note: Authentication is handled by global requireAuth middleware in api-server.js

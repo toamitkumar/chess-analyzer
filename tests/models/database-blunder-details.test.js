@@ -479,4 +479,380 @@ describe('Database - Blunder Details', () => {
       expect(inaccuracies[0].count).toBe(1); // 1 inaccuracy
     });
   });
+
+  describe('Piece Type Extraction (ADR 009 Phase 5.2)', () => {
+    let gameId;
+
+    beforeEach(async () => {
+      // Create a test game
+      const game = await database.run(
+        `INSERT INTO games (pgn_file_path, white_player, black_player, result, date, event, pgn_content)
+         VALUES (?, ?, ?, ?, ?, ?, ?)`,
+        ['test.pgn', TARGET_PLAYER, 'Opponent', '1-0', '2024-01-01', 'Test Event', 'test pgn']
+      );
+      gameId = game.lastID;
+    });
+
+    test('should extract Pawn (P) for lowercase moves like e4, d5', async () => {
+      await database.insertAnalysis(gameId, {
+        move_number: 1,
+        move: 'e4',
+        fen_before: 'rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1',
+        best_move: 'd4',
+        is_blunder: true,
+        categorization: {
+          phase: 'opening',
+          tactical_theme: 'hanging_piece',
+          position_type: 'tactical',
+          blunder_severity: 'major',
+          difficulty_level: 2
+        }
+      });
+
+      const blunder = await database.get(
+        'SELECT piece_type FROM blunder_details WHERE game_id = ?',
+        [gameId]
+      );
+
+      expect(blunder.piece_type).toBe('P');
+    });
+
+    test('should extract Knight (N) for Nf3, Nc6 moves', async () => {
+      await database.insertAnalysis(gameId, {
+        move_number: 1,
+        move: 'Nf3',
+        fen_before: 'rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1',
+        best_move: 'e4',
+        is_blunder: true,
+        categorization: {
+          phase: 'opening',
+          tactical_theme: 'hanging_piece',
+          position_type: 'tactical',
+          blunder_severity: 'major',
+          difficulty_level: 2
+        }
+      });
+
+      const blunder = await database.get(
+        'SELECT piece_type FROM blunder_details WHERE game_id = ?',
+        [gameId]
+      );
+
+      expect(blunder.piece_type).toBe('N');
+    });
+
+    test('should extract Bishop (B) for Bc4, Bb5 moves', async () => {
+      await database.insertAnalysis(gameId, {
+        move_number: 1,
+        move: 'Bc4',
+        fen_before: 'rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1',
+        best_move: 'e4',
+        is_blunder: true,
+        categorization: {
+          phase: 'opening',
+          tactical_theme: 'hanging_piece',
+          position_type: 'tactical',
+          blunder_severity: 'major',
+          difficulty_level: 2
+        }
+      });
+
+      const blunder = await database.get(
+        'SELECT piece_type FROM blunder_details WHERE game_id = ?',
+        [gameId]
+      );
+
+      expect(blunder.piece_type).toBe('B');
+    });
+
+    test('should extract Rook (R) for Rd1, Re8 moves', async () => {
+      await database.insertAnalysis(gameId, {
+        move_number: 1,
+        move: 'Rd1',
+        fen_before: 'rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1',
+        best_move: 'e4',
+        is_blunder: true,
+        categorization: {
+          phase: 'opening',
+          tactical_theme: 'hanging_piece',
+          position_type: 'tactical',
+          blunder_severity: 'major',
+          difficulty_level: 2
+        }
+      });
+
+      const blunder = await database.get(
+        'SELECT piece_type FROM blunder_details WHERE game_id = ?',
+        [gameId]
+      );
+
+      expect(blunder.piece_type).toBe('R');
+    });
+
+    test('should extract Queen (Q) for Qd2, Qh5 moves', async () => {
+      await database.insertAnalysis(gameId, {
+        move_number: 1,
+        move: 'Qh5',
+        fen_before: 'rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1',
+        best_move: 'e4',
+        is_blunder: true,
+        categorization: {
+          phase: 'opening',
+          tactical_theme: 'hanging_piece',
+          position_type: 'tactical',
+          blunder_severity: 'major',
+          difficulty_level: 2
+        }
+      });
+
+      const blunder = await database.get(
+        'SELECT piece_type FROM blunder_details WHERE game_id = ?',
+        [gameId]
+      );
+
+      expect(blunder.piece_type).toBe('Q');
+    });
+
+    test('should extract King (K) for Ke2, Kd2 moves', async () => {
+      await database.insertAnalysis(gameId, {
+        move_number: 1,
+        move: 'Ke2',
+        fen_before: 'rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1',
+        best_move: 'e4',
+        is_blunder: true,
+        categorization: {
+          phase: 'opening',
+          tactical_theme: 'hanging_piece',
+          position_type: 'tactical',
+          blunder_severity: 'major',
+          difficulty_level: 2
+        }
+      });
+
+      const blunder = await database.get(
+        'SELECT piece_type FROM blunder_details WHERE game_id = ?',
+        [gameId]
+      );
+
+      expect(blunder.piece_type).toBe('K');
+    });
+
+    test('should extract King (K) for O-O (kingside castling)', async () => {
+      await database.insertAnalysis(gameId, {
+        move_number: 1,
+        move: 'O-O',
+        fen_before: 'rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1',
+        best_move: 'e4',
+        is_blunder: true,
+        categorization: {
+          phase: 'opening',
+          tactical_theme: 'hanging_piece',
+          position_type: 'tactical',
+          blunder_severity: 'major',
+          difficulty_level: 2
+        }
+      });
+
+      const blunder = await database.get(
+        'SELECT piece_type FROM blunder_details WHERE game_id = ?',
+        [gameId]
+      );
+
+      expect(blunder.piece_type).toBe('K');
+    });
+
+    test('should extract King (K) for O-O-O (queenside castling)', async () => {
+      await database.insertAnalysis(gameId, {
+        move_number: 1,
+        move: 'O-O-O',
+        fen_before: 'rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1',
+        best_move: 'e4',
+        is_blunder: true,
+        categorization: {
+          phase: 'opening',
+          tactical_theme: 'hanging_piece',
+          position_type: 'tactical',
+          blunder_severity: 'major',
+          difficulty_level: 2
+        }
+      });
+
+      const blunder = await database.get(
+        'SELECT piece_type FROM blunder_details WHERE game_id = ?',
+        [gameId]
+      );
+
+      expect(blunder.piece_type).toBe('K');
+    });
+
+    test('should extract King (K) for 0-0 (alternate castling notation)', async () => {
+      await database.insertAnalysis(gameId, {
+        move_number: 1,
+        move: '0-0',
+        fen_before: 'rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1',
+        best_move: 'e4',
+        is_blunder: true,
+        categorization: {
+          phase: 'opening',
+          tactical_theme: 'hanging_piece',
+          position_type: 'tactical',
+          blunder_severity: 'major',
+          difficulty_level: 2
+        }
+      });
+
+      const blunder = await database.get(
+        'SELECT piece_type FROM blunder_details WHERE game_id = ?',
+        [gameId]
+      );
+
+      expect(blunder.piece_type).toBe('K');
+    });
+
+    test('should extract Pawn (P) for pawn capture moves like exd5', async () => {
+      await database.insertAnalysis(gameId, {
+        move_number: 1,
+        move: 'exd5',
+        fen_before: 'rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1',
+        best_move: 'd4',
+        is_blunder: true,
+        categorization: {
+          phase: 'opening',
+          tactical_theme: 'hanging_piece',
+          position_type: 'tactical',
+          blunder_severity: 'major',
+          difficulty_level: 2
+        }
+      });
+
+      const blunder = await database.get(
+        'SELECT piece_type FROM blunder_details WHERE game_id = ?',
+        [gameId]
+      );
+
+      expect(blunder.piece_type).toBe('P');
+    });
+
+    test('should handle moves with check indicator (+)', async () => {
+      await database.insertAnalysis(gameId, {
+        move_number: 1,
+        move: 'Qh5+',
+        fen_before: 'rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1',
+        best_move: 'e4',
+        is_blunder: true,
+        categorization: {
+          phase: 'opening',
+          tactical_theme: 'hanging_piece',
+          position_type: 'tactical',
+          blunder_severity: 'major',
+          difficulty_level: 2
+        }
+      });
+
+      const blunder = await database.get(
+        'SELECT piece_type FROM blunder_details WHERE game_id = ?',
+        [gameId]
+      );
+
+      expect(blunder.piece_type).toBe('Q');
+    });
+
+    test('should handle moves with checkmate indicator (#)', async () => {
+      await database.insertAnalysis(gameId, {
+        move_number: 1,
+        move: 'Qf7#',
+        fen_before: 'rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1',
+        best_move: 'e4',
+        is_blunder: true,
+        categorization: {
+          phase: 'opening',
+          tactical_theme: 'hanging_piece',
+          position_type: 'tactical',
+          blunder_severity: 'major',
+          difficulty_level: 2
+        }
+      });
+
+      const blunder = await database.get(
+        'SELECT piece_type FROM blunder_details WHERE game_id = ?',
+        [gameId]
+      );
+
+      expect(blunder.piece_type).toBe('Q');
+    });
+
+    test('should handle piece capture moves like Nxe5', async () => {
+      await database.insertAnalysis(gameId, {
+        move_number: 1,
+        move: 'Nxe5',
+        fen_before: 'rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1',
+        best_move: 'e4',
+        is_blunder: true,
+        categorization: {
+          phase: 'opening',
+          tactical_theme: 'hanging_piece',
+          position_type: 'tactical',
+          blunder_severity: 'major',
+          difficulty_level: 2
+        }
+      });
+
+      const blunder = await database.get(
+        'SELECT piece_type FROM blunder_details WHERE game_id = ?',
+        [gameId]
+      );
+
+      expect(blunder.piece_type).toBe('N');
+    });
+
+    test('should not insert blunder when move is null/empty', async () => {
+      // When move is null, the blunder details cannot be inserted due to NOT NULL constraint on player_move
+      await database.insertAnalysis(gameId, {
+        move_number: 1,
+        move: null,
+        fen_before: 'rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1',
+        best_move: 'e4',
+        is_blunder: true,
+        categorization: {
+          phase: 'opening',
+          tactical_theme: 'hanging_piece',
+          position_type: 'tactical',
+          blunder_severity: 'major',
+          difficulty_level: 2
+        }
+      });
+
+      const blunder = await database.get(
+        'SELECT piece_type FROM blunder_details WHERE game_id = ?',
+        [gameId]
+      );
+
+      // Blunder should not be inserted when move is null
+      expect(blunder).toBeUndefined();
+    });
+
+    test('should handle disambiguation moves like Nbd2, R1d2', async () => {
+      await database.insertAnalysis(gameId, {
+        move_number: 1,
+        move: 'Nbd2',
+        fen_before: 'rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1',
+        best_move: 'e4',
+        is_blunder: true,
+        categorization: {
+          phase: 'opening',
+          tactical_theme: 'hanging_piece',
+          position_type: 'tactical',
+          blunder_severity: 'major',
+          difficulty_level: 2
+        }
+      });
+
+      const blunder = await database.get(
+        'SELECT piece_type FROM blunder_details WHERE game_id = ?',
+        [gameId]
+      );
+
+      expect(blunder.piece_type).toBe('N');
+    });
+  });
 });

@@ -299,6 +299,71 @@ class BlunderService {
   }
 
   /**
+   * Get hanging pieces breakdown by piece type (ADR 009 Phase 5.2)
+   * Shows which pieces the user most commonly loses/hangs
+   * @param {string} userId - User ID
+   * @returns {Promise<object>} Breakdown of blunders by piece type
+   */
+  async getHangingPiecesByType(userId) {
+    // Query blunders grouped by piece_type
+    const pieceBreakdown = await this.database.all(`
+      SELECT
+        bd.piece_type,
+        COUNT(*) as count,
+        AVG(bd.centipawn_loss) as avgLoss
+      FROM blunder_details bd
+      JOIN games g ON bd.game_id = g.id
+      WHERE g.user_id = ?
+        AND bd.player_color = g.user_color
+        AND bd.is_blunder = TRUE
+        AND bd.piece_type IS NOT NULL
+      GROUP BY bd.piece_type
+      ORDER BY count DESC
+    `, [userId]);
+
+    // Calculate total for percentages
+    const total = pieceBreakdown.reduce((sum, row) => sum + row.count, 0);
+
+    // Map piece types to full names
+    const pieceNames = {
+      'P': 'Pawn',
+      'N': 'Knight',
+      'B': 'Bishop',
+      'R': 'Rook',
+      'Q': 'Queen',
+      'K': 'King'
+    };
+
+    // Format response with percentages
+    const byPiece = pieceBreakdown.map(row => ({
+      pieceType: row.piece_type,
+      pieceName: pieceNames[row.piece_type] || row.piece_type,
+      count: row.count,
+      percentage: total > 0 ? Math.round((row.count / total) * 100) : 0,
+      avgCentipawnLoss: Math.round(row.avgLoss || 0)
+    }));
+
+    // Ensure all piece types are represented (even with 0)
+    const allPieceTypes = ['P', 'N', 'B', 'R', 'Q', 'K'];
+    const completeBreakdown = allPieceTypes.map(pieceType => {
+      const existing = byPiece.find(p => p.pieceType === pieceType);
+      return existing || {
+        pieceType,
+        pieceName: pieceNames[pieceType],
+        count: 0,
+        percentage: 0,
+        avgCentipawnLoss: 0
+      };
+    });
+
+    return {
+      total,
+      byPiece: completeBreakdown,
+      mostCommon: byPiece.length > 0 ? byPiece[0] : null
+    };
+  }
+
+  /**
    * Mark a blunder as learned
    * @param {number} blunderId - Blunder ID
    * @param {string} userId - User ID (for security check)

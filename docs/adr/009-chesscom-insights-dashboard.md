@@ -1,7 +1,7 @@
 # ADR 009: Chess.com Insights Dashboard Features
 
 ## Status
-Proposed
+**Partially Implemented** (Phases 1-3 Complete, Phase 5 Planned)
 
 ## Context
 This ADR documents features from Chess.com's Insights dashboard (https://www.chess.com/insights) that should be considered for future implementation in our chess analysis platform. These features provide comprehensive game analysis and performance tracking that would enhance user experience.
@@ -281,7 +281,7 @@ Endgame     | 72.6% | 80.5%
 
 ## Implementation Phases
 
-### Phase 1: Extend DashboardService (Backend) - Priority: HIGH
+### Phase 1: Extend DashboardService (Backend) - ✅ COMPLETE
 - [x] Track game phase where game ended (Migration 002 - `phase_stats` table)
 - [x] Calculate accuracy per game phase (per-game: `/api/games/:id/phases`)
 - [x] Track opening statistics schema (`opening_stats` table exists)
@@ -289,34 +289,192 @@ Endgame     | 72.6% | 80.5%
 - [x] **DONE**: Tactical patterns by phase & theme (`/api/blunders/dashboard`)
 - [x] **DONE**: Blunders by phase (`/api/blunders/by-phase/:phase`)
 - [x] **DONE**: Blunders by theme (`/api/blunders/by-theme/:theme`)
-- [ ] **NEW**: Add `getAccuracyByResult()` method to `DashboardService.js`
-- [ ] **NEW**: Add `getPhaseDistribution()` method to `DashboardService.js`
-- [ ] **NEW**: Add `getAccuracyByPhase()` method to `DashboardService.js` (aggregate cross-game)
-- [ ] **NEW**: Add `getOpeningPerformance()` method to `DashboardService.js`
+- [x] **DONE**: Add `getAccuracyByResult()` method to `DashboardService.js`
+- [x] **DONE**: Add `getPhaseDistribution()` method to `DashboardService.js`
+- [x] **DONE**: Add `getAccuracyByPhase()` method to `DashboardService.js` (aggregate cross-game)
+- [x] **DONE**: Add `getOpeningPerformance()` method to `DashboardService.js`
 
-### Phase 2: Add API Endpoints to Dashboard Routes - Priority: HIGH
-Add to `dashboard.routes.js`:
-- [ ] `GET /api/insights/accuracy` - Accuracy by result (win/draw/loss)
-- [ ] `GET /api/insights/phases` - Aggregate phase distribution (% games ending in each phase)
-- [ ] `GET /api/insights/accuracy-by-phase` - Average accuracy per phase across all games
-- [ ] `GET /api/insights/openings` - Top 10 openings with W/D/L stats
+### Phase 2: Add API Endpoints to Dashboard Routes - ✅ COMPLETE
+Added to `dashboard.routes.js`:
+- [x] `GET /api/insights/accuracy` - Accuracy by result (win/draw/loss)
+- [x] `GET /api/insights/phases` - Aggregate phase distribution (% games ending in each phase)
+- [x] `GET /api/insights/accuracy-by-phase` - Average accuracy per phase across all games
+- [x] `GET /api/insights/openings` - Top 10 openings with W/D/L stats
 - [x] ~~`GET /api/insights/tactics/summary`~~ - **Use `/api/blunders/dashboard` instead**
-- [ ] `GET /api/insights/tactics/hanging-by-piece` - Hanging pieces grouped by piece type (optional enhancement)
 
-### Phase 3: Frontend Dashboard Components - Priority: MEDIUM
-Add to existing dashboard page:
-- [ ] Accuracy by result card (chess.com style green gradient)
-- [ ] Game phases distribution chart (bar/pie)
-- [ ] Accuracy by phase chart (filterable by color)
-- [ ] Opening performance table with W/D/L progress bars
-- [ ] Tactical patterns card (**Reuse data from `/api/blunders/dashboard`**)
+### Phase 3: Frontend Dashboard Components - ✅ COMPLETE
+Created new `/insights` page with:
+- [x] Accuracy by Result card (wins/draws/losses breakdown)
+- [x] Phase Distribution card (where games typically end)
+- [x] Accuracy by Phase card (opening/middlegame/endgame)
+- [x] Opening Performance table with W/D/L progress bars (responsive: table on desktop, cards on mobile)
+- [x] Tactical Patterns card (reuses `/api/blunders/dashboard` data)
+- [x] Color filter (All/White/Black) for all insights
+- [x] Navigation link added to desktop and mobile layouts
 
-### Phase 4: Advanced Features - Priority: LOW
+### Phase 4: Minor Enhancements - Priority: LOW
 - [ ] Similar players comparison (requires rating-based grouping)
 - [ ] Past performance trends (time-series data) - **Partial: `/api/blunders/timeline` exists**
-- [ ] Drill-down to specific games/positions
+- [ ] Drill-down to specific games/positions from insights
 - [ ] Export insights report
-- [ ] Opponent blunder tracking (free pieces you missed)
+
+### Phase 5: Advanced Tactical Features - Priority: MEDIUM
+**These features require new backend infrastructure:**
+
+#### 5.1 Found vs Missed Tactical Opportunities
+Track when player found or missed tactical patterns (forks, pins, skewers).
+
+**Current State:** We only track blunders (missed tactics by the player). We don't track:
+- Tactical opportunities that existed in the position
+- Whether the player found and executed the tactic
+
+**Implementation Plan:**
+
+1. **Database Schema Changes** (New Migration)
+```sql
+CREATE TABLE tactical_opportunities (
+  id INTEGER PRIMARY KEY,
+  game_id INTEGER REFERENCES games(id),
+  move_number INTEGER,
+  player_color TEXT,              -- 'white' or 'black'
+  tactic_type TEXT,               -- 'fork', 'pin', 'skewer', 'discovered_attack'
+  attacking_piece TEXT,           -- 'N', 'B', 'R', 'Q', 'P'
+  target_pieces TEXT,             -- JSON array: ['Q', 'R'] for fork
+  was_found BOOLEAN,              -- TRUE if player executed the tactic
+  best_move TEXT,                 -- The move that executes the tactic
+  played_move TEXT,               -- What the player actually played
+  eval_gain INTEGER,              -- Centipawn gain if found
+  fen_position TEXT,
+  created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+);
+
+CREATE INDEX idx_tactical_opp_game ON tactical_opportunities(game_id);
+CREATE INDEX idx_tactical_opp_type ON tactical_opportunities(tactic_type);
+CREATE INDEX idx_tactical_opp_found ON tactical_opportunities(was_found);
+```
+
+2. **Backend Changes**
+   - Extend `tactical-detector.js` to detect opportunities in ANY position (not just blunders)
+   - During analysis, for each position:
+     - Run tactical detection on the position
+     - Compare player's move with detected tactics
+     - Record if tactic was found or missed
+   - Add `TacticalOpportunityService.js` with methods:
+     - `getFoundVsMissed(userId, tacticType)` - Returns found/missed counts
+     - `getByPieceType(userId, tacticType)` - Group by attacking piece
+
+3. **API Endpoints**
+   - `GET /api/insights/tactics/opportunities` - Found vs missed summary
+   - `GET /api/insights/tactics/forks` - Fork opportunities breakdown
+   - `GET /api/insights/tactics/pins` - Pin opportunities breakdown
+
+4. **Frontend**
+   - Add "Found vs Missed" card showing percentages
+   - Breakdown by tactic type (forks, pins, skewers)
+   - Drill-down to specific missed opportunities
+
+**Effort Estimate:** 3-4 days
+
+---
+
+#### 5.2 Hanging Pieces by Piece Type
+Track which piece types the player leaves hanging most often.
+
+**Current State:** We track `hanging_piece` as a tactical theme but don't store which piece was hanging.
+
+**Implementation Plan:**
+
+1. **Database Schema Changes** (Extend existing table)
+```sql
+ALTER TABLE blunder_details ADD COLUMN piece_type TEXT;
+-- Values: 'P' (pawn), 'N' (knight), 'B' (bishop), 'R' (rook), 'Q' (queen)
+```
+
+2. **Backend Changes**
+   - Modify `tactical-detector.js` `detectHangingPiece()` to return the piece type
+   - Update blunder recording to include `piece_type`
+   - Add aggregation method to `BlunderService.js`:
+     - `getHangingPiecesByType(userId)` - Group blunders by piece_type
+
+3. **API Endpoints**
+   - `GET /api/insights/tactics/hanging-by-piece` - Hanging pieces grouped by type
+
+4. **Frontend**
+   - Add breakdown showing: Pawns: X, Knights: Y, Bishops: Z, etc.
+   - Visual indicator (piece icons with counts)
+
+**Effort Estimate:** 1-2 days
+
+---
+
+#### 5.3 Free Pieces (Opponent Blunders)
+Track pieces the opponent left hanging - did we capture them or miss the opportunity?
+
+**Current State:** We only analyze the player's moves, not opponent mistakes.
+
+**Implementation Plan:**
+
+1. **Database Schema Changes** (New table)
+```sql
+CREATE TABLE opponent_blunders (
+  id INTEGER PRIMARY KEY,
+  game_id INTEGER REFERENCES games(id),
+  move_number INTEGER,
+  player_color TEXT,              -- Player's color (who could capture)
+  opponent_piece TEXT,            -- Piece opponent left hanging: 'N', 'B', etc.
+  was_captured BOOLEAN,           -- Did player capture it?
+  capture_move TEXT,              -- The capturing move (if found)
+  played_move TEXT,               -- What player actually played
+  piece_value INTEGER,            -- Material value missed (1=P, 3=N/B, 5=R, 9=Q)
+  fen_position TEXT,
+  created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+);
+
+CREATE INDEX idx_opp_blunder_game ON opponent_blunders(game_id);
+CREATE INDEX idx_opp_blunder_captured ON opponent_blunders(was_captured);
+```
+
+2. **Backend Changes**
+   - Extend analysis to check opponent's position after their move
+   - Detect if opponent left pieces hanging (undefended and attackable)
+   - Record whether player captured or missed the free piece
+   - Add `OpponentBlunderService.js`:
+     - `getFreePiecesStats(userId)` - Found vs missed free pieces
+     - `getByPieceType(userId)` - Group by opponent's piece type
+     - `getMissedMaterial(userId)` - Total material value missed
+
+3. **API Endpoints**
+   - `GET /api/insights/tactics/free-pieces` - Opponent blunders summary
+   - `GET /api/insights/tactics/free-pieces/missed` - Missed captures detail
+
+4. **Frontend**
+   - "Free Pieces" card showing:
+     - Found: X pieces captured (Y material)
+     - Missed: Z pieces not captured (W material)
+   - Breakdown by piece type
+   - Link to review missed opportunities
+
+**Effort Estimate:** 3-4 days
+
+---
+
+#### Phase 5 Summary
+
+| Feature | Database | Backend | API | Frontend | Total |
+|---------|----------|---------|-----|----------|-------|
+| Found vs Missed Tactics | New table | New service + detector changes | 3 endpoints | 1 card | 3-4 days |
+| Hanging by Piece Type | Column addition | Minor changes | 1 endpoint | UI update | 1-2 days |
+| Free Pieces (Opponent) | New table | New service + analysis changes | 2 endpoints | 1 card | 3-4 days |
+| **Total** | | | | | **7-10 days** |
+
+**Dependencies:**
+- Stockfish analysis must run on opponent positions (increases analysis time ~50%)
+- Need to reanalyze existing games to populate new data (backfill job)
+
+**Priority Order:**
+1. Hanging by Piece Type (easiest, builds on existing data)
+2. Found vs Missed Tactics (high value, moderate complexity)
+3. Free Pieces (most complex, requires opponent analysis)
 
 ## Database Schema Status
 
@@ -478,20 +636,36 @@ The insights APIs should be added to the **existing dashboard controller/service
 
 ## Effort Estimate
 
-**Revised estimate after discovering existing blunder infrastructure:**
+### Completed Work (Phases 1-3)
 
-| Phase | Original | Revised | Notes |
-|-------|----------|---------|-------|
-| Phase 1: Aggregation Service | 2-3 days | **1-2 days** | Tactical patterns already exist |
-| Phase 2: API Endpoints | 1-2 days | **1 day** | Only 4 new endpoints needed |
-| Phase 3: Frontend Dashboard | 3-4 days | **2-3 days** | Can reuse blunder dashboard patterns |
-| Phase 4: Advanced Features | 2-3 days | 2-3 days | No change |
-| **Total** | **8-12 days** | **6-9 days** | ~25% reduction |
+| Phase | Estimated | Actual | Notes |
+|-------|-----------|--------|-------|
+| Phase 1: Aggregation Service | 1-2 days | ✅ Complete | 4 new methods + 22 tests |
+| Phase 2: API Endpoints | 1 day | ✅ Complete | 4 endpoints + 12 tests |
+| Phase 3: Frontend Dashboard | 2-3 days | ✅ Complete | 5 cards + responsive design |
+| **Total Completed** | **4-6 days** | ✅ | |
 
-**Key Savings:**
-- Tactical patterns API: Already implemented (`/api/blunders/dashboard`)
-- Blunders by phase/theme: Already implemented
-- Timeline trends: Already implemented (`/api/blunders/timeline`)
+### Remaining Work (Phases 4-5)
+
+| Phase | Estimate | Notes |
+|-------|----------|-------|
+| Phase 4: Minor Enhancements | 2-3 days | Similar players, drill-down, export |
+| Phase 5: Advanced Tactical Features | 7-10 days | See detailed breakdown above |
+| **Total Remaining** | **9-13 days** | |
+
+### Phase 5 Breakdown
+
+| Feature | Effort | Priority |
+|---------|--------|----------|
+| 5.2 Hanging by Piece Type | 1-2 days | High (easiest win) |
+| 5.1 Found vs Missed Tactics | 3-4 days | Medium |
+| 5.3 Free Pieces (Opponent) | 3-4 days | Low (most complex) |
+
+**Key Considerations for Phase 5:**
+- Requires new database migrations
+- Need backfill job for existing games
+- Opponent analysis increases processing time ~50%
+- Should create GitHub issues for each sub-feature
 
 ## Related ADRs
 - ADR 007: Lichess Game Detail Layout

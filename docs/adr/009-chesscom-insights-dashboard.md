@@ -304,13 +304,14 @@ Added to `dashboard.routes.js`:
 
 ### Phase 3: Frontend Dashboard Components - ✅ COMPLETE
 Created new `/insights` page with:
-- [x] Accuracy by Result card (wins/draws/losses breakdown)
-- [x] Phase Distribution card (where games typically end)
-- [x] Accuracy by Phase card (opening/middlegame/endgame)
-- [x] Opening Performance table with W/D/L progress bars (responsive: table on desktop, cards on mobile)
+- [x] Accuracy by Result card (wins/draws/losses breakdown) — **Issue #100 Image 1**
+- [x] Phase Distribution card (where games typically end) — **Issue #100 Image 2**
+- [x] Accuracy by Phase card (opening/middlegame/endgame) — **Issue #100 Image 3**
+- [x] Opening Performance table with W/D/L progress bars — **Issue #100 Image 4**
 - [x] Tactical Patterns card (reuses `/api/blunders/dashboard` data)
 - [x] Color filter (All/White/Black) for all insights
 - [x] Navigation link added to desktop and mobile layouts
+- [x] Responsive design (mobile card view for openings table)
 
 ### Phase 4: Minor Enhancements - Priority: LOW
 - [ ] Similar players comparison (requires rating-based grouping)
@@ -319,9 +320,19 @@ Created new `/insights` page with:
 - [ ] Export insights report
 
 ### Phase 5: Advanced Tactical Features - Priority: MEDIUM
-**These features require new backend infrastructure:**
+**These features require new backend infrastructure.**
+
+**Reference Screenshots from GitHub Issue #100:**
+- Images 5-6: Forks (found vs missed by piece type)
+- Images 7-8: Pins (found vs missed)
+- Image 9: Hanging Pieces (pieces you left hanging by type)
+- Image 10: Free Pieces (opponent's hanging pieces you found/missed)
+
+---
 
 #### 5.1 Found vs Missed Tactical Opportunities
+**Reference: Issue #100 Images 5-8 (Forks & Pins)**
+
 Track when player found or missed tactical patterns (forks, pins, skewers).
 
 **Current State:** We only track blunders (missed tactics by the player). We don't track:
@@ -378,6 +389,8 @@ CREATE INDEX idx_tactical_opp_found ON tactical_opportunities(was_found);
 ---
 
 #### 5.2 Hanging Pieces by Piece Type
+**Reference: Issue #100 Image 9 (Pieces you left hanging)**
+
 Track which piece types the player leaves hanging most often.
 
 **Current State:** We track `hanging_piece` as a tactical theme but don't store which piece was hanging.
@@ -408,6 +421,8 @@ ALTER TABLE blunder_details ADD COLUMN piece_type TEXT;
 ---
 
 #### 5.3 Free Pieces (Opponent Blunders)
+**Reference: Issue #100 Image 10 (Pieces your opponent left hanging)**
+
 Track pieces the opponent left hanging - did we capture them or miss the opportunity?
 
 **Current State:** We only analyze the player's moves, not opponent mistakes.

@@ -358,23 +358,24 @@ class LearningPathGenerator {
     try {
       const isPostgres = this.db.usePostgres;
       
-      // Calculate review dates based on mastery status
+      // Calculate review dates based on solved status and streak
+      // Solved puzzles: review after 7 days, unsolved: review after 1 day
       const query = isPostgres ? `
         SELECT 
           upp.*,
           pi.themes,
           pi.rating,
           CASE 
-            WHEN upp.mastery_score >= 80 THEN upp.last_attempted + INTERVAL '7 days'
-            WHEN upp.mastery_score >= 50 THEN upp.last_attempted + INTERVAL '3 days'
-            ELSE upp.last_attempted + INTERVAL '1 day'
+            WHEN upp.solved = true AND upp.streak >= 3 THEN upp.last_attempted_at + INTERVAL '7 days'
+            WHEN upp.solved = true THEN upp.last_attempted_at + INTERVAL '3 days'
+            ELSE upp.last_attempted_at + INTERVAL '1 day'
           END as next_review
         FROM user_puzzle_progress upp
         JOIN puzzle_index pi ON upp.puzzle_id = pi.id
-        WHERE upp.user_id = $1 AND CASE 
-          WHEN upp.mastery_score >= 80 THEN upp.last_attempted + INTERVAL '7 days' <= NOW()
-          WHEN upp.mastery_score >= 50 THEN upp.last_attempted + INTERVAL '3 days' <= NOW()
-          ELSE upp.last_attempted + INTERVAL '1 day' <= NOW()
+        WHERE upp.user_id = $1 AND upp.attempts > 0 AND CASE 
+          WHEN upp.solved = true AND upp.streak >= 3 THEN upp.last_attempted_at + INTERVAL '7 days' <= NOW()
+          WHEN upp.solved = true THEN upp.last_attempted_at + INTERVAL '3 days' <= NOW()
+          ELSE upp.last_attempted_at + INTERVAL '1 day' <= NOW()
         END
         ORDER BY next_review ASC
         LIMIT 20
@@ -384,16 +385,16 @@ class LearningPathGenerator {
           pi.themes,
           pi.rating,
           CASE 
-            WHEN upp.mastery_score >= 80 THEN datetime(upp.last_attempted, '+7 days')
-            WHEN upp.mastery_score >= 50 THEN datetime(upp.last_attempted, '+3 days')
-            ELSE datetime(upp.last_attempted, '+1 day')
+            WHEN upp.solved = 1 AND upp.streak >= 3 THEN datetime(upp.last_attempted_at, '+7 days')
+            WHEN upp.solved = 1 THEN datetime(upp.last_attempted_at, '+3 days')
+            ELSE datetime(upp.last_attempted_at, '+1 day')
           END as next_review
         FROM user_puzzle_progress upp
         JOIN puzzle_index pi ON upp.puzzle_id = pi.id
-        WHERE upp.user_id = ? AND CASE 
-          WHEN upp.mastery_score >= 80 THEN datetime(upp.last_attempted, '+7 days') <= datetime('now')
-          WHEN upp.mastery_score >= 50 THEN datetime(upp.last_attempted, '+3 days') <= datetime('now')
-          ELSE datetime(upp.last_attempted, '+1 day') <= datetime('now')
+        WHERE upp.user_id = ? AND upp.attempts > 0 AND CASE 
+          WHEN upp.solved = 1 AND upp.streak >= 3 THEN datetime(upp.last_attempted_at, '+7 days') <= datetime('now')
+          WHEN upp.solved = 1 THEN datetime(upp.last_attempted_at, '+3 days') <= datetime('now')
+          ELSE datetime(upp.last_attempted_at, '+1 day') <= datetime('now')
         END
         ORDER BY next_review ASC
         LIMIT 20

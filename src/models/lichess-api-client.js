@@ -41,7 +41,32 @@ class LichessAPIClient {
       }
 
       // Parse response
-      const puzzle = await response.json();
+      const data = await response.json();
+      
+      // Transform Lichess format to our format
+      const puzzle = {
+        id: data.puzzle.id,
+        rating: data.puzzle.rating,
+        themes: data.puzzle.themes.join(' '),
+        solution: data.puzzle.solution.join(' '),
+        moves: data.puzzle.solution.join(' '),
+        plays: data.puzzle.plays,
+        initialPly: data.puzzle.initialPly,
+        gameUrl: `https://lichess.org/${data.game.id}`,
+        lichessUrl: `https://lichess.org/training/${puzzleId}`
+      };
+
+      // Calculate FEN from PGN at initialPly
+      const { Chess } = require('chess.js');
+      const chess = new Chess();
+      const pgn = data.game.pgn;
+      const moves = pgn.split(' ').filter(m => !m.includes('.'));
+      
+      for (let i = 0; i < data.puzzle.initialPly && i < moves.length; i++) {
+        chess.move(moves[i]);
+      }
+      puzzle.fen = chess.fen();
+
       return puzzle;
 
     } catch (error) {

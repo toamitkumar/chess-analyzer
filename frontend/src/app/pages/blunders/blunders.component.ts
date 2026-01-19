@@ -4,7 +4,6 @@ import { RouterModule } from '@angular/router';
 import { HttpClientModule } from '@angular/common/http';
 import { LayoutComponent } from '../../components/layout/layout.component';
 import { ChessApiService } from '../../services/chess-api.service';
-import { PuzzleService } from '../../services/puzzle.service';
 import { StatCardComponent } from '../../components/stat-card.component';
 import { AlertTriangle, BarChart, TrendingDown, CheckCircle } from 'lucide-angular';
 
@@ -428,10 +427,7 @@ export class BlundersComponent implements OnInit {
   TrendingDown = TrendingDown;
   CheckCircle = CheckCircle;
 
-  constructor(
-    private apiService: ChessApiService,
-    private puzzleService: PuzzleService
-  ) {}
+  constructor(private apiService: ChessApiService) {}
 
   ngOnInit(): void {
     this.loadDashboardData();
@@ -459,43 +455,14 @@ export class BlundersComponent implements OnInit {
   loadPuzzleCounts(): void {
     if (!this.dashboardData) return;
     
-    // Get unique themes from patterns
-    const themes = this.dashboardData.topPatterns.map(p => p.theme);
-    themes.forEach(theme => {
-      // Map blunder themes to Lichess puzzle themes
-      const lichessTheme = this.mapToLichessTheme(theme);
-      this.puzzleService.getRecommendations(100, 1500).subscribe({
-        next: (puzzles) => {
-          // Count puzzles matching this theme
-          const count = puzzles.filter(p => 
-            p.themes?.toLowerCase().includes(lichessTheme.toLowerCase())
-          ).length;
-          this.puzzleCounts.set(theme, count > 0 ? count : this.getEstimatedCount(theme));
-        },
-        error: () => {
-          this.puzzleCounts.set(theme, this.getEstimatedCount(theme));
-        }
-      });
+    // Use estimated counts - no API calls needed for display
+    this.dashboardData.topPatterns.forEach(pattern => {
+      this.puzzleCounts.set(pattern.theme, this.getEstimatedCount(pattern.theme));
     });
   }
 
-  mapToLichessTheme(blunderTheme: string): string {
-    const mapping: Record<string, string> = {
-      'hanging_piece': 'hangingPiece',
-      'fork': 'fork',
-      'pin': 'pin',
-      'skewer': 'skewer',
-      'discovered_attack': 'discoveredAttack',
-      'back_rank': 'backRankMate',
-      'trapped_piece': 'trappedPiece',
-      'overloaded_piece': 'overloading',
-      'undefended_piece': 'hangingPiece'
-    };
-    return mapping[blunderTheme] || blunderTheme;
-  }
-
   getEstimatedCount(theme: string): number {
-    // Estimated puzzle counts based on Lichess database
+    // Estimated puzzle counts based on Lichess database (~3M puzzles)
     const estimates: Record<string, number> = {
       'hanging_piece': 50000,
       'fork': 80000,
@@ -505,9 +472,13 @@ export class BlundersComponent implements OnInit {
       'back_rank': 20000,
       'trapped_piece': 10000,
       'overloaded_piece': 8000,
-      'undefended_piece': 30000
+      'undefended_piece': 30000,
+      'positional_error': 100000,
+      'king_safety': 40000,
+      'bad_piece_placement': 15000,
+      'wrong_capture': 25000
     };
-    return estimates[theme] || 1000;
+    return estimates[theme] || 5000;
   }
 
   getPuzzleCount(theme: string): string {

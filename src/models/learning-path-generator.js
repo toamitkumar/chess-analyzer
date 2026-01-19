@@ -58,7 +58,7 @@ class LearningPathGenerator {
 
       // Step 3: Calculate priority scores
       const priorities = blunderThemes.map(theme => ({
-        theme: theme.tactical_theme,
+        theme: this.mapToLichessTheme(theme.tactical_theme),
         frequency: theme.count,
         mastery: themeMastery[theme.tactical_theme] || 0,
         priority: this.calculatePriority(theme.count, themeMastery[theme.tactical_theme] || 0)
@@ -82,12 +82,39 @@ class LearningPathGenerator {
         recommendations.push(...puzzles);
       }
 
+      // Fallback to popular puzzles if no theme matches found
+      if (recommendations.length === 0) {
+        return await this.getPopularPuzzles(limit, playerRating);
+      }
+
       return recommendations.slice(0, limit);
 
     } catch (error) {
       console.error('[LearningPath] Error generating recommendations:', error.message);
-      return [];
+      return await this.getPopularPuzzles(limit, playerRating);
     }
+  }
+
+  /**
+   * Map blunder themes to Lichess puzzle themes
+   */
+  mapToLichessTheme(blunderTheme) {
+    const mapping = {
+      'hanging_piece': 'hangingPiece',
+      'fork': 'fork',
+      'pin': 'pin',
+      'skewer': 'skewer',
+      'discovered_attack': 'discoveredAttack',
+      'back_rank': 'backRankMate',
+      'trapped_piece': 'trappedPiece',
+      'overloaded_piece': 'overloading',
+      'positional_error': 'advantage',
+      'king_safety': 'kingsideAttack',
+      'bad_piece_placement': 'trappedPiece',
+      'wrong_capture': 'hangingPiece',
+      'missed_tactic': 'short'
+    };
+    return mapping[blunderTheme] || blunderTheme;
   }
 
   /**

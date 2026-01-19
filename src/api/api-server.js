@@ -543,7 +543,7 @@ app.post('/api/puzzles/link', async (req, res) => {
 app.get('/api/learning-path', async (req, res) => {
   try {
     const LearningPathGenerator = require('../models/learning-path-generator');
-    const pathGenerator = new LearningPathGenerator(database);
+    const pathGenerator = new LearningPathGenerator(database, req.userId);
     const learningPath = await pathGenerator.getLearningPath();
     res.json(learningPath);
   } catch (error) {
@@ -557,23 +557,26 @@ app.get('/api/learning-path/recommendations', async (req, res) => {
   try {
     const { limit = 10, rating = 1500, enhanced = false } = req.query;
     const LearningPathGenerator = require('../models/learning-path-generator');
-    const pathGenerator = new LearningPathGenerator(database);
+    const { linkPuzzlesToBlunders } = require('../models/puzzle-blunder-linker');
+    const pathGenerator = new LearningPathGenerator(database, req.userId);
     
+    let recommendations;
     if (enhanced === 'true') {
-      // Enhanced recommendations with spaced repetition and adaptive difficulty
-      const recommendations = await pathGenerator.generateEnhancedRecommendations({
+      recommendations = await pathGenerator.generateEnhancedRecommendations({
         limit: parseInt(limit),
         playerRating: parseInt(rating)
       });
-      res.json(recommendations);
     } else {
-      // Basic recommendations
-      const recommendations = await pathGenerator.generateRecommendations({
+      recommendations = await pathGenerator.generateRecommendations({
         limit: parseInt(limit),
         playerRating: parseInt(rating)
       });
-      res.json({ recommendations });
     }
+
+    // Auto-link recommended puzzles to blunders with matching themes
+    await linkPuzzlesToBlunders(database, recommendations, req.userId);
+
+    res.json(enhanced === 'true' ? recommendations : { recommendations });
   } catch (error) {
     console.error('[API] Error getting recommendations:', error);
     res.status(500).json({ error: 'Failed to get recommendations' });
@@ -584,7 +587,7 @@ app.get('/api/learning-path/recommendations', async (req, res) => {
 app.get('/api/learning-path/daily-goals', async (req, res) => {
   try {
     const LearningPathGenerator = require('../models/learning-path-generator');
-    const pathGenerator = new LearningPathGenerator(database);
+    const pathGenerator = new LearningPathGenerator(database, req.userId);
     const dailyGoals = await pathGenerator.generateDailyGoals();
     res.json(dailyGoals);
   } catch (error) {
@@ -597,7 +600,7 @@ app.get('/api/learning-path/daily-goals', async (req, res) => {
 app.get('/api/learning-path/review', async (req, res) => {
   try {
     const LearningPathGenerator = require('../models/learning-path-generator');
-    const pathGenerator = new LearningPathGenerator(database);
+    const pathGenerator = new LearningPathGenerator(database, req.userId);
     const reviewPuzzles = await pathGenerator.getPuzzlesDueForReview();
     res.json({ puzzles: reviewPuzzles, count: reviewPuzzles.length });
   } catch (error) {
@@ -611,7 +614,7 @@ app.get('/api/learning-path/adaptive-difficulty', async (req, res) => {
   try {
     const { rating = 1500 } = req.query;
     const LearningPathGenerator = require('../models/learning-path-generator');
-    const pathGenerator = new LearningPathGenerator(database);
+    const pathGenerator = new LearningPathGenerator(database, req.userId);
     const adaptiveDifficulty = await pathGenerator.getAdaptiveDifficulty(parseInt(rating));
     res.json(adaptiveDifficulty);
   } catch (error) {
@@ -625,7 +628,7 @@ app.get('/api/learning-path/trends', async (req, res) => {
   try {
     const { days = 30 } = req.query;
     const LearningPathGenerator = require('../models/learning-path-generator');
-    const pathGenerator = new LearningPathGenerator(database);
+    const pathGenerator = new LearningPathGenerator(database, req.userId);
     const trends = await pathGenerator.getPerformanceTrends(parseInt(days));
     res.json(trends);
   } catch (error) {
@@ -638,7 +641,7 @@ app.get('/api/learning-path/trends', async (req, res) => {
 app.get('/api/learning-path/theme-mastery', async (req, res) => {
   try {
     const LearningPathGenerator = require('../models/learning-path-generator');
-    const pathGenerator = new LearningPathGenerator(database);
+    const pathGenerator = new LearningPathGenerator(database, req.userId);
     const themeMastery = await pathGenerator.getThemeMasteryLevels();
     res.json({ themes: themeMastery });
   } catch (error) {
@@ -657,7 +660,7 @@ app.post('/api/puzzle-progress', async (req, res) => {
     }
 
     const PuzzleProgressTracker = require('../models/puzzle-progress-tracker');
-    const progressTracker = new PuzzleProgressTracker(database);
+    const progressTracker = new PuzzleProgressTracker(database, req.userId);
     
     const progress = await progressTracker.recordAttempt(puzzleId, {
       solved: Boolean(solved),
@@ -665,6 +668,12 @@ app.post('/api/puzzle-progress', async (req, res) => {
       movesCount: parseInt(movesCount) || 0,
       hintsUsed: parseInt(hintsUsed) || 0
     });
+
+    // If solved, update linked blunders' learned status
+    if (solved) {
+      const { markLinkedBlundersLearned } = require('../models/puzzle-blunder-linker');
+      await markLinkedBlundersLearned(database, puzzleId);
+    }
 
     res.json({ success: true, progress });
   } catch (error) {
@@ -678,7 +687,7 @@ app.get('/api/puzzle-progress/:puzzleId', async (req, res) => {
   try {
     const { puzzleId } = req.params;
     const PuzzleProgressTracker = require('../models/puzzle-progress-tracker');
-    const progressTracker = new PuzzleProgressTracker(database);
+    const progressTracker = new PuzzleProgressTracker(database, req.userId);
     
     const progress = await progressTracker.getProgress(puzzleId);
     
@@ -698,7 +707,7 @@ app.get('/api/puzzle-progress', async (req, res) => {
   try {
     const { limit = 100, orderBy = 'last_attempted', order = 'DESC', minMastery = 0 } = req.query;
     const PuzzleProgressTracker = require('../models/puzzle-progress-tracker');
-    const progressTracker = new PuzzleProgressTracker(database);
+    const progressTracker = new PuzzleProgressTracker(database, req.userId);
     
     const progress = await progressTracker.getAllProgress({
       limit: parseInt(limit),
@@ -718,7 +727,7 @@ app.get('/api/puzzle-progress', async (req, res) => {
 app.get('/api/puzzle-statistics', async (req, res) => {
   try {
     const PuzzleProgressTracker = require('../models/puzzle-progress-tracker');
-    const progressTracker = new PuzzleProgressTracker(database);
+    const progressTracker = new PuzzleProgressTracker(database, req.userId);
     const statistics = await progressTracker.getStatistics();
     res.json(statistics);
   } catch (error) {

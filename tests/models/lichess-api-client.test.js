@@ -23,28 +23,37 @@ describe('LichessAPIClient', () => {
   });
 
   describe('fetchPuzzle', () => {
-    test('should fetch puzzle successfully', async () => {
-      const mockPuzzle = {
+    test('should fetch and transform puzzle successfully', async () => {
+      const mockLichessResponse = {
         puzzle: {
           id: '00123',
+          rating: 1500,
+          plays: 100,
           solution: ['e2e4', 'e7e5'],
-          themes: ['fork', 'middlegame']
+          themes: ['fork', 'middlegame'],
+          initialPly: 0
         },
         game: {
-          pgn: 'mock pgn'
+          id: 'abc123',
+          pgn: ''
         }
       };
 
       global.fetch.mockResolvedValueOnce({
         ok: true,
         status: 200,
-        json: async () => mockPuzzle
+        json: async () => mockLichessResponse
       });
 
       const result = await client.fetchPuzzle('00123');
 
       expect(global.fetch).toHaveBeenCalledWith('https://lichess.org/api/puzzle/00123');
-      expect(result).toEqual(mockPuzzle);
+      expect(result.id).toBe('00123');
+      expect(result.rating).toBe(1500);
+      expect(result.themes).toBe('fork middlegame');
+      expect(result.moves).toBe('e2e4 e7e5');
+      expect(result.fen).toBeDefined();
+      expect(result.lichessUrl).toBe('https://lichess.org/training/00123');
     });
 
     test('should handle 404 not found', async () => {
@@ -61,6 +70,11 @@ describe('LichessAPIClient', () => {
     });
 
     test('should retry on 429 rate limit', async () => {
+      const mockLichessResponse = {
+        puzzle: { id: '00123', rating: 1500, plays: 100, solution: ['e2e4'], themes: ['fork'], initialPly: 0 },
+        game: { id: 'abc', pgn: '' }
+      };
+
       // First call: rate limited
       global.fetch.mockResolvedValueOnce({
         ok: false,
@@ -69,11 +83,10 @@ describe('LichessAPIClient', () => {
       });
 
       // Second call: success
-      const mockPuzzle = { puzzle: { id: '00123' } };
       global.fetch.mockResolvedValueOnce({
         ok: true,
         status: 200,
-        json: async () => mockPuzzle
+        json: async () => mockLichessResponse
       });
 
       // Mock sleep to avoid actual delay in tests
@@ -83,7 +96,7 @@ describe('LichessAPIClient', () => {
 
       expect(client.sleep).toHaveBeenCalledWith(60000); // 1 minute wait
       expect(global.fetch).toHaveBeenCalledTimes(2);
-      expect(result).toEqual(mockPuzzle);
+      expect(result.id).toBe('00123');
     });
 
     test('should handle network errors gracefully', async () => {

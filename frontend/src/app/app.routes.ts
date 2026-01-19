@@ -65,6 +65,21 @@ export const routes: Routes = [
     loadComponent: () => import('./pages/insights/insights.component').then(m => m.InsightsComponent),
     canActivate: [authGuard]
   },
+  {
+    path: 'puzzles',
+    loadComponent: () => import('./pages/puzzles/puzzles.component').then(m => m.PuzzlesComponent),
+    canActivate: [authGuard]
+  },
+  {
+    path: 'puzzles/:id',
+    loadComponent: () => import('./pages/puzzles/puzzles.component').then(m => m.PuzzlesComponent),
+    canActivate: [authGuard]
+  },
+  {
+    path: 'learning-path',
+    loadComponent: () => import('./pages/learning-path/learning-path.component').then(m => m.LearningPathComponent),
+    canActivate: [authGuard]
+  },
 
   // 404 page
   {

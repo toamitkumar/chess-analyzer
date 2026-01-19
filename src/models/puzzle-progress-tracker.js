@@ -9,8 +9,9 @@
  */
 
 class PuzzleProgressTracker {
-  constructor(database) {
+  constructor(database, userId = 'default_user') {
     this.db = database;
+    this.userId = userId;
   }
 
   /**
@@ -72,14 +73,15 @@ class PuzzleProgressTracker {
           last_attempted_at = ${now},
           solved_at = ${solvedAt},
           updated_at = ${now}
-        WHERE puzzle_id = ?
+        WHERE puzzle_id = ? AND user_id = ?
       `, [
         newAttempts,
         newSolved ? 1 : 0,
         isFirstAttempt && solved ? 1 : (progress.first_attempt_correct || 0),
         newTotalTime,
         newStreak,
-        puzzleId
+        puzzleId,
+        this.userId
       ]);
 
       // Return updated progress
@@ -99,8 +101,8 @@ class PuzzleProgressTracker {
   async getProgress(puzzleId) {
     try {
       const progress = await this.db.get(
-        'SELECT * FROM user_puzzle_progress WHERE puzzle_id = ?',
-        [puzzleId]
+        'SELECT * FROM user_puzzle_progress WHERE puzzle_id = ? AND user_id = ?',
+        [puzzleId, this.userId]
       );
       return progress || null;
     } catch (error) {
@@ -121,10 +123,10 @@ class PuzzleProgressTracker {
 
       await this.db.run(`
         INSERT INTO user_puzzle_progress (
-          puzzle_id, attempts, solved, first_attempt_correct, 
+          puzzle_id, user_id, attempts, solved, first_attempt_correct, 
           total_time_ms, streak, created_at, updated_at
-        ) VALUES (?, 0, 0, 0, 0, 0, ${now}, ${now})
-      `, [puzzleId]);
+        ) VALUES (?, ?, 0, 0, 0, 0, 0, ${now}, ${now})
+      `, [puzzleId, this.userId]);
 
       return await this.getProgress(puzzleId);
     } catch (error) {
@@ -187,10 +189,10 @@ class PuzzleProgressTracker {
     try {
       const progress = await this.db.all(`
         SELECT * FROM user_puzzle_progress
-        WHERE attempts > 0
+        WHERE user_id = ? AND attempts > 0
         ORDER BY ${orderBy} ${order}
         LIMIT ?
-      `, [limit]);
+      `, [this.userId, limit]);
 
       // Calculate mastery scores and filter
       const progressWithMastery = progress.map(p => ({
@@ -219,12 +221,13 @@ class PuzzleProgressTracker {
           SUM(CASE WHEN solved = 1 THEN 1 ELSE 0 END) as total_solved,
           MAX(streak) as best_streak
         FROM user_puzzle_progress
-      `);
+        WHERE user_id = ?
+      `, [this.userId]);
 
       // Calculate average mastery from all puzzles
       const allProgress = await this.db.all(`
-        SELECT * FROM user_puzzle_progress WHERE attempts > 0
-      `);
+        SELECT * FROM user_puzzle_progress WHERE user_id = ? AND attempts > 0
+      `, [this.userId]);
 
       let avgMastery = 0;
       if (allProgress.length > 0) {

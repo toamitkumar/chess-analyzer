@@ -11,8 +11,9 @@
  */
 
 class LearningPathGenerator {
-  constructor(database) {
+  constructor(database, userId = 'default_user') {
     this.db = database;
+    this.userId = userId;
     
     // Spaced repetition intervals (in days)
     this.spacedRepetitionIntervals = {
@@ -124,12 +125,12 @@ class LearningPathGenerator {
           pi.themes
         FROM user_puzzle_progress upp
         JOIN puzzle_index pi ON upp.puzzle_id = pi.id
-        WHERE upp.attempts > 0
-      `);
+        WHERE upp.user_id = ? AND upp.attempts > 0
+      `, [this.userId]);
 
       // Calculate mastery per theme
       const PuzzleProgressTracker = require('./puzzle-progress-tracker');
-      const tracker = new PuzzleProgressTracker(this.db);
+      const tracker = new PuzzleProgressTracker(this.db, this.userId);
 
       const themeScores = {};
       const themeCounts = {};
@@ -255,8 +256,8 @@ class LearningPathGenerator {
           COUNT(*) as puzzles_attempted,
           SUM(CASE WHEN solved = 1 THEN 1 ELSE 0 END) as puzzles_solved
         FROM user_puzzle_progress
-        WHERE last_attempted_at >= ${todayStart}
-      `);
+        WHERE user_id = ? AND last_attempted_at >= ${todayStart}
+      `, [this.userId]);
 
       // Daily goals
       const goals = {
@@ -370,7 +371,7 @@ class LearningPathGenerator {
           END as next_review
         FROM user_puzzle_progress upp
         JOIN puzzle_index pi ON upp.puzzle_id = pi.id
-        WHERE CASE 
+        WHERE upp.user_id = $1 AND CASE 
           WHEN upp.mastery_score >= 80 THEN upp.last_attempted + INTERVAL '7 days' <= NOW()
           WHEN upp.mastery_score >= 50 THEN upp.last_attempted + INTERVAL '3 days' <= NOW()
           ELSE upp.last_attempted + INTERVAL '1 day' <= NOW()
@@ -389,7 +390,7 @@ class LearningPathGenerator {
           END as next_review
         FROM user_puzzle_progress upp
         JOIN puzzle_index pi ON upp.puzzle_id = pi.id
-        WHERE CASE 
+        WHERE upp.user_id = ? AND CASE 
           WHEN upp.mastery_score >= 80 THEN datetime(upp.last_attempted, '+7 days') <= datetime('now')
           WHEN upp.mastery_score >= 50 THEN datetime(upp.last_attempted, '+3 days') <= datetime('now')
           ELSE datetime(upp.last_attempted, '+1 day') <= datetime('now')
@@ -398,7 +399,7 @@ class LearningPathGenerator {
         LIMIT 20
       `;
 
-      const puzzles = await this.db.all(query);
+      const puzzles = await this.db.all(query, [this.userId]);
       return puzzles;
     } catch (error) {
       console.error('[LearningPath] Error getting puzzles due for review:', error.message);
@@ -419,9 +420,10 @@ class LearningPathGenerator {
       const recentPerformance = await this.db.all(`
         SELECT *
         FROM user_puzzle_progress
+        WHERE user_id = ?
         ORDER BY last_attempted_at DESC
         LIMIT 10
-      `);
+      `, [this.userId]);
 
       if (recentPerformance.length === 0) {
         // No history, use base rating
@@ -434,7 +436,7 @@ class LearningPathGenerator {
 
       // Calculate mastery scores
       const PuzzleProgressTracker = require('./puzzle-progress-tracker');
-      const tracker = new PuzzleProgressTracker(this.db);
+      const tracker = new PuzzleProgressTracker(this.db, this.userId);
 
       const masteryScores = recentPerformance.map(p => tracker.calculateMasteryScore(p));
       const avgMastery = masteryScores.reduce((sum, m) => sum + m, 0) / masteryScores.length;
@@ -500,21 +502,21 @@ class LearningPathGenerator {
           SUM(CASE WHEN solved = 1 THEN 1 ELSE 0 END) as puzzles_solved,
           AVG(total_time_ms) as avg_time_ms
         FROM user_puzzle_progress
-        WHERE ${dateFilter}
+        WHERE user_id = ? AND ${dateFilter}
         GROUP BY ${dateGroup}
         ORDER BY date ASC
-      `);
+      `, [this.userId]);
 
       // Calculate mastery for each day
       const PuzzleProgressTracker = require('./puzzle-progress-tracker');
-      const tracker = new PuzzleProgressTracker(this.db);
+      const tracker = new PuzzleProgressTracker(this.db, this.userId);
 
       for (const trend of trends) {
         // Get all puzzles for this day
         const dayPuzzles = await this.db.all(`
           SELECT * FROM user_puzzle_progress
-          WHERE ${dateGroup} = ?
-        `, [trend.date]);
+          WHERE user_id = ? AND ${dateGroup} = ?
+        `, [this.userId, trend.date]);
 
         if (dayPuzzles.length > 0) {
           const totalMastery = dayPuzzles.reduce((sum, p) => sum + tracker.calculateMasteryScore(p), 0);

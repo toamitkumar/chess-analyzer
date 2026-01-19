@@ -57,12 +57,13 @@ class LichessAPIClient {
       };
 
       // Calculate FEN from PGN at initialPly
+      // initialPly is 0-indexed, so play moves 0 through initialPly (inclusive)
       const { Chess } = require('chess.js');
       const chess = new Chess();
       const pgn = data.game.pgn;
       const moves = pgn.split(' ').filter(m => !m.includes('.'));
       
-      for (let i = 0; i < data.puzzle.initialPly && i < moves.length; i++) {
+      for (let i = 0; i <= data.puzzle.initialPly && i < moves.length; i++) {
         chess.move(moves[i]);
       }
       puzzle.fen = chess.fen();

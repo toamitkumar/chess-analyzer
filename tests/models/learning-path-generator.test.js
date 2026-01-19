@@ -409,4 +409,73 @@ describe('LearningPathGenerator', () => {
       });
     });
   });
+
+  describe('getPuzzlesForTheme', () => {
+    test('should exclude recently solved puzzles', async () => {
+      // Insert test puzzle with high popularity
+      await db.run(`
+        INSERT OR IGNORE INTO puzzle_index (id, themes, rating, popularity)
+        VALUES ('test_puzzle_1', 'fork middlegame', 1500, 999)
+      `);
+
+      // Record a recent attempt
+      await db.run(`
+        INSERT INTO user_puzzle_progress (puzzle_id, user_id, attempts, solved, last_attempted_at)
+        VALUES ('test_puzzle_1', 'default_user', 1, 1, datetime('now'))
+      `);
+
+      const puzzles = await generator.getPuzzlesForTheme('fork', 1500, 10);
+      const ids = puzzles.map(p => p.id);
+      
+      expect(ids).not.toContain('test_puzzle_1');
+    });
+
+    test('should include puzzles attempted more than 1 day ago', async () => {
+      await db.run(`
+        INSERT OR IGNORE INTO puzzle_index (id, themes, rating, popularity)
+        VALUES ('test_puzzle_old', 'fork middlegame', 1500, 999)
+      `);
+
+      await db.run(`
+        INSERT INTO user_puzzle_progress (puzzle_id, user_id, attempts, solved, last_attempted_at)
+        VALUES ('test_puzzle_old', 'default_user', 1, 1, datetime('now', '-2 days'))
+      `);
+
+      const puzzles = await generator.getPuzzlesForTheme('fork', 1500, 10);
+      const ids = puzzles.map(p => p.id);
+      
+      expect(ids).toContain('test_puzzle_old');
+    });
+
+    test('should include never-attempted puzzles', async () => {
+      await db.run(`
+        INSERT OR IGNORE INTO puzzle_index (id, themes, rating, popularity)
+        VALUES ('test_puzzle_new', 'fork middlegame', 1500, 999)
+      `);
+
+      const puzzles = await generator.getPuzzlesForTheme('fork', 1500, 10);
+      const ids = puzzles.map(p => p.id);
+      
+      expect(ids).toContain('test_puzzle_new');
+    });
+  });
+
+  describe('getPopularPuzzles', () => {
+    test('should exclude recently solved puzzles', async () => {
+      await db.run(`
+        INSERT OR IGNORE INTO puzzle_index (id, themes, rating, popularity)
+        VALUES ('popular_recent', 'advantage', 1500, 999)
+      `);
+
+      await db.run(`
+        INSERT INTO user_puzzle_progress (puzzle_id, user_id, attempts, solved, last_attempted_at)
+        VALUES ('popular_recent', 'default_user', 1, 1, datetime('now'))
+      `);
+
+      const puzzles = await generator.getPopularPuzzles(10, 1500);
+      const ids = puzzles.map(p => p.id);
+      
+      expect(ids).not.toContain('popular_recent');
+    });
+  });
 });

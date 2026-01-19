@@ -205,11 +205,13 @@ class LearningPathGenerator {
       const ratingMax = playerRating + 200;
 
       const puzzles = await this.db.all(`
-        SELECT id, themes, rating, popularity
-        FROM puzzle_index
-        WHERE themes LIKE ?
-        AND rating BETWEEN ? AND ?
-        ORDER BY popularity DESC
+        SELECT p.id, p.themes, p.rating, p.popularity
+        FROM puzzle_index p
+        LEFT JOIN user_puzzle_progress upp ON p.id = upp.puzzle_id
+        WHERE p.themes LIKE ?
+        AND p.rating BETWEEN ? AND ?
+        AND (upp.puzzle_id IS NULL OR upp.last_attempted_at < datetime('now', '-1 day'))
+        ORDER BY p.popularity DESC
         LIMIT ?
       `, [`%${theme}%`, ratingMin, ratingMax, limit]);
 
@@ -232,10 +234,12 @@ class LearningPathGenerator {
       const ratingMax = playerRating + 200;
 
       const puzzles = await this.db.all(`
-        SELECT id, themes, rating, popularity
-        FROM puzzle_index
-        WHERE rating BETWEEN ? AND ?
-        ORDER BY popularity DESC
+        SELECT p.id, p.themes, p.rating, p.popularity
+        FROM puzzle_index p
+        LEFT JOIN user_puzzle_progress upp ON p.id = upp.puzzle_id
+        WHERE p.rating BETWEEN ? AND ?
+        AND (upp.puzzle_id IS NULL OR upp.last_attempted_at < datetime('now', '-1 day'))
+        ORDER BY p.popularity DESC
         LIMIT ?
       `, [ratingMin, ratingMax, limit]);
 

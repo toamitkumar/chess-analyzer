@@ -1,7 +1,7 @@
 # ADR 010: Lichess Puzzle Integration - API-First Hybrid Architecture
 
 ## Status
-**In Progress** (Phases 1-3 Backend Complete, Phase 4 UI Pending)
+**Complete** (All Phases Implemented)
 
 ## Context
 Users need personalized chess training based on their actual blunders. The Lichess puzzle database (3M+ puzzles) provides an ideal training resource, but storing the full 2GB dataset would consume 40% of Railway.app's 5GB PostgreSQL limit.
@@ -83,9 +83,30 @@ Implement an **API-First Hybrid Architecture** that stores only puzzle metadata 
 - `GET /api/learning-path/daily-goals` - Daily practice goals
 
 ### Pending (Phase 4)
-- Angular puzzle practice UI components
-- Interactive chessboard with move validation
-- Progress visualization dashboard
+- ~~Angular puzzle practice UI components~~ ✅ Complete
+- ~~Interactive chessboard with move validation~~ ✅ Complete
+- ~~Progress visualization dashboard~~ ✅ Complete
+
+### Phase 4 Implementation (2026-01-20)
+
+| Component | Location | Description |
+|-----------|----------|-------------|
+| `puzzles.component.ts` | `frontend/src/app/pages/puzzles/` | Interactive puzzle training UI |
+| `theme-mapper.js` | `src/models/` | Maps blunder themes to Lichess puzzle themes |
+| `puzzle-blunder-linker.js` | `src/models/` | Auto-links puzzles to blunders, marks learned |
+| Board controls | Reused from game-detail-v2 | Navigation, flip board |
+| Unit tests | `tests/models/` | 53 tests for new modules |
+
+**Features Implemented:**
+- Interactive chessboard with Chessground
+- Move validation with correct/incorrect feedback
+- Board controls (start, prev, flip, next, end)
+- Keyboard navigation (arrow keys)
+- Move list with click-to-navigate history
+- Timer and progress stats
+- Auto-linking puzzles to blunders by theme
+- Blunder dashboard integration (learned count updates)
+- Mobile responsive layout
 
 ## Consequences
 

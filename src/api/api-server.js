@@ -557,23 +557,26 @@ app.get('/api/learning-path/recommendations', async (req, res) => {
   try {
     const { limit = 10, rating = 1500, enhanced = false } = req.query;
     const LearningPathGenerator = require('../models/learning-path-generator');
+    const { linkPuzzlesToBlunders } = require('../models/puzzle-blunder-linker');
     const pathGenerator = new LearningPathGenerator(database, req.userId);
     
+    let recommendations;
     if (enhanced === 'true') {
-      // Enhanced recommendations with spaced repetition and adaptive difficulty
-      const recommendations = await pathGenerator.generateEnhancedRecommendations({
+      recommendations = await pathGenerator.generateEnhancedRecommendations({
         limit: parseInt(limit),
         playerRating: parseInt(rating)
       });
-      res.json(recommendations);
     } else {
-      // Basic recommendations
-      const recommendations = await pathGenerator.generateRecommendations({
+      recommendations = await pathGenerator.generateRecommendations({
         limit: parseInt(limit),
         playerRating: parseInt(rating)
       });
-      res.json({ recommendations });
     }
+
+    // Auto-link recommended puzzles to blunders with matching themes
+    await linkPuzzlesToBlunders(database, recommendations, req.userId);
+
+    res.json(enhanced === 'true' ? recommendations : { recommendations });
   } catch (error) {
     console.error('[API] Error getting recommendations:', error);
     res.status(500).json({ error: 'Failed to get recommendations' });
@@ -665,6 +668,12 @@ app.post('/api/puzzle-progress', async (req, res) => {
       movesCount: parseInt(movesCount) || 0,
       hintsUsed: parseInt(hintsUsed) || 0
     });
+
+    // If solved, update linked blunders' learned status
+    if (solved) {
+      const { markLinkedBlundersLearned } = require('../models/puzzle-blunder-linker');
+      await markLinkedBlundersLearned(database, puzzleId);
+    }
 
     res.json({ success: true, progress });
   } catch (error) {

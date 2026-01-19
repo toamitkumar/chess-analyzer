@@ -1,6 +1,7 @@
 import { Injectable } from '@angular/core';
 import { HttpClient } from '@angular/common/http';
 import { Observable } from 'rxjs';
+import { map } from 'rxjs/operators';
 
 export interface Puzzle {
   id: string;
@@ -84,9 +85,11 @@ export class PuzzleService {
 
   // Get puzzle recommendations
   getRecommendations(limit = 10, rating = 1500): Observable<Puzzle[]> {
-    return this.http.get<Puzzle[]>(`${this.apiUrl}/learning-path/recommendations`, {
+    return this.http.get<{ recommendations: Puzzle[] }>(`${this.apiUrl}/learning-path/recommendations`, {
       params: { limit: limit.toString(), rating: rating.toString() }
-    });
+    }).pipe(
+      map(response => response.recommendations || [])
+    );
   }
 
   // Get daily goals

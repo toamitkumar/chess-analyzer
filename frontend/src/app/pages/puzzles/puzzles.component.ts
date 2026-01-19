@@ -1,6 +1,9 @@
-import { Component, OnInit, OnDestroy } from '@angular/core';
+import { Component, OnInit, OnDestroy, ViewChild, ElementRef, AfterViewInit } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { ActivatedRoute, Router, RouterModule } from '@angular/router';
+import { Chess } from 'chess.js';
+import { Chessground } from '@lichess-org/chessground';
+import { Key } from '@lichess-org/chessground/types';
 import { PuzzleService, Puzzle, PuzzleProgress, LearningPath } from '../../services/puzzle.service';
 
 @Component({
@@ -43,7 +46,11 @@ import { PuzzleService, Puzzle, PuzzleProgress, LearningPath } from '../../servi
         </div>
 
         <div class="board-container">
-          <div class="chessboard" #boardElement></div>
+          <div #boardElement class="chessboard"></div>
+        </div>
+
+        <div class="turn-indicator" [class.white]="isWhiteToMove" [class.black]="!isWhiteToMove">
+          {{ isWhiteToMove ? 'White' : 'Black' }} to move
         </div>
 
         <!-- Controls -->
@@ -91,8 +98,12 @@ import { PuzzleService, Puzzle, PuzzleProgress, LearningPath } from '../../servi
     </div>
   `,
   styles: [`
+    @import '@lichess-org/chessground/assets/chessground.base.css';
+    @import '@lichess-org/chessground/assets/chessground.brown.css';
+    @import '@lichess-org/chessground/assets/chessground.cburnett.css';
+
     .puzzles-container {
-      max-width: 800px;
+      max-width: 600px;
       margin: 0 auto;
       padding: 20px;
     }
@@ -102,10 +113,8 @@ import { PuzzleService, Puzzle, PuzzleProgress, LearningPath } from '../../servi
       align-items: center;
       margin-bottom: 20px;
     }
-    .header h1 { margin: 0; }
-    .daily-progress {
-      text-align: right;
-    }
+    .header h1 { margin: 0; font-size: 24px; }
+    .daily-progress { text-align: right; }
     .progress-bar {
       width: 150px;
       height: 8px;
@@ -133,7 +142,6 @@ import { PuzzleService, Puzzle, PuzzleProgress, LearningPath } from '../../servi
       margin: 0 auto 16px;
     }
     @keyframes spin {
-      0% { transform: rotate(0deg); }
       100% { transform: rotate(360deg); }
     }
     .error { color: #e74c3c; }
@@ -150,16 +158,24 @@ import { PuzzleService, Puzzle, PuzzleProgress, LearningPath } from '../../servi
       color: #666;
     }
     .board-container {
+      width: 100%;
       aspect-ratio: 1;
       max-width: 500px;
       margin: 0 auto;
-      background: #f0d9b5;
-      border-radius: 4px;
     }
     .chessboard {
       width: 100%;
       height: 100%;
     }
+    .turn-indicator {
+      text-align: center;
+      padding: 8px;
+      margin-top: 10px;
+      border-radius: 4px;
+      font-weight: 500;
+    }
+    .turn-indicator.white { background: #f0f0f0; color: #333; }
+    .turn-indicator.black { background: #333; color: #fff; }
     .controls {
       display: flex;
       gap: 10px;
@@ -207,9 +223,7 @@ import { PuzzleService, Puzzle, PuzzleProgress, LearningPath } from '../../servi
       grid-template-columns: repeat(3, 1fr);
       gap: 15px;
     }
-    .stat {
-      text-align: center;
-    }
+    .stat { text-align: center; }
     .stat .value {
       display: block;
       font-size: 24px;
@@ -222,7 +236,9 @@ import { PuzzleService, Puzzle, PuzzleProgress, LearningPath } from '../../servi
     }
   `]
 })
-export class PuzzlesComponent implements OnInit, OnDestroy {
+export class PuzzlesComponent implements OnInit, OnDestroy, AfterViewInit {
+  @ViewChild('boardElement') boardElement!: ElementRef<HTMLElement>;
+
   currentPuzzle: Puzzle | null = null;
   loading = false;
   error: string | null = null;
@@ -231,12 +247,15 @@ export class PuzzlesComponent implements OnInit, OnDestroy {
   feedback: string | null = null;
   feedbackClass = '';
   elapsedTime = 0;
+  isWhiteToMove = true;
   dailyGoals: LearningPath['dailyGoals'] | null = null;
   statistics: LearningPath['statistics'] | null = null;
 
   private timerInterval: any;
   private moveIndex = 0;
   private solutionMoves: string[] = [];
+  private chess = new Chess();
+  private board: any = null;
 
   constructor(
     private puzzleService: PuzzleService,
@@ -247,7 +266,9 @@ export class PuzzlesComponent implements OnInit, OnDestroy {
   ngOnInit() {
     this.loadDailyGoals();
     this.loadStatistics();
-    
+  }
+
+  ngAfterViewInit() {
     const puzzleId = this.route.snapshot.paramMap.get('id');
     if (puzzleId) {
       this.loadPuzzle(puzzleId);
@@ -258,6 +279,9 @@ export class PuzzlesComponent implements OnInit, OnDestroy {
 
   ngOnDestroy() {
     this.stopTimer();
+    if (this.board) {
+      this.board.destroy();
+    }
   }
 
   loadPuzzle(puzzleId: string) {
@@ -273,12 +297,12 @@ export class PuzzlesComponent implements OnInit, OnDestroy {
         } else {
           this.currentPuzzle = puzzle;
           this.solutionMoves = puzzle.moves.split(' ');
-          this.initBoard();
+          this.initBoard(puzzle.fen);
           this.startTimer();
         }
         this.loading = false;
       },
-      error: (err) => {
+      error: () => {
         this.error = 'Failed to load puzzle';
         this.loading = false;
       }
@@ -294,7 +318,7 @@ export class PuzzlesComponent implements OnInit, OnDestroy {
         if (puzzles.length > 0) {
           this.loadPuzzle(puzzles[0].id);
         } else {
-          this.error = 'No puzzles available';
+          this.error = 'No puzzles available. Import puzzles first.';
           this.loading = false;
         }
       },
@@ -315,15 +339,108 @@ export class PuzzlesComponent implements OnInit, OnDestroy {
     this.stopTimer();
   }
 
-  private initBoard() {
-    // Board initialization will use chessground library
-    // For now, placeholder - actual implementation needs chessground
+  private initBoard(fen: string) {
+    this.chess.load(fen);
+    this.isWhiteToMove = this.chess.turn() === 'w';
+
+    if (this.board) {
+      this.board.destroy();
+    }
+
+    const orientation = this.isWhiteToMove ? 'white' : 'black';
+
+    this.board = Chessground(this.boardElement.nativeElement, {
+      fen: fen,
+      orientation: orientation,
+      turnColor: this.isWhiteToMove ? 'white' : 'black',
+      movable: {
+        free: false,
+        color: orientation,
+        dests: this.getLegalMoves(),
+        events: {
+          after: (orig: string, dest: string) => this.onMove(orig, dest)
+        }
+      },
+      draggable: { enabled: true },
+      selectable: { enabled: true },
+      highlight: { lastMove: true, check: true }
+    });
+
+    // Play opponent's first move if puzzle starts with opponent
+    if (this.solutionMoves.length > 0) {
+      setTimeout(() => this.playOpponentMove(), 500);
+    }
+  }
+
+  private getLegalMoves(): Map<Key, Key[]> {
+    const dests = new Map<Key, Key[]>();
+    const moves = this.chess.moves({ verbose: true });
+    for (const move of moves) {
+      const from = move.from as Key;
+      const to = move.to as Key;
+      if (!dests.has(from)) {
+        dests.set(from, []);
+      }
+      dests.get(from)!.push(to);
+    }
+    return dests;
+  }
+
+  private onMove(orig: string, dest: string) {
+    const expectedMove = this.solutionMoves[this.moveIndex];
+    const userMove = orig + dest;
+
+    // Check if move matches (handle promotions)
+    if (expectedMove.startsWith(userMove)) {
+      // Correct move
+      const promotion = expectedMove.length > 4 ? expectedMove[4] : undefined;
+      this.chess.move({ from: orig, to: dest, promotion });
+      this.moveIndex++;
+
+      if (this.moveIndex >= this.solutionMoves.length) {
+        // Puzzle solved!
+        this.solved = true;
+        this.feedback = '✓ Correct! Puzzle solved!';
+        this.feedbackClass = 'correct';
+        this.stopTimer();
+        this.recordAttempt(true);
+      } else {
+        // Play opponent's response
+        this.feedback = '✓ Correct!';
+        this.feedbackClass = 'correct';
+        setTimeout(() => this.playOpponentMove(), 300);
+      }
+    } else {
+      // Wrong move - reset board
+      this.feedback = '✗ Incorrect. Try again.';
+      this.feedbackClass = 'incorrect';
+      this.board.set({ fen: this.chess.fen(), movable: { dests: this.getLegalMoves() } });
+    }
+  }
+
+  private playOpponentMove() {
+    if (this.moveIndex >= this.solutionMoves.length) return;
+
+    const move = this.solutionMoves[this.moveIndex];
+    const from = move.slice(0, 2);
+    const to = move.slice(2, 4);
+    const promotion = move.length > 4 ? move[4] : undefined;
+
+    this.chess.move({ from, to, promotion });
+    this.moveIndex++;
+
+    this.board.set({
+      fen: this.chess.fen(),
+      lastMove: [from, to],
+      turnColor: this.chess.turn() === 'w' ? 'white' : 'black',
+      movable: { dests: this.getLegalMoves() }
+    });
+
+    this.feedback = null;
   }
 
   private startTimer() {
-    this.timerInterval = setInterval(() => {
-      this.elapsedTime++;
-    }, 1000);
+    this.timerInterval = setInterval(() => this.elapsedTime++, 1000);
   }
 
   private stopTimer() {
@@ -336,8 +453,8 @@ export class PuzzlesComponent implements OnInit, OnDestroy {
   showHint() {
     if (this.solutionMoves.length > this.moveIndex) {
       this.hintShown = true;
-      // Highlight the target square of the next move
-      this.feedback = `Hint: Look at ${this.solutionMoves[this.moveIndex].slice(-2)}`;
+      const move = this.solutionMoves[this.moveIndex];
+      this.feedback = `Hint: Move to ${move.slice(2, 4)}`;
       this.feedbackClass = '';
     }
   }

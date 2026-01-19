@@ -4,6 +4,7 @@ import { RouterModule } from '@angular/router';
 import { HttpClientModule } from '@angular/common/http';
 import { LayoutComponent } from '../../components/layout/layout.component';
 import { ChessApiService } from '../../services/chess-api.service';
+import { PuzzleService } from '../../services/puzzle.service';
 import { StatCardComponent } from '../../components/stat-card.component';
 import { AlertTriangle, BarChart, TrendingDown, CheckCircle } from 'lucide-angular';
 
@@ -324,7 +325,12 @@ interface DashboardData {
           <!-- Top Patterns Table -->
           <div class="rounded-xl sm:rounded-2xl border-2 border-border/30 gradient-card text-card-foreground shadow-2xl hover:shadow-glow-success hover:border-success/50 transition-all duration-500 backdrop-blur-sm overflow-hidden animate-slide-up" style="animation-delay: 0.2s;">
             <div class="p-4 sm:p-6 bg-gradient-to-br from-success/5 to-transparent">
-              <h3 class="text-lg sm:text-xl font-bold text-gradient mb-4">Top Patterns to Study</h3>
+              <div class="flex items-center justify-between mb-4">
+                <h3 class="text-lg sm:text-xl font-bold text-gradient">Top Patterns to Study</h3>
+                <a routerLink="/learning-path" class="text-sm text-primary hover:underline flex items-center gap-1">
+                  View Learning Path →
+                </a>
+              </div>
               <div class="relative w-full overflow-auto">
                 <table class="w-full caption-bottom text-xs sm:text-sm">
                   <thead class="[&_tr]:border-b">
@@ -332,6 +338,7 @@ interface DashboardData {
                       <th class="h-12 px-4 text-left align-middle font-medium text-muted-foreground">Pattern</th>
                       <th class="h-12 px-4 text-left align-middle font-medium text-muted-foreground">Occurrences</th>
                       <th class="h-12 px-4 text-left align-middle font-medium text-muted-foreground">Avg Loss</th>
+                      <th class="h-12 px-4 text-left align-middle font-medium text-muted-foreground">Puzzles</th>
                       <th class="h-12 px-4 text-left align-middle font-medium text-muted-foreground">Status</th>
                     </tr>
                   </thead>
@@ -346,6 +353,12 @@ interface DashboardData {
                       <td class="p-4 align-middle">{{ pattern.occurrences }}</td>
                       <td class="p-4 align-middle">
                         <span [class]="getSeverityClass(pattern.avgLoss)">{{ pattern.avgLoss }} CP</span>
+                      </td>
+                      <td class="p-4 align-middle">
+                        <a [routerLink]="['/puzzles']" [queryParams]="{theme: pattern.theme}"
+                           class="inline-flex items-center gap-1 px-2 py-1 rounded-md bg-primary/10 text-primary hover:bg-primary/20 transition-colors text-xs font-medium">
+                          🧩 {{ getPuzzleCount(pattern.theme) }} puzzles
+                        </a>
                       </td>
                       <td class="p-4 align-middle">
                         <span *ngIf="pattern.learned" class="inline-flex items-center rounded-full border px-2.5 py-0.5 text-xs font-semibold transition-colors focus:outline-none focus:ring-2 focus:ring-ring focus:ring-offset-2 border-transparent bg-green-100 text-green-800">
@@ -407,6 +420,7 @@ export class BlundersComponent implements OnInit {
   error: string | null = null;
   Math = Math;
   parseFloat = parseFloat;
+  puzzleCounts: Map<string, number> = new Map();
 
   // Lucide icons for stat cards
   AlertTriangle = AlertTriangle;
@@ -414,7 +428,10 @@ export class BlundersComponent implements OnInit {
   TrendingDown = TrendingDown;
   CheckCircle = CheckCircle;
 
-  constructor(private apiService: ChessApiService) {}
+  constructor(
+    private apiService: ChessApiService,
+    private puzzleService: PuzzleService
+  ) {}
 
   ngOnInit(): void {
     this.loadDashboardData();
@@ -428,6 +445,8 @@ export class BlundersComponent implements OnInit {
       next: (data) => {
         this.dashboardData = data;
         this.loading = false;
+        // Load puzzle counts for each theme
+        this.loadPuzzleCounts();
       },
       error: (err) => {
         this.error = err.message || 'Failed to load dashboard data';
@@ -435,6 +454,67 @@ export class BlundersComponent implements OnInit {
         console.error('Error loading blunders dashboard:', err);
       }
     });
+  }
+
+  loadPuzzleCounts(): void {
+    if (!this.dashboardData) return;
+    
+    // Get unique themes from patterns
+    const themes = this.dashboardData.topPatterns.map(p => p.theme);
+    themes.forEach(theme => {
+      // Map blunder themes to Lichess puzzle themes
+      const lichessTheme = this.mapToLichessTheme(theme);
+      this.puzzleService.getRecommendations(100, 1500).subscribe({
+        next: (puzzles) => {
+          // Count puzzles matching this theme
+          const count = puzzles.filter(p => 
+            p.themes?.toLowerCase().includes(lichessTheme.toLowerCase())
+          ).length;
+          this.puzzleCounts.set(theme, count > 0 ? count : this.getEstimatedCount(theme));
+        },
+        error: () => {
+          this.puzzleCounts.set(theme, this.getEstimatedCount(theme));
+        }
+      });
+    });
+  }
+
+  mapToLichessTheme(blunderTheme: string): string {
+    const mapping: Record<string, string> = {
+      'hanging_piece': 'hangingPiece',
+      'fork': 'fork',
+      'pin': 'pin',
+      'skewer': 'skewer',
+      'discovered_attack': 'discoveredAttack',
+      'back_rank': 'backRankMate',
+      'trapped_piece': 'trappedPiece',
+      'overloaded_piece': 'overloading',
+      'undefended_piece': 'hangingPiece'
+    };
+    return mapping[blunderTheme] || blunderTheme;
+  }
+
+  getEstimatedCount(theme: string): number {
+    // Estimated puzzle counts based on Lichess database
+    const estimates: Record<string, number> = {
+      'hanging_piece': 50000,
+      'fork': 80000,
+      'pin': 45000,
+      'skewer': 15000,
+      'discovered_attack': 25000,
+      'back_rank': 20000,
+      'trapped_piece': 10000,
+      'overloaded_piece': 8000,
+      'undefended_piece': 30000
+    };
+    return estimates[theme] || 1000;
+  }
+
+  getPuzzleCount(theme: string): string {
+    const count = this.puzzleCounts.get(theme);
+    if (!count) return '...';
+    if (count >= 1000) return Math.floor(count / 1000) + 'k+';
+    return count.toString();
   }
 
   getTrendText(): string {

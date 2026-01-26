@@ -418,6 +418,19 @@ export class GameDetailV2Component implements OnInit, OnDestroy, AfterViewInit {
     const currentMove = this.currentMoveIndex >= 0 ? this.moves[this.currentMoveIndex] : null;
     const autoShapes = this.getMoveQualityShape(currentMove, lastMove);
     
+    // Add checkmate king highlight
+    if (this.chess.isCheckmate()) {
+      const kingSquare = this.getKingSquare();
+      if (kingSquare) {
+        autoShapes.push({
+          orig: kingSquare,
+          customSvg: {
+            html: `<svg viewBox="0 0 100 100"><defs><radialGradient id="checkmate-red"><stop offset="0%" stop-color="#c33" stop-opacity="1"/><stop offset="100%" stop-color="#c33" stop-opacity="0"/></radialGradient></defs><rect x="0" y="0" width="100" height="100" fill="url(#checkmate-red)"/></svg>`
+          }
+        });
+      }
+    }
+    
     this.chessground.set({
       fen: this.currentFen,
       lastMove: lastMove,

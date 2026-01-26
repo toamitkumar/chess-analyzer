@@ -8,9 +8,12 @@ import {
   AccuracyByResultData,
   PhaseDistributionData,
   AccuracyByPhaseData,
-  OpeningPerformanceData
+  OpeningPerformanceData,
+  TacticalOpportunitiesData,
+  FreePiecesData
 } from '../../services/chess-api.service';
-import { forkJoin } from 'rxjs';
+import { forkJoin, of } from 'rxjs';
+import { catchError } from 'rxjs/operators';
 
 interface BlunderDashboardData {
   overview: {
@@ -470,6 +473,96 @@ interface BlunderDashboardData {
               </div>
             </div>
           </div>
+
+          <!-- Tactical Opportunities Card (Phase 5) -->
+          <div *ngIf="tacticalOpportunities && tacticalOpportunities.total > 0" class="group rounded-xl sm:rounded-2xl border-2 border-border/30 gradient-card text-card-foreground shadow-xl sm:shadow-2xl hover:shadow-glow-accent hover:border-accent/50 transition-all duration-500 backdrop-blur-sm overflow-hidden">
+            <div class="flex flex-col space-y-2 p-4 sm:p-6 bg-gradient-to-br from-accent/5 to-transparent">
+              <div class="flex items-center gap-3">
+                <div class="p-2 rounded-lg bg-accent/10 group-hover:bg-accent/20 transition-colors duration-300">
+                  <svg class="w-4 h-4 sm:w-5 sm:h-5 text-accent" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"/>
+                  </svg>
+                </div>
+                <div>
+                  <h3 class="text-lg sm:text-xl font-bold leading-none tracking-tight text-gradient">Tactical Opportunities</h3>
+                  <p class="text-xs sm:text-sm text-muted-foreground mt-1">Forks, pins, and other tactics you found vs missed</p>
+                </div>
+              </div>
+            </div>
+            <div class="p-4 sm:p-6 pt-2">
+              <div class="grid grid-cols-3 gap-2 sm:gap-3 mb-4">
+                <div class="p-2 sm:p-3 rounded-lg bg-success/10 border border-success/20 text-center">
+                  <div class="text-xl sm:text-2xl font-bold text-success">{{ tacticalOpportunities.found }}</div>
+                  <div class="text-xs text-muted-foreground">Found</div>
+                </div>
+                <div class="p-2 sm:p-3 rounded-lg bg-destructive/10 border border-destructive/20 text-center">
+                  <div class="text-xl sm:text-2xl font-bold text-destructive">{{ tacticalOpportunities.missed }}</div>
+                  <div class="text-xs text-muted-foreground">Missed</div>
+                </div>
+                <div class="p-2 sm:p-3 rounded-lg bg-card/50 border border-border/30 text-center">
+                  <div class="text-xl sm:text-2xl font-bold text-foreground">{{ tacticalOpportunities.findRate }}%</div>
+                  <div class="text-xs text-muted-foreground">Find Rate</div>
+                </div>
+              </div>
+              <div class="space-y-2">
+                <h4 class="text-xs sm:text-sm font-semibold text-muted-foreground uppercase tracking-wide">By Type</h4>
+                <div *ngFor="let type of getTacticTypes()" class="flex items-center justify-between p-2 rounded-lg bg-muted/20 hover:bg-muted/30 transition-colors">
+                  <span class="text-xs sm:text-sm font-medium capitalize">{{ formatTheme(type) }}</span>
+                  <div class="text-right">
+                    <span class="text-xs sm:text-sm text-success font-medium">{{ tacticalOpportunities.byType[type].found }}</span>
+                    <span class="text-xs text-muted-foreground mx-1">/</span>
+                    <span class="text-xs sm:text-sm text-destructive font-medium">{{ tacticalOpportunities.byType[type].missed }}</span>
+                    <span class="text-xs text-muted-foreground ml-2">({{ tacticalOpportunities.byType[type].findRate }}%)</span>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <!-- Free Pieces Card (Phase 5) -->
+          <div *ngIf="freePieces && freePieces.total > 0" class="group rounded-xl sm:rounded-2xl border-2 border-border/30 gradient-card text-card-foreground shadow-xl sm:shadow-2xl hover:shadow-glow-success hover:border-success/50 transition-all duration-500 backdrop-blur-sm overflow-hidden">
+            <div class="flex flex-col space-y-2 p-4 sm:p-6 bg-gradient-to-br from-success/5 to-transparent">
+              <div class="flex items-center gap-3">
+                <div class="p-2 rounded-lg bg-success/10 group-hover:bg-success/20 transition-colors duration-300">
+                  <svg class="w-4 h-4 sm:w-5 sm:h-5 text-success" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8c-1.657 0-3 .895-3 2s1.343 2 3 2 3 .895 3 2-1.343 2-3 2m0-8c1.11 0 2.08.402 2.599 1M12 8V7m0 1v8m0 0v1m0-1c-1.11 0-2.08-.402-2.599-1M21 12a9 9 0 11-18 0 9 9 0 0118 0z"/>
+                  </svg>
+                </div>
+                <div>
+                  <h3 class="text-lg sm:text-xl font-bold leading-none tracking-tight text-gradient">Free Pieces</h3>
+                  <p class="text-xs sm:text-sm text-muted-foreground mt-1">Opponent's hanging pieces you captured vs missed</p>
+                </div>
+              </div>
+            </div>
+            <div class="p-4 sm:p-6 pt-2">
+              <div class="grid grid-cols-3 gap-2 sm:gap-3 mb-4">
+                <div class="p-2 sm:p-3 rounded-lg bg-success/10 border border-success/20 text-center">
+                  <div class="text-xl sm:text-2xl font-bold text-success">{{ freePieces.captured }}</div>
+                  <div class="text-xs text-muted-foreground">Captured</div>
+                </div>
+                <div class="p-2 sm:p-3 rounded-lg bg-destructive/10 border border-destructive/20 text-center">
+                  <div class="text-xl sm:text-2xl font-bold text-destructive">{{ freePieces.missed }}</div>
+                  <div class="text-xs text-muted-foreground">Missed</div>
+                </div>
+                <div class="p-2 sm:p-3 rounded-lg bg-card/50 border border-border/30 text-center">
+                  <div class="text-xl sm:text-2xl font-bold text-foreground">{{ freePieces.captureRate }}%</div>
+                  <div class="text-xs text-muted-foreground">Capture Rate</div>
+                </div>
+              </div>
+              <div class="space-y-2">
+                <h4 class="text-xs sm:text-sm font-semibold text-muted-foreground uppercase tracking-wide">By Piece</h4>
+                <div *ngFor="let piece of getPieceTypes()" class="flex items-center justify-between p-2 rounded-lg bg-muted/20 hover:bg-muted/30 transition-colors">
+                  <span class="text-xs sm:text-sm font-medium">{{ getPieceName(piece) }}</span>
+                  <div class="text-right">
+                    <span class="text-xs sm:text-sm text-success font-medium">{{ freePieces.byPiece[piece].captured }}</span>
+                    <span class="text-xs text-muted-foreground mx-1">/</span>
+                    <span class="text-xs sm:text-sm text-destructive font-medium">{{ freePieces.byPiece[piece].missed }}</span>
+                    <span class="text-xs text-muted-foreground ml-2">({{ freePieces.byPiece[piece].captureRate }}%)</span>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
         </div>
 
         <!-- No Data State -->
@@ -493,6 +586,8 @@ export class InsightsComponent implements OnInit {
   accuracyByPhase: AccuracyByPhaseData | null = null;
   openingPerformance: OpeningPerformanceData[] = [];
   blunderData: BlunderDashboardData | null = null;
+  tacticalOpportunities: TacticalOpportunitiesData | null = null;
+  freePieces: FreePiecesData | null = null;
 
   loading = true;
   error: string | null = null;
@@ -520,7 +615,9 @@ export class InsightsComponent implements OnInit {
       phaseDistribution: this.chessApi.getPhaseDistribution(color),
       accuracyByPhase: this.chessApi.getAccuracyByPhase(color),
       openingPerformance: this.chessApi.getOpeningPerformance(10, color),
-      blunderDashboard: this.chessApi.getBlundersDashboard()
+      blunderDashboard: this.chessApi.getBlundersDashboard(),
+      tacticalOpportunities: this.chessApi.getTacticalOpportunities().pipe(catchError(() => of({ success: true, data: null }))),
+      freePieces: this.chessApi.getFreePieces().pipe(catchError(() => of({ success: true, data: null })))
     }).subscribe({
       next: (results) => {
         if (results.accuracyByResult.success) {
@@ -535,9 +632,14 @@ export class InsightsComponent implements OnInit {
         if (results.openingPerformance.success) {
           this.openingPerformance = results.openingPerformance.data;
         }
-        // Blunder dashboard doesn't have the same response wrapper
         if (results.blunderDashboard) {
           this.blunderData = results.blunderDashboard as BlunderDashboardData;
+        }
+        if (results.tacticalOpportunities?.success && results.tacticalOpportunities.data) {
+          this.tacticalOpportunities = results.tacticalOpportunities.data;
+        }
+        if (results.freePieces?.success && results.freePieces.data) {
+          this.freePieces = results.freePieces.data;
         }
         this.loading = false;
       },
@@ -565,5 +667,18 @@ export class InsightsComponent implements OnInit {
       'overloaded_piece': 'bg-teal-500'
     };
     return colors[theme] || 'bg-gray-500';
+  }
+
+  getTacticTypes(): string[] {
+    return this.tacticalOpportunities ? Object.keys(this.tacticalOpportunities.byType) : [];
+  }
+
+  getPieceTypes(): string[] {
+    return this.freePieces ? Object.keys(this.freePieces.byPiece) : [];
+  }
+
+  getPieceName(piece: string): string {
+    const names: { [key: string]: string } = { 'P': 'Pawn', 'N': 'Knight', 'B': 'Bishop', 'R': 'Rook', 'Q': 'Queen' };
+    return names[piece] || piece;
   }
 }

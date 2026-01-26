@@ -15,6 +15,7 @@ const gameRoutes = require('./game.routes');
 const blunderRoutes = require('./blunder.routes');
 const healthRoutes = require('./health.routes');
 const dashboardRoutes = require('./dashboard.routes');
+const insightsRoutes = require('./insights.routes');
 const UploadController = require('../controllers/upload.controller');
 // TODO: Add other routes as they're created
 // const puzzleRoutes = require('./puzzle.routes');
@@ -40,6 +41,7 @@ function configureRoutes(middleware = {}) {
   router.use('/games', gameRoutes);
   router.use('/blunders', blunderRoutes);
   router.use('/health', healthRoutes);
+  router.use('/insights', insightsRoutes);  // Insights routes at /api/insights/
   router.use('/', dashboardRoutes);  // Dashboard routes mounted at root /api/
 
   // Mount upload routes with required middleware

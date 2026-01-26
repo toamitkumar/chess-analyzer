@@ -1,7 +1,7 @@
 # ADR 009: Chess.com Insights Dashboard Features
 
 ## Status
-**Partially Implemented** (Phases 1-3 Complete, Phase 5 Planned)
+**Complete** (Phases 1-3, 5 Complete; Phase 4 Deferred)
 
 ## Context
 This ADR documents features from Chess.com's Insights dashboard (https://www.chess.com/insights) that should be considered for future implementation in our chess analysis platform. These features provide comprehensive game analysis and performance tracking that would enhance user experience.
@@ -319,14 +319,24 @@ Created new `/insights` page with:
 - [ ] Drill-down to specific games/positions from insights
 - [ ] Export insights report
 
-### Phase 5: Advanced Tactical Features - Priority: MEDIUM
-**These features require new backend infrastructure.**
+### Phase 5: Advanced Tactical Features - ✅ COMPLETE
+**These features required new backend infrastructure.**
 
 **Reference Screenshots from GitHub Issue #100:**
 - Images 5-6: Forks (found vs missed by piece type)
 - Images 7-8: Pins (found vs missed)
 - Image 9: Hanging Pieces (pieces you left hanging by type)
 - Image 10: Free Pieces (opponent's hanging pieces you found/missed)
+
+**Implementation Summary:**
+- Created `InsightsService.js` with all insights methods (refactored from DashboardService)
+- Created `insights.controller.js` and `insights.routes.js` for clean separation
+- Added `TacticalOpportunityService.js` for found vs missed tactics
+- Added `OpponentBlunderService.js` for free pieces tracking
+- Added `FreePieceDetector.js` for opponent blunder detection
+- Created database migration `019_create_tactical_tracking_tables.js`
+- Added frontend UI cards for Tactical Opportunities and Free Pieces
+- All tests passing (40 tests across DashboardService, InsightsService, TacticalOpportunity, OpponentBlunder)
 
 ---
 

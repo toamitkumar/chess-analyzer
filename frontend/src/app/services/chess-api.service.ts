@@ -78,6 +78,37 @@ export interface InsightsApiResponse<T> {
   error?: string;
 }
 
+// Phase 5: Advanced Tactical Features (ADR 009)
+export interface TacticalOpportunitiesData {
+  total: number;
+  found: number;
+  missed: number;
+  findRate: number;
+  byType: {
+    [key: string]: {
+      total: number;
+      found: number;
+      missed: number;
+      findRate: number;
+    };
+  };
+}
+
+export interface FreePiecesData {
+  total: number;
+  captured: number;
+  missed: number;
+  captureRate: number;
+  byPiece: {
+    [key: string]: {
+      total: number;
+      captured: number;
+      missed: number;
+      captureRate: number;
+    };
+  };
+}
+
 @Injectable({
   providedIn: 'root'
 })
@@ -238,6 +269,28 @@ export class ChessApiService {
     return this.http.get<InsightsApiResponse<OpeningPerformanceData[]>>(
       `${this.baseUrl}/insights/openings`,
       { params }
+    );
+  }
+
+  // ============================================
+  // Phase 5: Advanced Tactical Features (ADR 009)
+  // ============================================
+
+  /**
+   * Get tactical opportunities statistics (found vs missed forks, pins, etc.)
+   */
+  getTacticalOpportunities(): Observable<InsightsApiResponse<TacticalOpportunitiesData>> {
+    return this.http.get<InsightsApiResponse<TacticalOpportunitiesData>>(
+      `${this.baseUrl}/insights/tactics/opportunities`
+    );
+  }
+
+  /**
+   * Get free pieces statistics (opponent blunders found vs missed)
+   */
+  getFreePieces(): Observable<InsightsApiResponse<FreePiecesData>> {
+    return this.http.get<InsightsApiResponse<FreePiecesData>>(
+      `${this.baseUrl}/insights/tactics/free-pieces`
     );
   }
 }

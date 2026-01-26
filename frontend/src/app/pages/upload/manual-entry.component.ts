@@ -80,9 +80,11 @@ interface ManualPGNForm {
     .status-error { padding: 8px; font-size: 13px; color: #ef4444; background: #ef444420; border-radius: 4px; text-align: center; }
 
     @media (max-width: 900px) {
-      :host { --board-size: min(400px, calc(100vw - 32px)); }
-      .lichess-analysis-layout { flex-direction: column; align-items: center; }
-      .form-column { width: var(--board-size); }
+      :host { --board-size: calc(100vw - 32px); }
+      .lichess-analysis-layout { flex-direction: column; align-items: center; padding: 8px; }
+      .board-column { width: 100%; max-width: var(--board-size); }
+      .board-container { width: 100%; height: auto; aspect-ratio: 1; }
+      .form-column { width: 100%; max-width: var(--board-size); }
     }
   `],
   templateUrl: './manual-entry.component.html'

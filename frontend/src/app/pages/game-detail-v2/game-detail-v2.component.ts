@@ -128,6 +128,19 @@ export class GameDetailV2Component implements OnInit, OnDestroy, AfterViewInit {
         this.processMoves();
         this.calculateStats();
         this.cdr.detectChanges();
+        
+        // Handle move query parameter after data is loaded
+        this.route.queryParams.subscribe(queryParams => {
+          const moveNumber = queryParams['move'];
+          if (moveNumber && this.moves.length > 0) {
+            // Convert move number to move index (move numbers start at 1, indices at 0)
+            const moveIndex = parseInt(moveNumber, 10) - 1;
+            if (moveIndex >= 0 && moveIndex < this.moves.length) {
+              // Use setTimeout to ensure the board is fully initialized
+              setTimeout(() => this.goToMove(moveIndex), 200);
+            }
+          }
+        });
       },
       error: (error) => console.error('Error loading game data:', error)
     });

@@ -381,7 +381,8 @@ interface DashboardData {
               <div class="space-y-2 sm:space-y-3">
                 <div *ngFor="let blunder of dashboardData.recentBlunders.slice(0, 10)"
                      class="flex flex-col sm:flex-row items-start sm:items-center justify-between p-3 sm:p-4 rounded-xl border-2 border-border/30 bg-card/50 hover:bg-card hover:border-primary/50 hover:shadow-lg transition-all duration-300 cursor-pointer"
-                     [routerLink]="['/games', blunder.gameId]">
+                     [routerLink]="['/games', blunder.gameId]"
+                     [queryParams]="{move: blunder.moveNumber}">
                   <div class="flex-1 w-full sm:w-auto">
                     <div class="flex flex-wrap items-center gap-2 mb-2">
                       <span class="inline-flex items-center rounded-full px-3 py-1 text-xs font-bold capitalize shadow-md"

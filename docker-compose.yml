@@ -1,0 +1,40 @@
+version: '3.8'
+
+services:
+  # Backend API + Frontend server
+  chess-analyzer:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: chess-analyzer-app
+    ports:
+      - "3000:3000"
+    environment:
+      NODE_ENV: production
+      PORT: 3000
+      # Add your Supabase credentials below (or use .env file)
+      # SUPABASE_URL: ${SUPABASE_URL}
+      # SUPABASE_ANON_KEY: ${SUPABASE_ANON_KEY}
+      # DATABASE_URL: ${DATABASE_URL}
+    volumes:
+      # Persist database across container restarts
+      - chess_db:/app/data
+      # Optional: mount PGN games folder as volume
+      - chess_pgns:/app/Game-PGNs
+      # Optional: mount logs
+      - chess_logs:/app/logs
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:3000/api/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 30s
+
+volumes:
+  chess_db:
+    driver: local
+  chess_pgns:
+    driver: local
+  chess_logs:
+    driver: local

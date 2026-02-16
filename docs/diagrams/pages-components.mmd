@@ -1,0 +1,84 @@
+flowchart LR
+  subgraph Pages[Pages]
+    SIGNIN[/sign-in\nSignInComponent]
+    SIGNUP[/sign-up\nSignUpComponent]
+    DASHBOARD[/dashboard\nDashboardComponent]
+    UPLOAD[/upload\nUploadComponent]
+    GAMES[/games\nGamesComponent]
+    GAME[/games/:id\nGameDetailV2Component]
+    TOURNAMENTS[/tournaments\nTournamentsComponent]
+    TOURNAMENT_DETAIL[/tournaments/:id\nTournamentDetailComponent]
+    BLUNDERS[/blunders\nBlundersComponent]
+    INSIGHTS[/insights\nInsightsComponent]
+    PUZZLES[/puzzles\nPuzzlesComponent]
+    LEARNING[/learning-path\nLearningPathComponent]
+    NOTFOUND[404\nNotFoundComponent]
+  end
+
+  subgraph Components[Shared UI Components]
+    LAYOUT[LayoutComponent]
+    STAT[StatCardComponent]
+    FILEUP[FileUploadComponent]
+    MANUAL[ManualEntryComponent]
+    CHESSBRD[Chess Board Component (chess-board.component.ts / Chessground)]
+    MOVELIST[Move List Component]
+    WINPROB[Win Probability Component]
+    EVAL[EvalGraphComponent]
+    BOARDCTL[BoardControlsComponent]
+    SHARE[ShareExportComponent]
+    PLAYERCARD[PlayerStatsCardComponent]
+    PHASE[PhaseAnalysisComponent]
+    MOVEQUALITY[MoveQualityComponent]
+    MULTI_PV[MultiVariationAnalysis]
+    ALT_PANEL[AlternativeMovesPanel]
+  end
+
+  %% Page -> Shared component mappings
+  SIGNIN -->|UI shell| LAYOUT
+  SIGNUP -->|UI shell| LAYOUT
+
+  DASHBOARD --> LAYOUT
+  DASHBOARD --> STAT
+
+  UPLOAD --> LAYOUT
+  UPLOAD --> FILEUP
+  UPLOAD --> MANUAL
+
+  GAMES --> LAYOUT
+  GAMES --> STAT
+
+  GAME --> LAYOUT
+  GAME --> CHESSBRD
+  GAME --> MOVELIST
+  GAME --> EVAL
+  GAME --> BOARDCTL
+  GAME --> SHARE
+  GAME --> PLAYERCARD
+  GAME --> PHASE
+  GAME --> MOVEQUALITY
+  GAME --> MULTI_PV
+  GAME --> ALT_PANEL
+
+  TOURNAMENTS --> LAYOUT
+  TOURNAMENTS --> STAT
+
+  TOURNAMENT_DETAIL --> LAYOUT
+  TOURNAMENT_DETAIL --> STAT
+
+  BLUNDERS --> LAYOUT
+  BLUNDERS --> STAT
+
+  INSIGHTS --> LAYOUT
+
+  PUZZLES --> LAYOUT
+  PUZZLES --> CHESSBRD
+  PUZZLES --> BOARDCTL
+
+  LEARNING --> LAYOUT
+
+  NOTFOUND --> LAYOUT
+
+  classDef pages fill:#eef,stroke:#333,stroke-width:1px;
+  classDef comps fill:#efe,stroke:#333,stroke-width:1px;
+  class Pages pages;
+  class Components comps;

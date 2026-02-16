@@ -1,0 +1,42 @@
+flowchart LR
+  subgraph Frontend[Frontend (Angular / Vite)]
+    FW[User Browser / UI]
+    FW -->|REST: GET /games, GET /analysis, POST /upload| API[API Server (Express)]
+    FW -->|Auth requests| AUTH[Auth (Supabase)]
+    subgraph UIComponents[UI Components]
+      CB[Chess Board Component]
+      ML[Move List Component]
+      WP[Win Probability Component]
+    end
+    FW --> UIComponents
+  end
+
+  subgraph Backend[Backend Services]
+    API -->|routes/controllers| CONTROLLERS[Controllers & Routes]
+    CONTROLLERS -->|validate PGN| PGNPARSER[PGN Parser]
+    CONTROLLERS -->|enqueue analysis| QUEUE[Analysis Queue / Job Runner]
+    CONTROLLERS -->|query/write| DB_LAYER[Database Layer]
+    CONTROLLERS -->|cache responses (5m)| CACHE[In-memory Cache]
+
+    QUEUE --> ANALYZER[Analyzer Service]
+    ANALYZER -->|spawn/communicate| STOCKFISH[Stockfish Engine]
+    ANALYZER -->|compute metrics| METRICS[Accuracy/Performance Calculators]
+    METRICS --> DB_LAYER
+    PGNPARSER --> FILES[File Storage (Game-PGNs / uploads)]
+    CONTROLLERS --> FILES
+    CONTROLLERS -->|auth check| AUTH
+  end
+
+  subgraph DataStores[Data & External Services]
+    DB[SQLite DB (chess_analysis.db)]
+    FILES
+    AUTH
+  end
+
+  DB_LAYER --> DB
+  FILES -->|store PGN files| GamePGN[Game-PGNs folder]
+  AUTH -->|OAuth/JWT| API
+
+  API -->|200 OK / JSON| FW
+  CACHE -->|hits/miss| CONTROLLERS
+  DB -->|read/write analysis| CONTROLLERS

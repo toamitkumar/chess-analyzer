@@ -3,49 +3,41 @@
 const { app, BrowserWindow, shell, dialog } = require('electron');
 const path = require('path');
 const fs = require('fs');
-const { spawn } = require('child_process');
 const http = require('http');
 
 const isDev = !app.isPackaged;
 
-// Load env vars early so they are available when the Express child is spawned.
-// Dev:  project root .env  (standard dotenv location)
-// Prod: userData/.env      (user drops credentials here after first install)
+// ── Env loading ────────────────────────────────────────────────────────────────
+// Must happen before any require() of server modules so env vars are in place.
+// Dev:  project root .env  |  Prod: userData/.env (user drops credentials here)
 function loadEnv() {
   const envPaths = isDev
     ? [path.join(__dirname, '../.env')]
-    : [
-        path.join(app.getPath('userData'), '.env'),     // user-provided creds
-        path.join(process.resourcesPath, 'app.asar.unpacked', '.env'), // build-time baked (non-secret only)
-      ];
+    : [path.join(app.getPath('userData'), '.env')];
 
   for (const envPath of envPaths) {
-    if (fs.existsSync(envPath)) {
-      const lines = fs.readFileSync(envPath, 'utf8').split('\n');
-      for (const line of lines) {
-        const trimmed = line.trim();
-        if (!trimmed || trimmed.startsWith('#')) continue;
-        const eqIdx = trimmed.indexOf('=');
-        if (eqIdx < 1) continue;
-        const key = trimmed.slice(0, eqIdx).trim();
-        const val = trimmed.slice(eqIdx + 1).trim().replace(/^["']|["']$/g, '');
-        if (key && !(key in process.env)) process.env[key] = val;
-      }
-      console.log(`📋 Loaded env from: ${envPath}`);
+    if (!fs.existsSync(envPath)) continue;
+    const lines = fs.readFileSync(envPath, 'utf8').split('\n');
+    for (const line of lines) {
+      const trimmed = line.trim();
+      if (!trimmed || trimmed.startsWith('#')) continue;
+      const eqIdx = trimmed.indexOf('=');
+      if (eqIdx < 1) continue;
+      const key = trimmed.slice(0, eqIdx).trim();
+      const val = trimmed.slice(eqIdx + 1).trim().replace(/^["']|["']$/g, '');
+      if (key && !(key in process.env)) process.env[key] = val;
     }
+    console.log(`📋 Loaded env from: ${envPath}`);
   }
 }
 
-let mainWindow = null;
-let serverProcess = null;
-const SERVER_PORT = process.env.PORT || 3000;
+// ── Path helpers ───────────────────────────────────────────────────────────────
 
-// ── Path resolution ────────────────────────────────────────────────────────────
+const SERVER_PORT = process.env.PORT || 3000;
 
 function getStockfishPath() {
   if (isDev) return process.env.STOCKFISH_PATH || 'stockfish';
   const bundled = path.join(process.resourcesPath, 'stockfish');
-  // Ensure executable bit is set — may be lost during DMG creation
   try { fs.chmodSync(bundled, 0o755); } catch (_) {}
   return bundled;
 }
@@ -55,104 +47,72 @@ function getDbPath() {
   return path.join(app.getPath('userData'), 'chess_analysis.db');
 }
 
-function getServerEntry() {
-  if (isDev) return path.join(__dirname, '../src/api/api-server.js');
-  // In production, src/ is asarUnpacked — accessible as real files on disk
-  return path.join(process.resourcesPath, 'app.asar.unpacked', 'src', 'api', 'api-server.js');
-}
-
 function getFrontendDist() {
   if (isDev) return path.join(__dirname, '../frontend/dist/chess-analyzer');
-  // Frontend is in extraResources → Resources/frontend/dist/chess-analyzer
   return path.join(process.resourcesPath, 'frontend', 'dist', 'chess-analyzer');
 }
 
-// ── Express server lifecycle ───────────────────────────────────────────────────
+// ── Express server (in-process) ────────────────────────────────────────────────
+// Run Express in the Electron main process so require() has full asar support.
+// No child process spawning — avoids ELECTRON_RUN_AS_NODE fuse requirements
+// and all asar module resolution issues.
 
 function startServer() {
+  // Inject env vars before any server module is loaded
+  process.env.PORT            = String(SERVER_PORT);
+  process.env.DB_PATH         = getDbPath();
+  process.env.STOCKFISH_PATH  = getStockfishPath();
+  process.env.FRONTEND_DIST   = getFrontendDist();
+  process.env.DATA_DIR        = isDev
+    ? path.join(__dirname, '../data')
+    : path.join(app.getPath('userData'), 'data');
+  process.env.NODE_ENV        = process.env.NODE_ENV || (isDev ? 'development' : 'production');
+
+  console.log('🔧 Loading Express server in-process...');
+
+  // Require the server — it auto-starts (calls initializeServices() internally)
+  // Works because the Electron main process has full Node.js + asar support.
+  try {
+    require('../src/api/api-server');
+  } catch (err) {
+    return Promise.reject(err);
+  }
+
+  return pollHealth();
+}
+
+function pollHealth(attempt = 0) {
+  const MAX_ATTEMPTS = 120; // 60s at 500ms intervals (Stockfish init can be slow)
+
   return new Promise((resolve, reject) => {
-    console.log('🔧 Spawning Express server...');
-
-    serverProcess = spawn(process.execPath, [getServerEntry()], {
-      env: {
-        ...process.env,
-        // ELECTRON_RUN_AS_NODE: run Electron binary as plain Node.js while
-        // retaining asar virtual-filesystem support so require() can resolve
-        // modules from inside app.asar even though the script itself is in
-        // app.asar.unpacked (real file system).
-        ELECTRON_RUN_AS_NODE: '1',
-        PORT: String(SERVER_PORT),
-        DB_PATH: getDbPath(),
-        STOCKFISH_PATH: getStockfishPath(),
-        FRONTEND_DIST: getFrontendDist(),
-        NODE_ENV: isDev ? 'development' : 'production',
-        ELECTRON: 'true',
-      },
-      stdio: ['ignore', 'pipe', 'pipe'],
-    });
-
-    serverProcess.stdout.on('data', (data) => {
-      process.stdout.write(`[server] ${data}`);
-    });
-
-    serverProcess.stderr.on('data', (data) => {
-      process.stderr.write(`[server:err] ${data}`);
-    });
-
-    serverProcess.on('error', (err) => {
-      console.error('❌ Failed to spawn server:', err.message);
-      reject(err);
-    });
-
-    serverProcess.on('exit', (code, signal) => {
-      if (code !== 0 && code !== null) {
-        console.error(`❌ Server exited unexpectedly (code ${code})`);
+    const check = (n) => {
+      if (n >= MAX_ATTEMPTS) {
+        reject(new Error('Server did not become ready within 60 seconds'));
+        return;
       }
-      serverProcess = null;
-    });
 
-    pollHealth(resolve, reject);
+      const req = http.get(`http://localhost:${SERVER_PORT}/api/health`, (res) => {
+        // 200 = OK, 401 = auth required but server is up
+        if (res.statusCode === 200 || res.statusCode === 401) {
+          console.log(`✅ Server ready on port ${SERVER_PORT}`);
+          resolve();
+        } else {
+          setTimeout(() => check(n + 1), 500);
+        }
+        res.resume();
+      });
+
+      req.on('error', () => setTimeout(() => check(n + 1), 500));
+      req.setTimeout(400, () => { req.destroy(); setTimeout(() => check(n + 1), 500); });
+    };
+
+    check(0);
   });
-}
-
-function pollHealth(resolve, reject, attempt = 0) {
-  const MAX_ATTEMPTS = 60; // 30s at 500ms intervals
-
-  if (attempt >= MAX_ATTEMPTS) {
-    reject(new Error('Server did not become ready within 30 seconds'));
-    return;
-  }
-
-  const req = http.get(`http://localhost:${SERVER_PORT}/api/health`, (res) => {
-    // 200 = healthy, 401 = auth required but server is up — both mean ready
-    if (res.statusCode === 200 || res.statusCode === 401) {
-      console.log(`✅ Server ready on port ${SERVER_PORT}`);
-      resolve();
-    } else {
-      setTimeout(() => pollHealth(resolve, reject, attempt + 1), 500);
-    }
-    res.resume(); // drain to avoid socket hang
-  });
-
-  req.on('error', () => {
-    setTimeout(() => pollHealth(resolve, reject, attempt + 1), 500);
-  });
-
-  req.setTimeout(400, () => {
-    req.destroy();
-    setTimeout(() => pollHealth(resolve, reject, attempt + 1), 500);
-  });
-}
-
-function stopServer() {
-  if (serverProcess) {
-    console.log('🛑 Stopping Express server...');
-    serverProcess.kill('SIGTERM');
-    serverProcess = null;
-  }
 }
 
 // ── BrowserWindow ──────────────────────────────────────────────────────────────
+
+let mainWindow = null;
 
 function createWindow() {
   mainWindow = new BrowserWindow({
@@ -161,7 +121,7 @@ function createWindow() {
     minWidth: 1024,
     minHeight: 700,
     title: 'ChessPulse',
-    show: false, // reveal after paint to avoid white flash
+    show: false,
     webPreferences: {
       preload: path.join(__dirname, 'preload.js'),
       contextIsolation: true,
@@ -170,34 +130,28 @@ function createWindow() {
   });
 
   mainWindow.loadURL(`http://localhost:${SERVER_PORT}`);
+  mainWindow.once('ready-to-show', () => mainWindow.show());
 
-  mainWindow.once('ready-to-show', () => {
-    mainWindow.show();
-  });
-
-  // Open <a target="_blank"> links in the system browser
   mainWindow.webContents.setWindowOpenHandler(({ url }) => {
     shell.openExternal(url);
     return { action: 'deny' };
   });
 
-  if (isDev) {
-    mainWindow.webContents.openDevTools({ mode: 'detach' });
-  }
+  if (isDev) mainWindow.webContents.openDevTools({ mode: 'detach' });
 
-  mainWindow.on('closed', () => {
-    mainWindow = null;
-  });
+  mainWindow.on('closed', () => { mainWindow = null; });
 }
 
 // ── App lifecycle ──────────────────────────────────────────────────────────────
 
 app.whenReady().then(async () => {
   loadEnv();
+
   console.log(`🎯 ChessPulse starting (isDev=${isDev})`);
   console.log(`📂 userData : ${app.getPath('userData')}`);
   console.log(`🗃️  DB path  : ${getDbPath()}`);
   console.log(`♟️  Stockfish: ${getStockfishPath()}`);
+  console.log(`🎨 Frontend : ${getFrontendDist()}`);
 
   try {
     await startServer();
@@ -206,27 +160,17 @@ app.whenReady().then(async () => {
     console.error('❌ Startup failed:', err.message);
     dialog.showErrorBox(
       'ChessPulse failed to start',
-      `Could not start the analysis server:\n\n${err.message}\n\nCheck that Stockfish is installed and try again.`
+      `Could not start the analysis server:\n\n${err.message}\n\nPlease check your installation and try again.`
     );
     app.quit();
   }
 });
 
-// macOS: re-create window when dock icon is clicked and no windows are open
-app.on('activate', () => {
-  if (mainWindow === null) createWindow();
-});
-
-// Quit when all windows are closed (non-macOS)
-app.on('window-all-closed', () => {
-  if (process.platform !== 'darwin') app.quit();
-});
-
-// Clean up server on quit
-app.on('before-quit', stopServer);
+app.on('activate', () => { if (mainWindow === null) createWindow(); });
+app.on('window-all-closed', () => { if (process.platform !== 'darwin') app.quit(); });
 
 // ── Auto-updater ───────────────────────────────────────────────────────────────
-// Only active in packaged builds. Checks GitHub Releases for new versions.
+
 if (!isDev) {
   const { autoUpdater } = require('electron-updater');
 
@@ -234,16 +178,13 @@ if (!isDev) {
   autoUpdater.autoInstallOnAppQuit = true;
 
   autoUpdater.on('checking-for-update', () => console.log('🔄 Checking for updates...'));
-  autoUpdater.on('update-available', (info) => console.log(`📦 Update available: ${info.version}`));
-  autoUpdater.on('update-not-available', () => console.log('✅ App is up to date'));
-  autoUpdater.on('error', (err) => console.error('❌ Updater error:', err.message));
-  autoUpdater.on('update-downloaded', (info) => {
-    console.log(`✅ Update ${info.version} downloaded — will install on quit`);
-    if (mainWindow) {
-      mainWindow.webContents.send('update-downloaded', { version: info.version });
-    }
+  autoUpdater.on('update-available',    (i) => console.log(`📦 Update available: ${i.version}`));
+  autoUpdater.on('update-not-available',()  => console.log('✅ App is up to date'));
+  autoUpdater.on('error',              (e)  => console.error('❌ Updater error:', e.message));
+  autoUpdater.on('update-downloaded',  (i)  => {
+    console.log(`✅ Update ${i.version} downloaded — installs on quit`);
+    if (mainWindow) mainWindow.webContents.send('update-downloaded', { version: i.version });
   });
 
-  // Check for updates 10 seconds after launch (give the app time to settle)
-  setTimeout(() => autoUpdater.checkForUpdatesAndNotify(), 10_000);
+  setTimeout(() => autoUpdater.checkForUpdatesAndNotify().catch(() => {}), 10_000);
 }

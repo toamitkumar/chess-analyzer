@@ -111,7 +111,7 @@ app.use(express.text({ limit: '10mb', type: 'text/plain' }));
 
 // Authentication middleware
 // Require authentication for all API endpoints except health check
-app.use('/api/health', (req, res, next) => next()); // Skip auth for health check
+app.get('/api/health', (req, res) => res.json({ status: 'ok' }));
 app.use('/api/*', requireAuth);
 
 // NOTE: API routes are configured AFTER services initialize in startServer()

@@ -814,7 +814,7 @@ class ChessAnalyzer {
           }
 
           blunders.push({
-            moveNumber: i + 1,
+            moveNumber: Math.ceil((i + 1) / 2),
             move: moveResult.san,
             centipawnLoss: cappedCentipawnLoss,
             bestMove: beforeEval.bestMove,
@@ -826,7 +826,7 @@ class ChessAnalyzer {
         totalCentipawnLoss += cappedCentipawnLoss;
         
         analysis.push({
-          moveNumber: i + 1,
+          moveNumber: Math.ceil((i + 1) / 2),
           move: moveResult.san,
           centipawnLoss: cappedCentipawnLoss,
           isBlunder: isBlunder,
@@ -839,7 +839,7 @@ class ChessAnalyzer {
       } catch (error) {
         console.error(`❌ Error analyzing move ${i + 1}:`, error.message);
         analysis.push({
-          moveNumber: i + 1,
+          moveNumber: Math.ceil((i + 1) / 2),
           move: move,
           centipawnLoss: 0,
           isBlunder: false,

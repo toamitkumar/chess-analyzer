@@ -104,7 +104,8 @@ app.use((req, res, next) => {
 });
 
 // Serve Angular static files
-app.use(express.static(path.join(__dirname, '../../frontend/dist/chess-analyzer')));
+const frontendDist = process.env.FRONTEND_DIST || path.join(__dirname, '../../frontend/dist/chess-analyzer');
+app.use(express.static(frontendDist));
 app.use(express.json({ limit: '10mb' }));
 app.use(express.text({ limit: '10mb', type: 'text/plain' }));
 
@@ -761,7 +762,7 @@ async function startServer() {
       if (req.path.startsWith('/api/')) {
         return res.status(404).json({ error: 'API endpoint not found' });
       }
-      res.sendFile(path.join(__dirname, '../../frontend/dist/chess-analyzer/index-angular.html'));
+      res.sendFile(path.join(frontendDist, 'index-angular.html'));
     });
     console.log('✅ Catch-all route configured');
 

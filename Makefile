@@ -86,6 +86,13 @@ dmg: prepare-stockfish build
 	npm run electron:build
 	@echo "✅  DMG ready at dist-electron/"
 
+## Build DMG and publish to GitHub Releases (requires GH_TOKEN env var)
+release: prepare-stockfish build
+	@echo "🚀  Building and publishing release to GitHub..."
+	@test -n "$$GH_TOKEN" || (echo "❌  GH_TOKEN not set"; exit 1)
+	npm run release
+	@echo "✅  Release published to GitHub"
+
 # ── Testing ───────────────────────────────────────────────────────────────────
 
 ## Run all tests
@@ -144,6 +151,7 @@ help:
 	@echo "  build              Build Angular frontend for production"
 	@echo "  electron-build-dir Build unpacked .app (fast, no DMG)"
 	@echo "  dmg                Build self-contained DMG (Stockfish+FE+BE+SQLite)"
+	@echo "  release            Build DMG and publish to GitHub Releases (needs GH_TOKEN)"
 	@echo ""
 	@echo "  test               Run all tests"
 	@echo "  test-watch         Run tests in watch mode"

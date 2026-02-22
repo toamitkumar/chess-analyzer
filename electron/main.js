@@ -8,6 +8,34 @@ const http = require('http');
 
 const isDev = !app.isPackaged;
 
+// Load env vars early so they are available when the Express child is spawned.
+// Dev:  project root .env  (standard dotenv location)
+// Prod: userData/.env      (user drops credentials here after first install)
+function loadEnv() {
+  const envPaths = isDev
+    ? [path.join(__dirname, '../.env')]
+    : [
+        path.join(app.getPath('userData'), '.env'),     // user-provided creds
+        path.join(process.resourcesPath, 'app.asar.unpacked', '.env'), // build-time baked (non-secret only)
+      ];
+
+  for (const envPath of envPaths) {
+    if (fs.existsSync(envPath)) {
+      const lines = fs.readFileSync(envPath, 'utf8').split('\n');
+      for (const line of lines) {
+        const trimmed = line.trim();
+        if (!trimmed || trimmed.startsWith('#')) continue;
+        const eqIdx = trimmed.indexOf('=');
+        if (eqIdx < 1) continue;
+        const key = trimmed.slice(0, eqIdx).trim();
+        const val = trimmed.slice(eqIdx + 1).trim().replace(/^["']|["']$/g, '');
+        if (key && !(key in process.env)) process.env[key] = val;
+      }
+      console.log(`📋 Loaded env from: ${envPath}`);
+    }
+  }
+}
+
 let mainWindow = null;
 let serverProcess = null;
 const SERVER_PORT = process.env.PORT || 3000;
@@ -29,7 +57,14 @@ function getDbPath() {
 
 function getServerEntry() {
   if (isDev) return path.join(__dirname, '../src/api/api-server.js');
-  return path.join(process.resourcesPath, 'server', 'src', 'api', 'api-server.js');
+  // In production, src/ is asarUnpacked — accessible as real files on disk
+  return path.join(process.resourcesPath, 'app.asar.unpacked', 'src', 'api', 'api-server.js');
+}
+
+function getFrontendDist() {
+  if (isDev) return path.join(__dirname, '../frontend/dist/chess-analyzer');
+  // Frontend is in extraResources → Resources/frontend/dist/chess-analyzer
+  return path.join(process.resourcesPath, 'frontend', 'dist', 'chess-analyzer');
 }
 
 // ── Express server lifecycle ───────────────────────────────────────────────────
@@ -44,6 +79,7 @@ function startServer() {
         PORT: String(SERVER_PORT),
         DB_PATH: getDbPath(),
         STOCKFISH_PATH: getStockfishPath(),
+        FRONTEND_DIST: getFrontendDist(),
         NODE_ENV: isDev ? 'development' : 'production',
         ELECTRON: 'true',
       },
@@ -152,6 +188,7 @@ function createWindow() {
 // ── App lifecycle ──────────────────────────────────────────────────────────────
 
 app.whenReady().then(async () => {
+  loadEnv();
   console.log(`🎯 ChessPulse starting (isDev=${isDev})`);
   console.log(`📂 userData : ${app.getPath('userData')}`);
   console.log(`🗃️  DB path  : ${getDbPath()}`);
@@ -182,3 +219,26 @@ app.on('window-all-closed', () => {
 
 // Clean up server on quit
 app.on('before-quit', stopServer);
+
+// ── Auto-updater ───────────────────────────────────────────────────────────────
+// Only active in packaged builds. Checks GitHub Releases for new versions.
+if (!isDev) {
+  const { autoUpdater } = require('electron-updater');
+
+  autoUpdater.autoDownload = true;
+  autoUpdater.autoInstallOnAppQuit = true;
+
+  autoUpdater.on('checking-for-update', () => console.log('🔄 Checking for updates...'));
+  autoUpdater.on('update-available', (info) => console.log(`📦 Update available: ${info.version}`));
+  autoUpdater.on('update-not-available', () => console.log('✅ App is up to date'));
+  autoUpdater.on('error', (err) => console.error('❌ Updater error:', err.message));
+  autoUpdater.on('update-downloaded', (info) => {
+    console.log(`✅ Update ${info.version} downloaded — will install on quit`);
+    if (mainWindow) {
+      mainWindow.webContents.send('update-downloaded', { version: info.version });
+    }
+  });
+
+  // Check for updates 10 seconds after launch (give the app time to settle)
+  setTimeout(() => autoUpdater.checkForUpdatesAndNotify(), 10_000);
+}

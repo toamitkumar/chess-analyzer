@@ -80,6 +80,10 @@ electron-build-dir: build
 	npm run electron:build:dir
 	@echo "✅  App built at dist-electron/"
 
+## Build unpacked .app, install to /Applications with ad-hoc signing, and launch (no Apple ID needed)
+install-local: electron-build-dir
+	@bash scripts/install-local.sh
+
 ## Build signed DMG installer for macOS distribution (bundles Stockfish, FE, BE, SQLite)
 dmg: prepare-stockfish build
 	@echo "💿  Building ChessPulse DMG..."
@@ -150,6 +154,7 @@ help:
 	@echo "  prepare-stockfish  Download Stockfish binaries for DMG bundling"
 	@echo "  build              Build Angular frontend for production"
 	@echo "  electron-build-dir Build unpacked .app (fast, no DMG)"
+	@echo "  install-local      Install to /Applications + ad-hoc sign + launch"
 	@echo "  dmg                Build self-contained DMG (Stockfish+FE+BE+SQLite)"
 	@echo "  release            Build DMG and publish to GitHub Releases (needs GH_TOKEN)"
 	@echo ""

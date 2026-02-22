@@ -76,6 +76,11 @@ function startServer() {
     serverProcess = spawn(process.execPath, [getServerEntry()], {
       env: {
         ...process.env,
+        // ELECTRON_RUN_AS_NODE: run Electron binary as plain Node.js while
+        // retaining asar virtual-filesystem support so require() can resolve
+        // modules from inside app.asar even though the script itself is in
+        // app.asar.unpacked (real file system).
+        ELECTRON_RUN_AS_NODE: '1',
         PORT: String(SERVER_PORT),
         DB_PATH: getDbPath(),
         STOCKFISH_PATH: getStockfishPath(),

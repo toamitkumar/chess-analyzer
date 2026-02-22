@@ -63,7 +63,7 @@ class ChessAnalyzer {
 
   setupEngine() {
     try {
-      this.engine = spawn('stockfish');
+      this.engine = spawn(process.env.STOCKFISH_PATH || 'stockfish');
       this.isReady = false;
       
       // Track this process
@@ -572,7 +572,7 @@ class ChessAnalyzer {
     return new Promise((resolve, reject) => {
       // Spawn fresh Stockfish instance
       const { spawn } = require('child_process');
-      const engine = spawn('stockfish');
+      const engine = spawn(process.env.STOCKFISH_PATH || 'stockfish');
       
       // Track this process
       this.activeProcesses.add(engine);
@@ -883,7 +883,7 @@ class ChessAnalyzer {
     return new Promise((resolve, reject) => {
       // Spawn fresh Stockfish instance
       const { spawn } = require('child_process');
-      const engine = spawn('stockfish');
+      const engine = spawn(process.env.STOCKFISH_PATH || 'stockfish');
       
       // Track this process
       this.activeProcesses.add(engine);

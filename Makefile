@@ -1,4 +1,6 @@
-.PHONY: setup install install-be install-fe dev dev-be dev-fe build test test-watch test-coverage clean check
+.PHONY: setup install install-be install-fe dev dev-be dev-fe build \
+        prepare-stockfish electron-dev electron-build electron-build-dir dmg \
+        test test-watch test-coverage clean check help
 
 # ── Setup ─────────────────────────────────────────────────────────────────────
 
@@ -37,7 +39,7 @@ install-fe:
 
 # ── Development ───────────────────────────────────────────────────────────────
 
-## Start both backend and frontend dev servers concurrently
+## Start both backend and frontend dev servers concurrently (browser)
 dev:
 	@echo "🚀  Starting backend and frontend..."
 	@trap 'kill 0' SIGINT; \
@@ -55,12 +57,34 @@ dev-fe:
 	@echo "🎨  Starting frontend on http://localhost:4200 ..."
 	cd frontend && npm run start
 
+## Start the Electron desktop app (dev mode — hot backend, no DMG needed)
+electron-dev:
+	@echo "🖥️   Launching ChessPulse desktop app (dev)..."
+	npm run electron:dev
+
 # ── Build ─────────────────────────────────────────────────────────────────────
 
-## Build frontend for production
+## Download Stockfish binaries for bundling into DMG (arm64 + x64 → universal)
+prepare-stockfish:
+	@echo "♟️   Preparing Stockfish binaries..."
+	node scripts/prepare-stockfish.js
+
+## Build Angular frontend for production
 build:
 	@echo "🏗️   Building frontend..."
 	cd frontend && npm run build
+
+## Build Electron app as unpacked .app (fast, no DMG — good for testing)
+electron-build-dir: build
+	@echo "📦  Building Electron .app (unpacked)..."
+	npm run electron:build:dir
+	@echo "✅  App built at dist-electron/"
+
+## Build signed DMG installer for macOS distribution (bundles Stockfish, FE, BE, SQLite)
+dmg: prepare-stockfish build
+	@echo "💿  Building ChessPulse DMG..."
+	npm run electron:build
+	@echo "✅  DMG ready at dist-electron/"
 
 # ── Testing ───────────────────────────────────────────────────────────────────
 
@@ -81,7 +105,7 @@ test-coverage:
 ## Remove test databases and build artefacts
 clean:
 	npm run test:clean
-	rm -rf frontend/dist
+	rm -rf frontend/dist dist-electron
 
 ## Verify all required tools are installed
 check:
@@ -95,6 +119,9 @@ check:
 	@command -v stockfish >/dev/null 2>&1 \
 		&& echo "✅  Stockfish: $$(stockfish --version 2>/dev/null | head -1)" \
 		|| (echo "❌  Stockfish not found — run: make install-stockfish"; exit 1)
+	@node -e "require('./node_modules/electron/package.json')" 2>/dev/null \
+		&& echo "✅  Electron: $$(node -e "console.log(require('./node_modules/electron/package.json').version)")" \
+		|| (echo "❌  Electron not found — run: make install"; exit 1)
 	@echo "✅  All checks passed"
 
 # ── Help ──────────────────────────────────────────────────────────────────────
@@ -105,17 +132,25 @@ help:
 	@echo ""
 	@echo "Usage: make <target>"
 	@echo ""
-	@echo "  setup            Install system deps (Stockfish) + npm packages"
-	@echo "  install          Install backend and frontend npm packages"
-	@echo "  dev              Start backend + frontend dev servers"
-	@echo "  dev-be           Start backend API server only (port 3000)"
-	@echo "  dev-fe           Start frontend dev server only"
-	@echo "  build            Build frontend for production"
-	@echo "  test             Run all tests"
-	@echo "  test-watch       Run tests in watch mode"
-	@echo "  test-coverage    Run tests with coverage report"
-	@echo "  clean            Remove test DBs and build artefacts"
-	@echo "  check            Verify required tools are installed"
+	@echo "  setup              Install system deps (Stockfish) + npm packages"
+	@echo "  install            Install backend and frontend npm packages"
+	@echo ""
+	@echo "  dev                Start backend + Angular dev servers (browser)"
+	@echo "  dev-be             Start backend API server only (port 3000)"
+	@echo "  dev-fe             Start Angular dev server only (port 4200)"
+	@echo "  electron-dev       Launch desktop app via Electron (dev mode)"
+	@echo ""
+	@echo "  prepare-stockfish  Download Stockfish binaries for DMG bundling"
+	@echo "  build              Build Angular frontend for production"
+	@echo "  electron-build-dir Build unpacked .app (fast, no DMG)"
+	@echo "  dmg                Build self-contained DMG (Stockfish+FE+BE+SQLite)"
+	@echo ""
+	@echo "  test               Run all tests"
+	@echo "  test-watch         Run tests in watch mode"
+	@echo "  test-coverage      Run tests with coverage report"
+	@echo ""
+	@echo "  clean              Remove test DBs and build artefacts"
+	@echo "  check              Verify required tools are installed"
 	@echo ""
 
 .DEFAULT_GOAL := help

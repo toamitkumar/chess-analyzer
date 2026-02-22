@@ -2,6 +2,41 @@
 
 A comprehensive Node.js application that analyzes chess games in PGN format using the Stockfish engine. Features user authentication, multi-user support, and provides detailed performance dashboards with trend visualization.
 
+## Prerequisites
+
+- **Node.js** 20.x
+- **npm** 10.x
+- **Stockfish** chess engine (required for game analysis)
+
+### Installing Stockfish
+
+**macOS (Homebrew):**
+```bash
+brew install stockfish
+```
+
+**Ubuntu/Debian:**
+```bash
+sudo apt-get install stockfish
+```
+
+**Windows:**
+Download from [stockfishchess.org](https://stockfishchess.org/download/) and add to `PATH`.
+
+Verify installation:
+```bash
+stockfish --version
+```
+
+## Quick Start (Recommended)
+
+Use the Makefile to set up everything in one step:
+
+```bash
+make setup   # Install all dependencies (Stockfish + npm packages)
+make dev     # Start backend and frontend dev servers
+```
+
 ## Installation
 
 ```bash

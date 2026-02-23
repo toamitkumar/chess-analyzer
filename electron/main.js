@@ -57,6 +57,12 @@ function getFrontendDist() {
 // No child process spawning — avoids ELECTRON_RUN_AS_NODE fuse requirements
 // and all asar module resolution issues.
 
+// Supabase public credentials — same values already bundled in the Angular frontend.
+// The anon key is safe to embed; it only allows token verification via auth.getUser().
+// Users can override either value via userData/.env (loaded by loadEnv() above).
+const SUPABASE_URL_DEFAULT         = 'https://idegbwcvwodjtqoufuyh.supabase.co';
+const SUPABASE_PUBLISHABLE_DEFAULT = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImlkZWdid2N2d29kanRxb3VmdXloIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NjU5ODc4MzksImV4cCI6MjA4MTU2MzgzOX0.Bmpxuk3o1KywWSNegbpbR4bL_Frmwb1ZuSFUIDEXCKM';
+
 function startServer() {
   // Inject env vars before any server module is loaded
   process.env.PORT            = String(SERVER_PORT);
@@ -67,6 +73,10 @@ function startServer() {
     ? path.join(__dirname, '../data')
     : path.join(app.getPath('userData'), 'data');
   process.env.NODE_ENV        = process.env.NODE_ENV || (isDev ? 'development' : 'production');
+
+  // Set Supabase defaults only if not already provided via .env
+  if (!process.env.SUPABASE_URL)              process.env.SUPABASE_URL              = SUPABASE_URL_DEFAULT;
+  if (!process.env.SUPABASE_PUBLISHABLE_KEY)  process.env.SUPABASE_PUBLISHABLE_KEY  = SUPABASE_PUBLISHABLE_DEFAULT;
 
   console.log('🔧 Loading Express server in-process...');
 

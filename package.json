@@ -86,6 +86,7 @@
         "to": "stockfish"
       }
     ],
+    "afterSign": "scripts/after-sign.js",
     "mac": {
       "category": "public.app-category.productivity",
       "target": [
@@ -98,10 +99,8 @@
         }
       ],
       "icon": "electron/assets/icon.icns",
-      "hardenedRuntime": true,
-      "gatekeeperAssess": false,
-      "entitlements": "electron/assets/entitlements.mac.plist",
-      "entitlementsInherit": "electron/assets/entitlements.mac.plist"
+      "hardenedRuntime": false,
+      "gatekeeperAssess": false
     },
     "dmg": {
       "title": "ChessPulse ${version}",

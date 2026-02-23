@@ -29,7 +29,6 @@
     "npm": "10.x"
   },
   "dependencies": {
-    "@clerk/clerk-sdk-node": "^4.13.23",
     "@supabase/supabase-js": "^2.97.0",
     "axios": "^1.13.5",
     "chess.js": "^1.0.0-beta.6",

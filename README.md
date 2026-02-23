@@ -115,6 +115,58 @@ The analyzer creates a JSON file with move-by-move analysis including:
 
 Example output: `game_analysis.json`
 
+## Desktop App (macOS DMG)
+
+ChessPulse ships as a self-contained macOS app — no external setup needed. Stockfish, SQLite, and the full backend are bundled inside.
+
+### Run in dev mode (Electron, no DMG)
+
+```bash
+make electron-dev
+```
+
+### Build an unpacked `.app` (fast, for local testing)
+
+```bash
+make electron-build-dir        # builds to dist-electron/mac-arm64/ChessPulse.app
+make install-local             # installs to /Applications, ad-hoc signs, and launches
+```
+
+### Build a distributable DMG
+
+```bash
+make prepare-stockfish         # download arm64 + x64 Stockfish binaries (one-time)
+make dmg                       # builds dist-electron/ChessPulse-1.0.0-arm64.dmg
+                               #         dist-electron/ChessPulse-1.0.0.dmg (Intel)
+```
+
+### Publish a release to GitHub
+
+```bash
+GH_TOKEN=<your-token> make release
+```
+
+### What's bundled in the DMG
+
+| Component | Location inside app |
+|---|---|
+| Express backend | `app.asar` (in-process, no child spawn) |
+| Angular frontend | `Resources/frontend/dist/chess-analyzer/` |
+| Stockfish engine | `Resources/stockfish` |
+| SQLite database | Created on first launch in `~/Library/Application Support/chesspulse/` |
+
+### User data locations (macOS)
+
+| Data | Path |
+|---|---|
+| Database | `~/Library/Application Support/chesspulse/chess_analysis.db` |
+| PGN files | `~/Library/Application Support/chesspulse/data/pgn/` |
+| Custom `.env` overrides | `~/Library/Application Support/chesspulse/.env` |
+
+Each user gets a fresh database on first install — sign-up is required on first launch.
+
+> See `docs/adr/011-macos-desktop-dmg-packaging.md` for architecture decisions.
+
 ## Testing
 
 Run unit tests:

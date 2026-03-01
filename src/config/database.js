@@ -1,3 +1,4 @@
+const path = require('path');
 const sqlite3 = require('sqlite3').verbose();
 const { Pool } = require('pg');
 
@@ -12,7 +13,8 @@ const pgPool = usePostgres ? new Pool({
 // SQLite setup (for development and testing)
 const isTestEnvironment = process.env.NODE_ENV === 'test';
 const dbFileName = isTestEnvironment ? 'chess_analysis_test.db' : 'chess-analysis.db';
-const sqliteDb = !usePostgres ? new sqlite3.Database(`./data/${dbFileName}`, (err) => {
+const dbPath = process.env.DB_PATH || path.join(__dirname, '../../data', dbFileName);
+const sqliteDb = !usePostgres ? new sqlite3.Database(dbPath, (err) => {
   if (err) {
     console.error('Error opening SQLite database:', err);
   } else {

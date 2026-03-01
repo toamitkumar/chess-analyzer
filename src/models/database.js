@@ -8,7 +8,8 @@ class Database {
     // Use different database for testing vs development
     const isTestEnvironment = process.env.NODE_ENV === 'test';
     const dbFileName = isTestEnvironment ? 'chess_analysis_test.db' : 'chess-analysis.db';
-    this.dbPath = path.join(__dirname, '../../data', dbFileName);
+    // DB_PATH env var is set by Electron main process pointing to userData directory
+    this.dbPath = process.env.DB_PATH || path.join(__dirname, '../../data', dbFileName);
     this.db = db; // Use the dual database layer
     this.usePostgres = !!process.env.DATABASE_URL;
     this.ensureDataDirectory();

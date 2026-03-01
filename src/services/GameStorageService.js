@@ -107,6 +107,7 @@ class GameStorageService {
     // Store analysis data if available
     if (analyzedGame.analysis && analyzedGame.analysis.fullAnalysis) {
       await this.storeAnalysisData(gameId, analyzedGame.analysis.fullAnalysis, userColor);
+      await this._calculateAndStorePhaseStats(gameId, analyzedGame.analysis.fullAnalysis, userColor);
     }
 
     return gameId;
@@ -258,6 +259,58 @@ class GameStorageService {
         playedMove: playerMove,
         fenPosition: fenAfterOpponent
       });
+    }
+  }
+
+  /**
+   * Calculate per-phase accuracy from move analysis and persist to phase_stats.
+   * Phase boundaries (board moves): opening 1-10, middlegame 11-40, endgame 41+.
+   * Only the user's own moves contribute to accuracy (determined by userColor).
+   * @private
+   */
+  async _calculateAndStorePhaseStats(gameId, analysisData, userColor) {
+    if (!analysisData || analysisData.length === 0 || !userColor) return;
+
+    // Odd ply (1,3,5…) = white's move; even ply (2,4,6…) = black's move
+    const isWhite = userColor === 'white';
+    const playerMoves = analysisData.filter(m =>
+      isWhite ? m.move_number % 2 === 1 : m.move_number % 2 === 0
+    );
+
+    if (playerMoves.length === 0) return;
+
+    // Phase boundary in ply numbers (board move × 2 – 1 for white, × 2 for black)
+    // Opening: board moves 1-10  → ply 1-20
+    // Middlegame: board moves 11-40 → ply 21-80
+    // Endgame: board moves 41+   → ply 81+
+    const opening    = playerMoves.filter(m => m.move_number <= 20);
+    const middlegame = playerMoves.filter(m => m.move_number > 20 && m.move_number <= 80);
+    const endgame    = playerMoves.filter(m => m.move_number > 80);
+
+    const calcAccuracy = (moves) => {
+      if (moves.length === 0) return 0;
+      const totalCpl = moves.reduce((sum, m) => sum + (m.centipawn_loss || 0), 0);
+      const avgCpl   = totalCpl / moves.length;
+      return Math.max(0, Math.round(100 - avgCpl / 3));
+    };
+
+    const statsData = {
+      openingAccuracy:    calcAccuracy(opening),
+      middlegameAccuracy: calcAccuracy(middlegame),
+      endgameAccuracy:    calcAccuracy(endgame),
+      openingBlunders:    opening.filter(m => m.is_blunder).length,
+      middlegameBlunders: middlegame.filter(m => m.is_blunder).length,
+      endgameBlunders:    endgame.filter(m => m.is_blunder).length,
+      openingMoves:    opening.length,
+      middlegameMoves: middlegame.length,
+      endgameMoves:    endgame.length,
+    };
+
+    try {
+      await this.database.insertPhaseStats(gameId, statsData);
+      console.log(`📈 Phase stats stored for game ${gameId}: opening=${statsData.openingAccuracy}%, middlegame=${statsData.middlegameAccuracy}%, endgame=${statsData.endgameAccuracy}%`);
+    } catch (error) {
+      console.warn(`Failed to insert phase stats for game ${gameId}:`, error.message);
     }
   }
 

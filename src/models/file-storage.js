@@ -4,7 +4,7 @@ const crypto = require('crypto');
 
 class FileStorage {
   constructor() {
-    this.baseDir = path.join(__dirname, '../../data');
+    this.baseDir = process.env.DATA_DIR || path.join(__dirname, '../../data');
     this.pgnDir = path.join(this.baseDir, 'pgn');
     this.tournamentsDir = path.join(this.baseDir, 'tournaments');
     this.backupDir = path.join(this.baseDir, 'backups');

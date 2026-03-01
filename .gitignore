@@ -23,3 +23,7 @@ frontend/.angular/cache/
 blunder.json
 test-migrations.js
 data/lichess_puzzles.csv.bz2
+
+# Electron bundled binaries (downloaded via scripts/prepare-stockfish.js)
+electron/bin/
+dist-electron/
